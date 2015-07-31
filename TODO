@@ -1,0 +1,15 @@
+
+# CnntransTrain
+
+*** Neural LM
+*** Neural TM
+*** Set Random Seed
+*** Set Initial Range
+*** Different Updates
+*** Gradient Clipping
+*** Encoder Classifier
+*** Minibatching
+
+# Timer
+
+*** Change to HighResolutionTime
