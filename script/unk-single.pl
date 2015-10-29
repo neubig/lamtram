@@ -9,9 +9,11 @@ binmode STDIN, ":utf8";
 binmode STDOUT, ":utf8";
 binmode STDERR, ":utf8";
 
-my $LANG = "en";
+my $THRESH = 1; # Unk words less than this frequency
+my $SYM = "<unk>"; # The symbol to use for unknown words
 GetOptions(
-"lang=s" => \$LANG,
+"thresh=s" => \$THRESH,
+"sym=s" => \$SYM,
 );
 
 if(@ARGV != 0) {
@@ -30,6 +32,6 @@ while(<STDIN>) {
 }
 
 for(@crp) {
-    my @arr = map { ($cnt{$_} > 1) ? $_ : "<unk>" } split(/ /);
+    my @arr = map { ($cnt{$_} > $THRESH) ? $_ : $SYM } split(/ /);
     print "@arr\n";
 }
