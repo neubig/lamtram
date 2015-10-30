@@ -22,7 +22,7 @@ using namespace std;
 using namespace lamtram;
 namespace po = boost::program_options;
 
-int CnntransTrain::main(int argc, char** argv) {
+int LamtramTrain::main(int argc, char** argv) {
     po::options_description desc("*** lamtram-train (by Graham Neubig) ***");
     desc.add_options()
         ("help", "Produce help message")
@@ -102,7 +102,7 @@ int CnntransTrain::main(int argc, char** argv) {
     return 0;
 }
 
-void CnntransTrain::TrainLM() {
+void LamtramTrain::TrainLM() {
 
     // Vocabulary
     VocabularyPtr vocab_trg, vocab_src;
@@ -195,7 +195,7 @@ void CnntransTrain::TrainLM() {
     }
 }
 
-void CnntransTrain::TrainEncDec() {
+void LamtramTrain::TrainEncDec() {
 
     // Vocabulary
     VocabularyPtr vocab_trg, vocab_src;
@@ -235,7 +235,7 @@ void CnntransTrain::TrainEncDec() {
                       *vocab_src, *vocab_trg, *model, *encdec);
 }
 
-void CnntransTrain::TrainEncAtt() {
+void LamtramTrain::TrainEncAtt() {
 
     // Vocabulary
     VocabularyPtr vocab_trg, vocab_src;
@@ -276,7 +276,7 @@ void CnntransTrain::TrainEncAtt() {
                       *vocab_src, *vocab_trg, *model, *encatt);
 }
 
-void CnntransTrain::TrainEncCls() {
+void LamtramTrain::TrainEncCls() {
 
     // Vocabulary
     VocabularyPtr vocab_trg, vocab_src;
@@ -319,7 +319,7 @@ void CnntransTrain::TrainEncCls() {
 }
 
 template<class ModelType, class OutputType>
-void CnntransTrain::BilingualTraining(const vector<Sentence> & train_src,
+void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
                                       const vector<OutputType> & train_trg,
                                       const vector<Sentence> & dev_src,
                                       const vector<OutputType> & dev_trg,
@@ -403,7 +403,7 @@ void CnntransTrain::BilingualTraining(const vector<Sentence> & train_src,
     }
 }
 
-void CnntransTrain::LoadFile(const std::string filename, int pad, bool add_last, Vocabulary & vocab, std::vector<Sentence> & sents) {
+void LamtramTrain::LoadFile(const std::string filename, int pad, bool add_last, Vocabulary & vocab, std::vector<Sentence> & sents) {
     ifstream iftrain(filename.c_str());
     if(!iftrain) THROW_ERROR("Could not find training file: " << filename);
     string line;
@@ -412,7 +412,7 @@ void CnntransTrain::LoadFile(const std::string filename, int pad, bool add_last,
     iftrain.close();
 }
 
-void CnntransTrain::LoadLabels(const std::string filename, Vocabulary & vocab, std::vector<int> & labs) {
+void LamtramTrain::LoadLabels(const std::string filename, Vocabulary & vocab, std::vector<int> & labs) {
     ifstream iftrain(filename.c_str());
     if(!iftrain) THROW_ERROR("Could not find training file: " << filename);
     string line;
@@ -422,7 +422,7 @@ void CnntransTrain::LoadLabels(const std::string filename, Vocabulary & vocab, s
 }
 
 
-CnntransTrain::TrainerPtr CnntransTrain::GetTrainer(const std::string & trainer_id, const cnn::real learning_rate, cnn::Model & model) {
+LamtramTrain::TrainerPtr LamtramTrain::GetTrainer(const std::string & trainer_id, const cnn::real learning_rate, cnn::Model & model) {
     TrainerPtr trainer;
     if(trainer_id == "sgd") {
         trainer.reset(new cnn::SimpleSGDTrainer(&model, 1e-6, learning_rate));

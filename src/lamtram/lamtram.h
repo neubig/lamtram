@@ -4,10 +4,10 @@
 
 namespace lamtram {
 
-class Cnntrans {
+class Lamtram {
 
 public:
-    Cnntrans() { }
+    Lamtram() { }
     int main(int argc, char** argv);
 
     int SequenceOperation(const boost::program_options::variables_map & vm);

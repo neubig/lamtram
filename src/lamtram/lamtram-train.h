@@ -15,10 +15,10 @@ namespace lamtram {
 
 class Vocabulary;
 
-class CnntransTrain {
+class LamtramTrain {
 
 public:
-    CnntransTrain() { }
+    LamtramTrain() { }
     int main(int argc, char** argv);
     
     void TrainLM();

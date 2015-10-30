@@ -6,6 +6,6 @@ using namespace lamtram;
 
 int main(int argc, char** argv) {
     cnn::Initialize(argc, argv);
-    Cnntrans lamtram;
+    Lamtram lamtram;
     return lamtram.main(argc, argv);
 }

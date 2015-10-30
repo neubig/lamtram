@@ -21,7 +21,7 @@ using namespace std;
 using namespace lamtram;
 namespace po = boost::program_options;
 
-int Cnntrans::SequenceOperation(const boost::program_options::variables_map & vm) {
+int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm) {
     // Models
     vector<NeuralLMPtr> lms;
     vector<EncoderDecoderPtr> encdecs;
@@ -124,7 +124,7 @@ int Cnntrans::SequenceOperation(const boost::program_options::variables_map & vm
     return 0;
 }
 
-int Cnntrans::ClassifierOperation(const boost::program_options::variables_map & vm) {
+int Lamtram::ClassifierOperation(const boost::program_options::variables_map & vm) {
     // Models
     vector<EncoderClassifierPtr> encclss;
     shared_ptr<Vocabulary> vocab_src, vocab_trg;
@@ -205,7 +205,7 @@ int Cnntrans::ClassifierOperation(const boost::program_options::variables_map & 
     return 0;
 }
 
-int Cnntrans::main(int argc, char** argv) {
+int Lamtram::main(int argc, char** argv) {
     po::options_description desc("*** lamtram-train (by Graham Neubig) ***");
     desc.add_options()
         ("help", "Produce help message")
