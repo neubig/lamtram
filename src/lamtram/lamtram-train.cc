@@ -161,6 +161,7 @@ void CnntransTrain::TrainLM() {
             time = Timer();
             for(auto & sent : dev_trg) {
                 cnn::ComputationGraph cg;
+                nlm->NewGraph(cg);
                 nlm->BuildSentGraph(sent, NULL, empty_hist, cg, dev_ll);
                 dev_ll.lik_ -= as_scalar(cg.forward());
             }

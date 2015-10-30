@@ -45,9 +45,9 @@ with options:
         --layers "lstm:100:1" \   # Create a single 100-node LSTM layer
         --trainer sgd \           # Use sgd for training models
         --learning_rate 0.1 \     # Set learning rate to 0.1
-        --seed 0 \                # Specify a random seed, or 0 for a different seed every run
-        --train_file train.unk \  # Specify the training file
-        --dev_file dev.txt \      # Specify the development file
+        --seed 0 \                # A random seed, or 0 for a different seed every run
+        --train_trg train.unk \   # Specify the training file
+        --dev_trg dev.txt \       # Specify the development file
         --model_out langmodel.out
 
 Training will take a long time (at least until the "speed improvements" below are
@@ -91,11 +91,11 @@ models (Bahdanau et al. ICLR2015) by just changing "encdec" into "encatt."
         --layers "lstm:100:1" \   # Create a single 100-node LSTM layer
         --trainer sgd \           # Use sgd for training models
         --learning_rate 0.1 \     # Set learning rate to 0.1
-        --seed 0 \                # Specify a random seed, or 0 for a different seed every run
-        --train_src  train-src.unk \ # Specify the training source file
-        --train_file train-trg.unk \ # Specify the training target file
+        --seed 0 \                # A random seed, or 0 for a different seed every run
+        --train_src train-src.unk \ # Specify the training source file
+        --train_trg train-trg.unk \ # Specify the training target file
         --dev_src dev-src.txt  \  # Specify the development source file
-        --dev_file dev-trg.txt \  # Specify the development target file
+        --dev_trg dev-trg.txt \   # Specify the development target file
         --model_out transmodel.out
 
 Again, as soon as one iteration finishes, the model will be written out.
@@ -156,11 +156,11 @@ an LSTM model.
         --layers "lstm:100:1" \   # Create a single 100-node LSTM layer
         --trainer sgd \           # Use sgd for training models
         --learning_rate 0.1 \     # Set learning rate to 0.1
-        --seed 0 \                # Specify a random seed, or 0 for a different seed every run
-        --train_src  train-src.unk \ # Specify the training source file
-        --train_file train-lbl.txt \ # Specify the training label file
-        --dev_src dev-src.txt  \  # Specify the development source file
-        --dev_file dev-lbl.txt \  # Specify the development label file
+        --seed 0 \                # A random seed, or 0 for a different seed every run
+        --train_src train-src.unk \ # Specify the training source file
+        --train_trg train-lbl.txt \ # Specify the training label file
+        --dev_src dev-src.txt \   # Specify the development source file
+        --dev_trg dev-lbl.txt \   # Specify the development label file
         --model_out clsmodel.out
 
 Again, as soon as one iteration finishes, the model will be written out.
