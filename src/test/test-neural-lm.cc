@@ -27,22 +27,25 @@ BOOST_FIXTURE_TEST_SUITE(neural_lm, TestNeuralLM)
 // which is a hack for now because cnn::Model doesn't have an equality operator.
 BOOST_AUTO_TEST_CASE(TestWriteRead) {
     // Create a randomized lm
-    cnn::Model act_mod, exp_mod;
+    std::shared_ptr<cnn::Model> act_mod(new cnn::Model), exp_mod(new cnn::Model);
     cnn::VariableIndex empty_idx;
-    NeuralLM exp_lm(3, 2, 2, empty_idx, "rnn:2:1", -1, exp_mod);
+    NeuralLM exp_lm(3, 2, 2, empty_idx, "rnn:2:1", -1, *exp_mod);
+    Vocabulary exp_vocab; exp_vocab.WID("a"); // Vocab of size 3
     // Write the LM
     ostringstream out;
+    exp_vocab.Write(out);
     exp_lm.Write(out);
-    ModelUtils::WriteModelText(out, exp_mod);
+    ModelUtils::WriteModelText(out, *exp_mod);
     // Read the LM
+    VocabularyPtr act_src(new Vocabulary), act_trg(new Vocabulary);
     string first_string = out.str();
     istringstream in(out.str());
-    NeuralLMPtr act_lm(NeuralLM::Read(in, act_mod));
-    ModelUtils::ReadModelText(in, act_mod);
+    NeuralLMPtr act_lm(ModelUtils::LoadModel<NeuralLM>(in, act_mod, act_src, act_trg));
     // Write to a second string
     ostringstream out2;
+    act_trg->Write(out2);
     act_lm->Write(out2);
-    ModelUtils::WriteModelText(out2, act_mod);
+    ModelUtils::WriteModelText(out2, *act_mod);
     string second_string = out2.str();
     // Check if the two
     BOOST_CHECK_EQUAL(first_string, second_string);

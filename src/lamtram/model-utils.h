@@ -16,9 +16,15 @@ public:
     static void WriteModelText(std::ostream & out, const cnn::Model & mod);
     static void ReadModelText(std::istream & in, cnn::Model & mod);
 
-    // Load a model from a text file
+    // Load a model from a stream
     // Will return a pointer to the model, and reset the passed shared pointers
     // with cnn::Model, and input, output vocabularies (if necessary)
+    template <class ModelType>
+    static ModelType* LoadModel(std::istream & in,
+                                std::shared_ptr<cnn::Model> & mod,
+                                VocabularyPtr & vocab_src, VocabularyPtr & vocab_trg);
+
+    // Load a model from a text file
     template <class ModelType>
     static ModelType* LoadModel(const std::string & infile,
                                 std::shared_ptr<cnn::Model> & mod,

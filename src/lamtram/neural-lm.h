@@ -74,7 +74,7 @@ public:
     void Write(std::ostream & out);
 
     // Information functions
-    static bool HasSrcVocab() { return true; }
+    static bool HasSrcVocab() { return false; }
     static std::string ModelID() { return "nlm"; }
 
     // Accessors

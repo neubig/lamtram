@@ -23,15 +23,13 @@ void ModelUtils::ReadModelText(istream & in, cnn::Model & mod) {
 }
 
 
-// Load a model from a text file
+// Load a model from a stream
 // Will return a pointer to the model, and reset the passed shared pointers
 // with cnn::Model, and input, output vocabularies (if necessary)
 template <class ModelType>
-ModelType* ModelUtils::LoadModel(const std::string & file,
+ModelType* ModelUtils::LoadModel(std::istream & model_in,
                                  std::shared_ptr<cnn::Model> & mod,
                                  VocabularyPtr & vocab_src, VocabularyPtr & vocab_trg) {
-    ifstream model_in(file);
-    if(!model_in) THROW_ERROR("Could not open model file " << file);
     if(ModelType::HasSrcVocab()) {
         vocab_src.reset(Vocabulary::Read(model_in));
         vocab_src->SetFreeze(true);
@@ -46,7 +44,35 @@ ModelType* ModelUtils::LoadModel(const std::string & file,
     return ret;
 }
 
+// Load a model from a text file
+// Will return a pointer to the model, and reset the passed shared pointers
+// with cnn::Model, and input, output vocabularies (if necessary)
+template <class ModelType>
+ModelType* ModelUtils::LoadModel(const std::string & file,
+                                 std::shared_ptr<cnn::Model> & mod,
+                                 VocabularyPtr & vocab_src, VocabularyPtr & vocab_trg) {
+    ifstream model_in(file);
+    if(!model_in) THROW_ERROR("Could not open model file " << file);
+    return ModelUtils::LoadModel<ModelType>(model_in, mod, vocab_src, vocab_trg);
+}
+
 // Instantiate LoadModel
+template
+EncoderDecoder* ModelUtils::LoadModel<EncoderDecoder>(std::istream & model_in,
+                                                      std::shared_ptr<cnn::Model> & mod,
+                                                      VocabularyPtr & vocab_src, VocabularyPtr & vocab_trg);
+template
+EncoderAttentional* ModelUtils::LoadModel<EncoderAttentional>(std::istream & model_in,
+                                                              std::shared_ptr<cnn::Model> & mod,
+                                                              VocabularyPtr & vocab_src, VocabularyPtr & vocab_trg);
+template
+EncoderClassifier* ModelUtils::LoadModel<EncoderClassifier>(std::istream & model_in,
+                                                            std::shared_ptr<cnn::Model> & mod,
+                                                            VocabularyPtr & vocab_src, VocabularyPtr & vocab_trg);
+template
+NeuralLM* ModelUtils::LoadModel<NeuralLM>(std::istream & model_in,
+                                          std::shared_ptr<cnn::Model> & mod,
+                                          VocabularyPtr & vocab_src, VocabularyPtr & vocab_trg);
 template
 EncoderDecoder* ModelUtils::LoadModel<EncoderDecoder>(const std::string & infile,
                                                       std::shared_ptr<cnn::Model> & mod,
