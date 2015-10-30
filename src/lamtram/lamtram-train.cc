@@ -432,6 +432,8 @@ LamtramTrain::TrainerPtr LamtramTrain::GetTrainer(const std::string & trainer_id
         trainer.reset(new cnn::AdagradTrainer(&model, 1e-6, learning_rate));
     } else if(trainer_id == "adadelta") {
         trainer.reset(new cnn::AdadeltaTrainer(&model, 1e-6, learning_rate));
+    } else if(trainer_id == "adam") {
+        trainer.reset(new cnn::AdamTrainer(&model, 1e-6, learning_rate));
     } else {
         THROW_ERROR("Illegal trainer variety: " << trainer_id);
     }
