@@ -53,7 +53,7 @@ int LamtramTrain::main(int argc, char** argv) {
         cout << desc << endl;
         return 1;
     }
-    for(int i = 0; i < argc; i++) { cout << argv[i] << " "; } cout << endl;
+    for(int i = 0; i < argc; i++) { cerr << argv[i] << " "; } cerr << endl;
 
     GlobalVars::verbose = vm_["verbose"].as<int>();
 
