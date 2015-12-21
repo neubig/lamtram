@@ -44,6 +44,7 @@ int LamtramTrain::main(int argc, char** argv) {
         ("layers", po::value<string>()->default_value("lstm:100:1"), "Descriptor for hidden layers, type:num_units:num_layers")
         ("cls_layers", po::value<string>()->default_value(""), "Descriptor for classifier layers, nodes1:nodes2:...")
         ("attention_nodes", po::value<int>()->default_value(100), "Number of nodes in the attention layer for encatt")
+        ("cnn_mem", po::value<int>()->default_value(512), "How much memory to allocate to cnn")
         ("verbose", po::value<int>()->default_value(0), "How much verbose output to print")
         ;
     po::store(po::parse_command_line(argc, argv, desc), vm_);

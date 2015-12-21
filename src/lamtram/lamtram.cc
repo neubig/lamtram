@@ -217,6 +217,7 @@ int Lamtram::main(int argc, char** argv) {
         ("beam", po::value<int>()->default_value(1), "Number of hypotheses to expand")
         ("sents", po::value<int>()->default_value(0), "When generating, maximum of how many sentences (0 for no limit)")
         ("verbose", po::value<int>()->default_value(0), "How much verbose output to print")
+        ("cnn_mem", po::value<int>()->default_value(512), "How much memory to allocate to cnn")
         ;
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
