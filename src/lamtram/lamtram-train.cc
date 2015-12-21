@@ -53,6 +53,7 @@ int LamtramTrain::main(int argc, char** argv) {
         cout << desc << endl;
         return 1;
     }
+    for(int i = 0; i < argc; i++) { cout << argv[i] << " "; } cout << endl;
 
     GlobalVars::verbose = vm_["verbose"].as<int>();
 
@@ -225,7 +226,9 @@ void LamtramTrain::TrainEncDec() {
         boost::algorithm::split(encoder_types, vm_["encoder_types"].as<string>(), boost::is_any_of("|"));
         for(auto & spec : encoder_types) {
             LinearEncoderPtr enc(new LinearEncoder(vocab_src->size(), vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_src->GetDefault(), *model));
-            if(spec == "rev") enc->SetReverse(true);
+            if(spec == "for") { }
+            else if(spec == "rev") { enc->SetReverse(true); }
+            else { THROW_ERROR("Illegal encoder type: " << spec); }
             encoders.push_back(enc);
         }
         NeuralLMPtr decoder(new NeuralLM(vocab_trg->size(), context_, 0, vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_trg->GetDefault(), *model));

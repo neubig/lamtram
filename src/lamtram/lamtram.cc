@@ -226,6 +226,7 @@ int Lamtram::main(int argc, char** argv) {
         cout << desc << endl;
         return 1;
     }
+    for(int i = 0; i < argc; i++) { cout << argv[i] << " "; } cout << endl;
 
     GlobalVars::verbose = vm["verbose"].as<int>();
 
