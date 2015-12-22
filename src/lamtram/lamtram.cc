@@ -21,220 +21,264 @@ using namespace std;
 using namespace lamtram;
 namespace po = boost::program_options;
 
+typedef std::unordered_map<std::string, std::pair<std::string, float> > Mapping;
+typedef std::vector<std::vector<float> > Sentence;
+
+void Lamtram::MapWords(const vector<string> & src_strs, const Sentence & trg_sent, const Sentence & align, const Mapping & mapping, vector<string> & trg_strs) {
+  if(align.size() == 0) return;
+  assert(trg_sent.size() == trg_strs.size());
+  WordId unk_id = 1;
+  for(size_t i = 0; i < trg_sent.size(); i++) {
+    if(trg_sent[i] == unk_id) {
+      size_t max_id = align[i];
+      if(max_id != -1) {
+        auto it = mapping.find(src_strs[max_id]);
+        trg_strs[i] = (it != mapping.end()) ? it->second.first : src_strs[max_id];
+      }
+    }
+  }
+}
+
 int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm) {
-    // Models
-    vector<NeuralLMPtr> lms;
-    vector<EncoderDecoderPtr> encdecs;
-    vector<EncoderAttentionalPtr> encatts;
-    vector<shared_ptr<cnn::Model> > models;
-    VocabularyPtr vocab_src, vocab_trg;
+  // Models
+  vector<NeuralLMPtr> lms;
+  vector<EncoderDecoderPtr> encdecs;
+  vector<EncoderAttentionalPtr> encatts;
+  vector<shared_ptr<cnn::Model> > models;
+  VocabularyPtr vocab_src, vocab_trg;
+  
+  // Buffers
+  string line;
+  vector<string> strs;
 
-    // Read in the files
-    int pad = 0;
-    vector<string> infiles;
-    boost::split(infiles, vm["models_in"].as<std::string>(), boost::is_any_of("|"));
-    string type, file;
-    for(string & infile : infiles) {
-        int eqpos = infile.find('=');
-        if(eqpos == string::npos)
-            THROW_ERROR("Bad model type. Must specify encdec=, encatt=, or nlm= before model name." << endl << infile);
-        type = infile.substr(0, eqpos);
-        file = infile.substr(eqpos+1);
-        VocabularyPtr vocab_src_temp, vocab_trg_temp;
-        shared_ptr<cnn::Model> mod_temp;
-        // Read in the model
-        if(type == "encdec") {
-            EncoderDecoder * tm = ModelUtils::LoadModel<EncoderDecoder>(file, mod_temp, vocab_src_temp, vocab_trg_temp);
-            encdecs.push_back(shared_ptr<EncoderDecoder>(tm));
-            pad = max(pad, tm->GetDecoder().GetNgramContext());
-        } else if(type == "encatt") {
-            EncoderAttentional * tm = ModelUtils::LoadModel<EncoderAttentional>(file, mod_temp, vocab_src_temp, vocab_trg_temp);
-            encatts.push_back(shared_ptr<EncoderAttentional>(tm));
-            pad = max(pad, tm->GetDecoder().GetNgramContext());
-        } else if(type == "nlm") {
-            NeuralLM * lm = ModelUtils::LoadModel<NeuralLM>(file, mod_temp, vocab_src_temp, vocab_trg_temp);
-            lms.push_back(shared_ptr<NeuralLM>(lm));
-            pad = max(pad, lm->GetNgramContext());
-        }
-        // Sanity check
-        if(vocab_trg.get() && *vocab_trg_temp != *vocab_trg)
-            THROW_ERROR("Target vocabularies for translation/language models are not equal.");
-        if(vocab_src.get() && vocab_src_temp.get() && *vocab_src_temp != *vocab_src)
-            THROW_ERROR("Source vocabularies for translation/language models are not equal.");
-        models.push_back(mod_temp);
-        vocab_trg = vocab_trg_temp;
-        if(vocab_src_temp.get()) vocab_src = vocab_src_temp;
+  // Read in the files
+  int pad = 0;
+  vector<string> infiles;
+  boost::split(infiles, vm["models_in"].as<std::string>(), boost::is_any_of("|"));
+  string type, file;
+  for(string & infile : infiles) {
+    int eqpos = infile.find('=');
+    if(eqpos == string::npos)
+      THROW_ERROR("Bad model type. Must specify encdec=, encatt=, or nlm= before model name." << endl << infile);
+    type = infile.substr(0, eqpos);
+    file = infile.substr(eqpos+1);
+    VocabularyPtr vocab_src_temp, vocab_trg_temp;
+    shared_ptr<cnn::Model> mod_temp;
+    // Read in the model
+    if(type == "encdec") {
+      EncoderDecoder * tm = ModelUtils::LoadModel<EncoderDecoder>(file, mod_temp, vocab_src_temp, vocab_trg_temp);
+      encdecs.push_back(shared_ptr<EncoderDecoder>(tm));
+      pad = max(pad, tm->GetDecoder().GetNgramContext());
+    } else if(type == "encatt") {
+      EncoderAttentional * tm = ModelUtils::LoadModel<EncoderAttentional>(file, mod_temp, vocab_src_temp, vocab_trg_temp);
+      encatts.push_back(shared_ptr<EncoderAttentional>(tm));
+      pad = max(pad, tm->GetDecoder().GetNgramContext());
+    } else if(type == "nlm") {
+      NeuralLM * lm = ModelUtils::LoadModel<NeuralLM>(file, mod_temp, vocab_src_temp, vocab_trg_temp);
+      lms.push_back(shared_ptr<NeuralLM>(lm));
+      pad = max(pad, lm->GetNgramContext());
     }
-    int vocab_size = vocab_trg->size();
+    // Sanity check
+    if(vocab_trg.get() && *vocab_trg_temp != *vocab_trg)
+      THROW_ERROR("Target vocabularies for translation/language models are not equal.");
+    if(vocab_src.get() && vocab_src_temp.get() && *vocab_src_temp != *vocab_src)
+      THROW_ERROR("Source vocabularies for translation/language models are not equal.");
+    models.push_back(mod_temp);
+    vocab_trg = vocab_trg_temp;
+    if(vocab_src_temp.get()) vocab_src = vocab_src_temp;
+  }
+  int vocab_size = vocab_trg->size();
 
-    // Get the source input if necessary
-    shared_ptr<ifstream> src_in;
-    if(encdecs.size() + encatts.size() > 0) {
-        src_in.reset(new ifstream(vm["src_in"].as<std::string>()));
-        if(!*src_in)
-            THROW_ERROR("Could not find src_in file " << vm["src_in"].as<std::string>());
+  // Get the mapping table if necessary
+  Mapping mapping;
+  if(vm["map_in"].as<std::string>() != "") {
+    ifstream map_in(vm["map_in"].as<std::string>());
+    if(!map_in)
+      THROW_ERROR("Could not find map_in file " << vm["map_in"].as<std::string>());
+    while(getline(map_in, line)) {
+      boost::split(strs, line, boost::is_any_of(" "));
+      if(strs.size() != 3)
+        THROW_ERROR("Invalid line in mapping file: " << line);
+      float my_score = stof(strs[2]);
+      auto it = mapping.find(strs[0]);
+      if(it == mapping.end() || it->second.second < my_score)
+        mapping[strs[0]] = make_pair(strs[1], my_score);
     }
-    
-    // Create the decoder
-    EnsembleDecoder decoder(encdecs, encatts, lms, pad);
-    decoder.SetWordPen(vm["word_pen"].as<float>());
-    decoder.SetEnsembleOperation(vm["ensemble_op"].as<string>());
-    decoder.SetBeamSize(vm["beam"].as<int>());
-    
-    // Perform operation
-    string operation = vm["operation"].as<std::string>();
-    string line;
-    Sentence sent_src, sent_trg;
-    if(operation == "ppl") {
-        LLStats corpus_ll(vocab_size);
-        Timer time;
-        while(getline(cin, line)) { 
-            LLStats sent_ll(vocab_size);
-            // Get the target, and if it exists, source sentences
-            if(GlobalVars::verbose >= 2) { cerr << "SentLL trg: " << line << endl; }
-            sent_trg = vocab_trg->ParseWords(line, pad, true);
-            if(encdecs.size() + encatts.size() > 0) {
-                if(!getline(*src_in, line))
-                    THROW_ERROR("Source and target files don't match");
-                if(GlobalVars::verbose >= 2) { cerr << "SentLL src: " << line << endl; }
-                sent_src = vocab_src->ParseWords(line, 0, false);
-            }
-            // If the encoder
-            decoder.CalcSentLL(sent_src, sent_trg, sent_ll);
-            if(GlobalVars::verbose >= 1) { cout << "ll=" << sent_ll.CalcUnkLik() << " unk=" << sent_ll.unk_  << endl; }
-            corpus_ll += sent_ll;
-        }
-        double elapsed = time.Elapsed();
-        cerr << "ppl=" << corpus_ll.CalcPPL() << ", unk=" << corpus_ll.unk_ << ", time=" << elapsed << " (" << corpus_ll.words_/elapsed << " w/s)" << endl;
-    } else if(operation == "gen") {
-        int max_sents = vm["sents"].as<int>();
-        if(max_sents == 0) max_sents = INT_MAX;
-        while(max_sents-- > 0) {
-            if(encdecs.size() + encatts.size() > 0) {
-                if(!getline(*src_in, line)) break;
-                sent_src = vocab_src->ParseWords(line, 0, false);
-            }
-            sent_trg = decoder.Generate(sent_src);
-            cout << vocab_trg->PrintWords(sent_trg, false) << endl;
-        }
-    } else {
-        THROW_ERROR("Illegal operation " << operation);
-    }
+  }
 
-    return 0;
+  // Get the source input if necessary
+  shared_ptr<ifstream> src_in;
+  if(encdecs.size() + encatts.size() > 0) {
+    src_in.reset(new ifstream(vm["src_in"].as<std::string>()));
+    if(!*src_in)
+      THROW_ERROR("Could not find src_in file " << vm["src_in"].as<std::string>());
+  }
+  
+  // Create the decoder
+  EnsembleDecoder decoder(encdecs, encatts, lms, pad);
+  decoder.SetWordPen(vm["word_pen"].as<float>());
+  decoder.SetEnsembleOperation(vm["ensemble_op"].as<string>());
+  decoder.SetBeamSize(vm["beam"].as<int>());
+  
+  // Perform operation
+  string operation = vm["operation"].as<std::string>();
+  Sentence sent_src, sent_trg;
+  vector<string> str_src, str_trg;
+  Sentence align;
+  if(operation == "ppl") {
+    LLStats corpus_ll(vocab_size);
+    Timer time;
+    while(getline(cin, line)) { 
+      LLStats sent_ll(vocab_size);
+      // Get the target, and if it exists, source sentences
+      if(GlobalVars::verbose >= 2) { cerr << "SentLL trg: " << line << endl; }
+      sent_trg = vocab_trg->ParseWords(line, pad, true);
+      if(encdecs.size() + encatts.size() > 0) {
+        if(!getline(*src_in, line))
+          THROW_ERROR("Source and target files don't match");
+        if(GlobalVars::verbose >= 2) { cerr << "SentLL src: " << line << endl; }
+        sent_src = vocab_src->ParseWords(line, 0, false);
+      }
+      // If the encoder
+      decoder.CalcSentLL(sent_src, sent_trg, sent_ll);
+      if(GlobalVars::verbose >= 1) { cout << "ll=" << sent_ll.CalcUnkLik() << " unk=" << sent_ll.unk_  << endl; }
+      corpus_ll += sent_ll;
+    }
+    double elapsed = time.Elapsed();
+    cerr << "ppl=" << corpus_ll.CalcPPL() << ", unk=" << corpus_ll.unk_ << ", time=" << elapsed << " (" << corpus_ll.words_/elapsed << " w/s)" << endl;
+  } else if(operation == "gen") {
+    int max_sents = vm["sents"].as<int>();
+    if(max_sents == 0) max_sents = INT_MAX;
+    while(max_sents-- > 0) {
+      if(encdecs.size() + encatts.size() > 0) {
+        if(!getline(*src_in, line)) break;
+        str_src = vocab_src->SplitWords(line);
+        sent_src = vocab_src->ParseWords(str_src, 0, false);
+      }
+      sent_trg = decoder.Generate(sent_src, align);
+      str_trg = vocab_trg->ConvertWords(sent_trg, false);
+      MapWords(str_src, sent_trg, align, mapping, str_trg);
+      cout << vocab_trg->PrintWords(str_trg) << endl;
+    }
+  } else {
+    THROW_ERROR("Illegal operation " << operation);
+  }
+
+  return 0;
 }
 
 int Lamtram::ClassifierOperation(const boost::program_options::variables_map & vm) {
-    // Models
-    vector<EncoderClassifierPtr> encclss;
-    shared_ptr<Vocabulary> vocab_src, vocab_trg;
-    vector<shared_ptr<cnn::Model> > models;
+  // Models
+  vector<EncoderClassifierPtr> encclss;
+  shared_ptr<Vocabulary> vocab_src, vocab_trg;
+  vector<shared_ptr<cnn::Model> > models;
 
-    // Read in the files
-    vector<string> infiles;
-    boost::split(infiles, vm["models_in"].as<std::string>(), boost::is_any_of("|"));
-    string type, file;
-    for(string & infile : infiles) {
-        int eqpos = infile.find('=');
-        if(eqpos == string::npos)
-            THROW_ERROR("Bad model type. Must specify enccls= before model name." << endl << infile);
-        type = infile.substr(0, eqpos);
-        if(type != "enccls")
-            THROW_ERROR("Bad model type. Must specify enccls= before model name." << endl << infile);
-        file = infile.substr(eqpos+1);
-        VocabularyPtr vocab_src_temp, vocab_trg_temp;
-        shared_ptr<cnn::Model> mod_temp;
-        // Read in the model
-        EncoderClassifier * tm = ModelUtils::LoadModel<EncoderClassifier>(file, mod_temp, vocab_src_temp, vocab_trg_temp);
-        encclss.push_back(shared_ptr<EncoderClassifier>(tm));
-        // Sanity check
-        if(vocab_trg.get() && *vocab_trg_temp != *vocab_trg)
-            THROW_ERROR("Target vocabularies for translation/language models are not equal.");
-        if(vocab_src.get() && vocab_src_temp.get() && *vocab_src_temp != *vocab_src)
-            THROW_ERROR("Target vocabularies for translation/language models are not equal.");
-        models.push_back(mod_temp);
-        vocab_trg = vocab_trg_temp;
-        vocab_src = vocab_src_temp;
+  // Read in the files
+  vector<string> infiles;
+  boost::split(infiles, vm["models_in"].as<std::string>(), boost::is_any_of("|"));
+  string type, file;
+  for(string & infile : infiles) {
+    int eqpos = infile.find('=');
+    if(eqpos == string::npos)
+      THROW_ERROR("Bad model type. Must specify enccls= before model name." << endl << infile);
+    type = infile.substr(0, eqpos);
+    if(type != "enccls")
+      THROW_ERROR("Bad model type. Must specify enccls= before model name." << endl << infile);
+    file = infile.substr(eqpos+1);
+    VocabularyPtr vocab_src_temp, vocab_trg_temp;
+    shared_ptr<cnn::Model> mod_temp;
+    // Read in the model
+    EncoderClassifier * tm = ModelUtils::LoadModel<EncoderClassifier>(file, mod_temp, vocab_src_temp, vocab_trg_temp);
+    encclss.push_back(shared_ptr<EncoderClassifier>(tm));
+    // Sanity check
+    if(vocab_trg.get() && *vocab_trg_temp != *vocab_trg)
+      THROW_ERROR("Target vocabularies for translation/language models are not equal.");
+    if(vocab_src.get() && vocab_src_temp.get() && *vocab_src_temp != *vocab_src)
+      THROW_ERROR("Target vocabularies for translation/language models are not equal.");
+    models.push_back(mod_temp);
+    vocab_trg = vocab_trg_temp;
+    vocab_src = vocab_src_temp;
+  }
+  int vocab_size = vocab_trg->size();
+
+  // Get the source input
+  shared_ptr<ifstream> src_in;
+  src_in.reset(new ifstream(vm["src_in"].as<std::string>()));
+  if(!*src_in)
+    THROW_ERROR("Could not find src_in file " << vm["src_in"].as<std::string>());
+  
+  // Create the decoder
+  EnsembleClassifier ensemble(encclss);
+  ensemble.SetEnsembleOperation(vm["ensemble_op"].as<string>());
+  
+  // Perform operation
+  string operation = vm["operation"].as<std::string>();
+  string line;
+  Sentence sent_src;
+  int trg;
+  if(operation == "clseval") {
+    LLStats corpus_ll(vocab_size);
+    Timer time;
+    while(getline(cin, line)) { 
+      LLStats sent_ll(vocab_size);
+      // Get the target, and if it exists, source sentences
+      if(GlobalVars::verbose > 0) { cerr << "ClsEval trg: " << line << endl; }
+      trg = vocab_trg->WID(line);
+      if(!getline(*src_in, line))
+        THROW_ERROR("Source and target files don't match");
+      if(GlobalVars::verbose > 0) { cerr << "ClsEval src: " << line << endl; }
+      sent_src = vocab_src->ParseWords(line, 0, false);
+      // If the encoder
+      ensemble.CalcEval(sent_src, trg, sent_ll);
+      if(GlobalVars::verbose > 0) { cout << "ll=" << sent_ll.CalcUnkLik() << " correct=" << sent_ll.correct_ << endl; }
+      corpus_ll += sent_ll;
     }
-    int vocab_size = vocab_trg->size();
-
-    // Get the source input
-    shared_ptr<ifstream> src_in;
-    src_in.reset(new ifstream(vm["src_in"].as<std::string>()));
-    if(!*src_in)
-        THROW_ERROR("Could not find src_in file " << vm["src_in"].as<std::string>());
-    
-    // Create the decoder
-    EnsembleClassifier ensemble(encclss);
-    ensemble.SetEnsembleOperation(vm["ensemble_op"].as<string>());
-    
-    // Perform operation
-    string operation = vm["operation"].as<std::string>();
-    string line;
-    Sentence sent_src;
-    int trg;
-    if(operation == "clseval") {
-        LLStats corpus_ll(vocab_size);
-        Timer time;
-        while(getline(cin, line)) { 
-            LLStats sent_ll(vocab_size);
-            // Get the target, and if it exists, source sentences
-            if(GlobalVars::verbose > 0) { cerr << "ClsEval trg: " << line << endl; }
-            trg = vocab_trg->WID(line);
-            if(!getline(*src_in, line))
-                THROW_ERROR("Source and target files don't match");
-            if(GlobalVars::verbose > 0) { cerr << "ClsEval src: " << line << endl; }
-            sent_src = vocab_src->ParseWords(line, 0, false);
-            // If the encoder
-            ensemble.CalcEval(sent_src, trg, sent_ll);
-            if(GlobalVars::verbose > 0) { cout << "ll=" << sent_ll.CalcUnkLik() << " correct=" << sent_ll.correct_ << endl; }
-            corpus_ll += sent_ll;
-        }
-        double elapsed = time.Elapsed();
-        cerr << "ppl=" << corpus_ll.CalcPPL() << ", acc="<< corpus_ll.CalcAcc() << ", time=" << elapsed << " (" << corpus_ll.words_/elapsed << " w/s)" << endl;
-    } else if(operation == "cls") {
-        while(getline(*src_in, line)) {
-            sent_src = vocab_src->ParseWords(line, 0, false);
-            trg = ensemble.Predict(sent_src);
-            cout << vocab_trg->WSym(trg) << endl;
-        }
-    } else {
-        THROW_ERROR("Illegal operation " << operation);
+    double elapsed = time.Elapsed();
+    cerr << "ppl=" << corpus_ll.CalcPPL() << ", acc="<< corpus_ll.CalcAcc() << ", time=" << elapsed << " (" << corpus_ll.words_/elapsed << " w/s)" << endl;
+  } else if(operation == "cls") {
+    while(getline(*src_in, line)) {
+      sent_src = vocab_src->ParseWords(line, 0, false);
+      trg = ensemble.Predict(sent_src);
+      cout << vocab_trg->WSym(trg) << endl;
     }
+  } else {
+    THROW_ERROR("Illegal operation " << operation);
+  }
 
-    return 0;
+  return 0;
 }
 
 int Lamtram::main(int argc, char** argv) {
-    po::options_description desc("*** lamtram-train (by Graham Neubig) ***");
-    desc.add_options()
-        ("help", "Produce help message")
-        ("operation", po::value<string>()->default_value("ppl"), "Operations (ppl: measure perplexity, gen: generate sentences)")
-        ("models_in", po::value<string>()->default_value(""), "Model files in format \"{encdec,encatt,nlm}=filename\" with encdec for encoder-decoders, encatt for attentional models, nlm for language models. When multiple, separate by a pipe.")
-        ("src_in", po::value<string>()->default_value(""), "File to read the source from, if any")
-        ("word_pen", po::value<float>()->default_value(0.0), "The \"word penalty\", a larger value favors longer sentences, shorter favors shorter")
-        ("ensemble_op", po::value<string>()->default_value("sum"), "The operation to use when ensembling probabilities (sum/logsum)")
-        ("beam", po::value<int>()->default_value(1), "Number of hypotheses to expand")
-        ("sents", po::value<int>()->default_value(0), "When generating, maximum of how many sentences (0 for no limit)")
-        ("verbose", po::value<int>()->default_value(0), "How much verbose output to print")
-        ;
-    po::variables_map vm;
-    po::store(po::parse_command_line(argc, argv, desc), vm);
-    po::notify(vm);   
-    if (vm.count("help")) {
-        cout << desc << endl;
-        return 1;
-    }
+  po::options_description desc("*** lamtram-train (by Graham Neubig) ***");
+  desc.add_options()
+    ("help", "Produce help message")
+    ("operation", po::value<string>()->default_value("ppl"), "Operations (ppl: measure perplexity, gen: generate sentences)")
+    ("models_in", po::value<string>()->default_value(""), "Model files in format \"{encdec,encatt,nlm}=filename\" with encdec for encoder-decoders, encatt for attentional models, nlm for language models. When multiple, separate by a pipe.")
+    ("src_in", po::value<string>()->default_value(""), "File to read the source from, if any")
+    ("map_in", po::value<string>()->default_value(""), "A file containing a mapping table (\"src trg prob\" format)")
+    ("word_pen", po::value<float>()->default_value(0.0), "The \"word penalty\", a larger value favors longer sentences, shorter favors shorter")
+    ("ensemble_op", po::value<string>()->default_value("sum"), "The operation to use when ensembling probabilities (sum/logsum)")
+    ("beam", po::value<int>()->default_value(1), "Number of hypotheses to expand")
+    ("sents", po::value<int>()->default_value(0), "When generating, maximum of how many sentences (0 for no limit)")
+    ("verbose", po::value<int>()->default_value(0), "How much verbose output to print")
+    ;
+  po::variables_map vm;
+  po::store(po::parse_command_line(argc, argv, desc), vm);
+  po::notify(vm);   
+  if (vm.count("help")) {
+    cout << desc << endl;
+    return 1;
+  }
 
-    GlobalVars::verbose = vm["verbose"].as<int>();
+  GlobalVars::verbose = vm["verbose"].as<int>();
 
-    string operation = vm["operation"].as<std::string>();
-    if(operation == "ppl" || operation == "gen") {
-        return SequenceOperation(vm);
-    } else if(operation == "cls" || operation == "clseval") {
-        return ClassifierOperation(vm);
-    } else {
-        THROW_ERROR("Illegal operation: " << operation);
-    }
+  string operation = vm["operation"].as<std::string>();
+  if(operation == "ppl" || operation == "gen") {
+    return SequenceOperation(vm);
+  } else if(operation == "cls" || operation == "clseval") {
+    return ClassifierOperation(vm);
+  } else {
+    THROW_ERROR("Illegal operation: " << operation);
+  }
 
 }

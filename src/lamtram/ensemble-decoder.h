@@ -18,12 +18,14 @@ public:
     cnn::real GetScore() const { return score_; }
     const std::vector<std::vector<cnn::expr::Expression> > & GetStates() const { return states_; }
     const Sentence & GetSentence() const { return sent_; }
+    const Sentence & GetAlignment() const { return alignment_; }
 
 protected:
 
     cnn::real score_;
     std::vector<std::vector<cnn::expr::Expression> > states_;
     Sentence sent_;
+    Sentence alignment_;
 
 };
 
@@ -38,7 +40,7 @@ public:
     ~EnsembleDecoder() {}
 
     void CalcSentLL(const Sentence & sent_src, const Sentence & sent_trg, LLStats & ll);
-    Sentence Generate(const Sentence & sent_src);
+    Sentence Generate(const Sentence & sent_src, Sentence & align);
 
     std::vector<std::vector<cnn::expr::Expression> > GetInitialStates(const Sentence & sent_src, cnn::ComputationGraph & cg);
     

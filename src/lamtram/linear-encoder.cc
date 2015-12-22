@@ -19,7 +19,7 @@ LinearEncoder::LinearEncoder(int vocab_size, int wordrep_size,
     // Hidden layers
     builder_ = BuilderFactory::CreateBuilder(hidden_spec_, wordrep_size, model);
     // Word representations
-    p_wr_W_ = model.add_lookup_parameters(vocab_size, {wordrep_size}); 
+    p_wr_W_ = model.add_lookup_parameters(vocab_size, {(unsigned int)wordrep_size}); 
 }
 
 cnn::expr::Expression LinearEncoder::BuildSentGraph(const Sentence & sent, cnn::ComputationGraph & cg) {

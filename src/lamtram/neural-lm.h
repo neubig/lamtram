@@ -59,12 +59,14 @@ public:
     //   layer_in: The input of the hidden layer.
     //   layer_out: The output of the hidden layer.
     //   cg: The computation graph.
+    //   align_out: The alignments.
     template <class SoftmaxOp>
     cnn::expr::Expression Forward(const Sentence & sent, int id, 
                                const ExternCalculator * extern_calc,
                                const std::vector<cnn::expr::Expression> & layer_in,
                                std::vector<cnn::expr::Expression> & layer_out,
-                               cnn::ComputationGraph & cg);
+                               cnn::ComputationGraph & cg,
+                               std::vector<cnn::expr::Expression> & align_out);
     
     // Index the parameters in a computation graph
     void NewGraph(cnn::ComputationGraph & cg);

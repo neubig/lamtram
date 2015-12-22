@@ -19,8 +19,8 @@ Classifier::Classifier(int input_size, int label_size,
     int last_size = input_size;
     for(auto & my_lay : layer_sizes) {
         int my_size = boost::lexical_cast<int>(my_lay);    
-        p_W_.push_back(mod.add_parameters({my_size, last_size}));
-        p_b_.push_back(mod.add_parameters({my_size}));
+        p_W_.push_back(mod.add_parameters({(unsigned int)my_size, (unsigned int)last_size}));
+        p_b_.push_back(mod.add_parameters({(unsigned int)my_size}));
         last_size = my_size;
     }
     i_W_.resize(p_W_.size());

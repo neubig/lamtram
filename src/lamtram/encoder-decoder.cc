@@ -21,8 +21,8 @@ EncoderDecoder::EncoderDecoder(
     for(auto & enc : encoders)
         enc2dec_in += enc->GetNumLayers() * enc->GetNumNodes();
     int enc2dec_out = decoder_->GetNumLayers() * decoder_->GetNumNodes();
-    p_enc2dec_W_ = model.add_parameters({enc2dec_out, enc2dec_in});
-    p_enc2dec_b_ = model.add_parameters({enc2dec_out});
+    p_enc2dec_W_ = model.add_parameters({(unsigned int)enc2dec_out, (unsigned int)enc2dec_in});
+    p_enc2dec_b_ = model.add_parameters({(unsigned int)enc2dec_out});
 }
 
 

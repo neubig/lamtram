@@ -21,9 +21,9 @@ ExternAttentional::ExternAttentional(const std::vector<LinearEncoderPtr> & encod
     for(auto & enc : encoders)
         context_size_ += enc->GetNumNodes();
 
-    p_ehid_h_W_ = mod.add_parameters({hidden_size_, context_size_});
-    p_ehid_state_W_ = mod.add_parameters({hidden_size_, state_size_});
-    p_e_ehid_W_ = mod.add_parameters({1, hidden_size_});
+    p_ehid_h_W_ = mod.add_parameters({(unsigned int)hidden_size_, (unsigned int)context_size_});
+    p_ehid_state_W_ = mod.add_parameters({(unsigned int)hidden_size_, (unsigned int)state_size_});
+    p_e_ehid_W_ = mod.add_parameters({1, (unsigned int)hidden_size_});
 }
 
 
@@ -89,7 +89,7 @@ void ExternAttentional::InitializeSentence(
 
     // Create an identity with shape
     sent_values_.resize(sent_len_, 1.0);
-    i_sent_len_ = input(cg, {1, sent_len_}, &sent_values_);
+    i_sent_len_ = input(cg, {1, (unsigned int)sent_len_}, &sent_values_);
 
 }
 
@@ -98,7 +98,8 @@ void ExternAttentional::InitializeSentence(
 cnn::expr::Expression ExternAttentional::CreateContext(
         const Sentence & sent, int loc,
         const std::vector<cnn::expr::Expression> & state_in,
-        cnn::ComputationGraph & cg) const {
+        cnn::ComputationGraph & cg,
+        std::vector<cnn::expr::Expression> & align_out) const {
     if(&cg != curr_graph_)
         THROW_ERROR("Initialized computation graph and passed comptuation graph don't match."); 
     cnn::expr::Expression i_ehid;
@@ -115,6 +116,7 @@ cnn::expr::Expression ExternAttentional::CreateContext(
     cnn::expr::Expression i_e = i_e_ehid_W_ * i_ehid_out;
     cnn::expr::Expression i_e_trans = transpose(i_e);
     cnn::expr::Expression i_alpha = softmax({i_e_trans});
+    align_out.push_back(i_alpha);
     // Print alignments
     if(GlobalVars::verbose >= 2) {
         vector<cnn::real> softmax = as_vector(cg.incremental_forward());

@@ -23,7 +23,8 @@ public:
     virtual cnn::expr::Expression CreateContext(
         const Sentence & sent, int loc,
         const std::vector<cnn::expr::Expression> & state_in,
-        cnn::ComputationGraph & cg) const = 0;
+        cnn::ComputationGraph & cg,
+        std::vector<cnn::expr::Expression> & align_out) const = 0;
 
     int GetSize() const { return context_size_; }
 

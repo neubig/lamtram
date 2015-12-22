@@ -17,8 +17,8 @@ EncoderClassifier::EncoderClassifier(
     for(auto & enc : encoders)
         enc2cls_in += enc->GetNumLayers() * enc->GetNumNodes();
     int enc2cls_out = classifier_->GetInputSize();
-    p_enc2cls_W_ = model.add_parameters({enc2cls_out, enc2cls_in});
-    p_enc2cls_b_ = model.add_parameters({enc2cls_out});
+    p_enc2cls_W_ = model.add_parameters({(unsigned int)enc2cls_out, (unsigned int)enc2cls_in});
+    p_enc2cls_b_ = model.add_parameters({(unsigned int)enc2cls_out});
 }
 
 
