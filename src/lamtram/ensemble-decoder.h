@@ -57,6 +57,8 @@ public:
 
     int GetBeamSize() const { return beam_size_; }
     void SetBeamSize(int beam_size) { beam_size_ = beam_size; }
+    int GetSizeLimit() const { return size_limit_; }
+    void SetSizeLimit(int size_limit) { size_limit_ = size_limit; }
 
 protected:
     std::vector<EncoderDecoderPtr> encdecs_;

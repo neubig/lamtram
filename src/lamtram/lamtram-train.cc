@@ -44,6 +44,7 @@ int LamtramTrain::main(int argc, char** argv) {
         ("layers", po::value<string>()->default_value("lstm:100:1"), "Descriptor for hidden layers, type:num_units:num_layers")
         ("cls_layers", po::value<string>()->default_value(""), "Descriptor for classifier layers, nodes1:nodes2:...")
         ("attention_nodes", po::value<int>()->default_value(100), "Number of nodes in the attention layer for encatt")
+        ("cnn_mem", po::value<int>()->default_value(512), "How much memory to allocate to cnn")
         ("verbose", po::value<int>()->default_value(0), "How much verbose output to print")
         ;
     po::store(po::parse_command_line(argc, argv, desc), vm_);
@@ -52,6 +53,7 @@ int LamtramTrain::main(int argc, char** argv) {
         cout << desc << endl;
         return 1;
     }
+    for(int i = 0; i < argc; i++) { cerr << argv[i] << " "; } cerr << endl;
 
     GlobalVars::verbose = vm_["verbose"].as<int>();
 
@@ -224,7 +226,9 @@ void LamtramTrain::TrainEncDec() {
         boost::algorithm::split(encoder_types, vm_["encoder_types"].as<string>(), boost::is_any_of("|"));
         for(auto & spec : encoder_types) {
             LinearEncoderPtr enc(new LinearEncoder(vocab_src->size(), vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_src->GetDefault(), *model));
-            if(spec == "rev") enc->SetReverse(true);
+            if(spec == "for") { }
+            else if(spec == "rev") { enc->SetReverse(true); }
+            else { THROW_ERROR("Illegal encoder type: " << spec); }
             encoders.push_back(enc);
         }
         NeuralLMPtr decoder(new NeuralLM(vocab_trg->size(), context_, 0, vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_trg->GetDefault(), *model));
