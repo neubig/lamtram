@@ -107,6 +107,8 @@ void EnsembleDecoder::CalcSentLL(const Sentence & sent_src, const Sentence & sen
 
 Sentence EnsembleDecoder::Generate(const Sentence & sent_src, Sentence & align) {
 
+  align.clear();
+
   // First initialize states
   cnn::ComputationGraph cg;
   for(auto & tm : encdecs_) tm->NewGraph(cg);
@@ -117,7 +119,7 @@ Sentence EnsembleDecoder::Generate(const Sentence & sent_src, Sentence & align) 
   vector<vector<vector<Expression> > > last_states(beam_size_, vector<vector<Expression> >(lms_.size()));
   vector<EnsembleDecoderHypPtr> curr_beam(1, 
       EnsembleDecoderHypPtr(new EnsembleDecoderHyp(
-          0.0, GetInitialStates(sent_src, cg), Sentence(pad_, 0))));
+          0.0, GetInitialStates(sent_src, cg), Sentence(pad_, 0), Sentence(pad_, 0))));
   int bid;
   Expression empty_idx;
 
@@ -181,11 +183,13 @@ Sentence EnsembleDecoder::Generate(const Sentence & sent_src, Sentence & align) 
       Sentence next_align = curr_beam[hypid]->GetAlignment();
       next_align.push_back(aid);
       if(i == 0 && wid == 0) {
-        align = next_align;
+        for(auto a : next_align)
+          align.push_back(a);
+        if(align.size() != next_sent.size()) THROW_ERROR("align.size() == " << align.size() << ", next_sent.size() == " << next_sent.size());
         return next_sent;
       }
       next_beam.push_back(EnsembleDecoderHypPtr(new EnsembleDecoderHyp(
-          std::get<0>(next_beam_id[i]), last_states[hypid], next_sent)));
+          std::get<0>(next_beam_id[i]), last_states[hypid], next_sent, next_align)));
     }
     curr_beam = next_beam;
   }

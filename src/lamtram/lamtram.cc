@@ -24,14 +24,16 @@ namespace po = boost::program_options;
 typedef std::unordered_map<std::string, std::pair<std::string, float> > Mapping;
 typedef std::vector<std::vector<float> > Sentence;
 
-void Lamtram::MapWords(const vector<string> & src_strs, const Sentence & trg_sent, const Sentence & align, const Mapping & mapping, vector<string> & trg_strs) {
+void Lamtram::MapWords(const vector<string> & src_strs, const Sentence & trg_sent, const Sentence & align, const Mapping & mapping, int pad, vector<string> & trg_strs) {
   if(align.size() == 0) return;
-  assert(trg_sent.size() == trg_strs.size());
+  assert(trg_sent.size() >= trg_strs.size() + pad);
+  assert(align.size() == trg_sent.size());
   WordId unk_id = 1;
-  for(size_t i = 0; i < trg_sent.size(); i++) {
-    if(trg_sent[i] == unk_id) {
+  for(size_t i = 0; i < trg_strs.size(); i++) {
+    if(trg_sent[i+pad] == unk_id) {
       size_t max_id = align[i];
       if(max_id != -1) {
+        assert(src_strs.size() > max_id);
         auto it = mapping.find(src_strs[max_id]);
         trg_strs[i] = (it != mapping.end()) ? it->second.first : src_strs[max_id];
       }
@@ -96,7 +98,7 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
     if(!map_in)
       THROW_ERROR("Could not find map_in file " << vm["map_in"].as<std::string>());
     while(getline(map_in, line)) {
-      boost::split(strs, line, boost::is_any_of(" "));
+      boost::split(strs, line, boost::is_any_of("\t"));
       if(strs.size() != 3)
         THROW_ERROR("Invalid line in mapping file: " << line);
       float my_score = stof(strs[2]);
@@ -119,6 +121,7 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
   decoder.SetWordPen(vm["word_pen"].as<float>());
   decoder.SetEnsembleOperation(vm["ensemble_op"].as<string>());
   decoder.SetBeamSize(vm["beam"].as<int>());
+  decoder.SetSizeLimit(vm["size_limit"].as<int>());
   
   // Perform operation
   string operation = vm["operation"].as<std::string>();
@@ -157,7 +160,7 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
       }
       sent_trg = decoder.Generate(sent_src, align);
       str_trg = vocab_trg->ConvertWords(sent_trg, false);
-      MapWords(str_src, sent_trg, align, mapping, str_trg);
+      MapWords(str_src, sent_trg, align, mapping, pad, str_trg);
       cout << vocab_trg->PrintWords(str_trg) << endl;
     }
   } else {
@@ -259,6 +262,7 @@ int Lamtram::main(int argc, char** argv) {
     ("word_pen", po::value<float>()->default_value(0.0), "The \"word penalty\", a larger value favors longer sentences, shorter favors shorter")
     ("ensemble_op", po::value<string>()->default_value("sum"), "The operation to use when ensembling probabilities (sum/logsum)")
     ("beam", po::value<int>()->default_value(1), "Number of hypotheses to expand")
+    ("size_limit", po::value<int>()->default_value(2000), "Limit on the size of sentences")
     ("sents", po::value<int>()->default_value(0), "When generating, maximum of how many sentences (0 for no limit)")
     ("verbose", po::value<int>()->default_value(0), "How much verbose output to print")
     ("cnn_mem", po::value<int>()->default_value(512), "How much memory to allocate to cnn")
