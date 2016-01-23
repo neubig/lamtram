@@ -50,7 +50,7 @@ protected:
 
     // Variable settings
     cnn::real rate_thresh_;
-    int epochs_, context_;
+    int epochs_, context_, eval_every_;
     std::string model_in_file_, model_out_file_;
     std::string train_file_trg_, dev_file_trg_, train_file_src_, dev_file_src_;
 

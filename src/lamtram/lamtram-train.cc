@@ -30,6 +30,7 @@ int LamtramTrain::main(int argc, char** argv) {
         ("dev_trg", po::value<string>()->default_value(""), "Development file")
         ("train_src", po::value<string>()->default_value(""), "Training source file for TMs")
         ("dev_src", po::value<string>()->default_value(""), "Development source file for TMs")
+        ("eval_every", po::value<int>()->default_value(-1), "Evaluate every n sentences (-1 for full training set)")
         ("model_out", po::value<string>()->default_value(""), "File to write the model to")
         ("model_in", po::value<string>()->default_value(""), "If resuming training, read the model in")
         ("model_type", po::value<string>()->default_value("nlm"), "Model type (Neural LM nlm, Encoder Decoder encdec, Attentional Model encatt, or Encoder Classifier enccls)")
@@ -93,6 +94,7 @@ int LamtramTrain::main(int argc, char** argv) {
     context_ = vm_["context"].as<int>();
     model_in_file_ = vm_["model_in"].as<string>();
     model_out_file_ = vm_["model_out"].as<string>();
+    eval_every_ = vm_["eval_every"].as<int>();
 
     // Perform appropriate training
     if(model_type == "nlm")             TrainLM();
@@ -122,6 +124,7 @@ void LamtramTrain::TrainLM() {
     vector<Sentence> train_trg, dev_trg;
     LoadFile(train_file_trg_, context_, true, *vocab_trg, train_trg); vocab_trg->SetFreeze(true);
     if(dev_file_trg_.size()) LoadFile(dev_file_trg_, context_, true, *vocab_trg, dev_trg);
+    if(eval_every_ == -1) eval_every_ = train_trg.size();
 
     // Create the model
     if(model_in_file_.size() == 0)
@@ -139,13 +142,19 @@ void LamtramTrain::TrainLM() {
     std::vector<cnn::expr::Expression> empty_hist;
     cnn::real last_ll = -1e99, best_ll = -1e99;
     bool do_dev = dev_trg.size() != 0;
-    for(int epoch : boost::irange(0, epochs_)) {
-        // Shuffle the access order
-        std::shuffle(train_ids.begin(), train_ids.end(), *cnn::rndeng);
+    int loc = 0;
+    int epoch = 0;
+    std::shuffle(train_ids.begin(), train_ids.end(), *cnn::rndeng);
+    while(epoch < epochs_) {
         // Start the training
         LLStats train_ll(nlm->GetVocabSize()), dev_ll(nlm->GetVocabSize());
         Timer time;
-        for(auto loc : boost::irange(0, (int)train_ids.size())) {
+        for(auto id_pos : boost::irange(0, eval_every_)) {
+            if(loc == (int)train_ids.size()) {
+                // Shuffle the access order
+                std::shuffle(train_ids.begin(), train_ids.end(), *cnn::rndeng);
+                loc = 0;
+            }
             cnn::ComputationGraph cg;
             nlm->NewGraph(cg);
             nlm->BuildSentGraph(train_trg[train_ids[loc]], NULL, empty_hist, cg, train_ll);
@@ -153,9 +162,11 @@ void LamtramTrain::TrainLM() {
             train_ll.lik_ -= as_scalar(cg.forward());
             cg.backward();
             trainer->update();
-            if((loc+1) % 100 == 0 || loc+1 == (int)train_ids.size()) {
+            ++loc;
+            if(loc % 100 == 0 || id_pos == eval_every_-1 || epochs_ == epoch) {
                 double elapsed = time.Elapsed();
                 cerr << "Epoch " << epoch+1 << " sent " << loc+1 << ": ppl=" << train_ll.CalcPPL() << ", unk=" << train_ll.unk_ << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << train_ll.words_/elapsed << " w/s)" << endl;
+                if(epochs_ == epoch) break;
             }
         }
         // Measure development perplexity
@@ -218,6 +229,7 @@ void LamtramTrain::TrainEncDec() {
     if(dev_file_trg_.size()) LoadFile(dev_file_trg_, context_, true, *vocab_trg, dev_trg);
     LoadFile(train_file_src_, 0, false, *vocab_src, train_src); vocab_src->SetFreeze(true);
     if(dev_file_src_.size()) LoadFile(dev_file_src_, 0, false, *vocab_src, dev_src);
+    if(eval_every_ == -1) eval_every_ = train_trg.size();
 
     // Create the model
     if(model_in_file_.size() == 0) {
@@ -259,6 +271,7 @@ void LamtramTrain::TrainEncAtt() {
     if(dev_file_trg_.size()) LoadFile(dev_file_trg_, context_, true, *vocab_trg, dev_trg);
     LoadFile(train_file_src_, 0, false, *vocab_src, train_src); vocab_src->SetFreeze(true);
     if(dev_file_src_.size()) LoadFile(dev_file_src_, 0, false, *vocab_src, dev_src);
+    if(eval_every_ == -1) eval_every_ = train_trg.size();
 
     // Create the model
     if(model_in_file_.size() == 0) {
@@ -302,6 +315,7 @@ void LamtramTrain::TrainEncCls() {
     if(dev_file_trg_.size()) LoadLabels(dev_file_trg_, *vocab_trg, dev_trg);
     LoadFile(train_file_src_, 0, false, *vocab_src, train_src); vocab_src->SetFreeze(true);
     if(dev_file_src_.size()) LoadFile(dev_file_src_, 0, false, *vocab_src, dev_src);
+    if(eval_every_ == -1) eval_every_ = train_trg.size();
 
     // Create the model
     if(model_in_file_.size() == 0) {
@@ -349,13 +363,19 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
     std::vector<cnn::expr::Expression> empty_hist;
     cnn::real last_ll = -1e99, best_ll = -1e99;
     bool do_dev = dev_src.size() != 0;
-    for(int epoch : boost::irange(0, epochs_)) {
-        // Shuffle the access order
-        std::shuffle(train_ids.begin(), train_ids.end(), *cnn::rndeng);
+    int loc = 0;
+    int epoch = 0;
+    std::shuffle(train_ids.begin(), train_ids.end(), *cnn::rndeng);
+    while(epoch < epochs_) {
         // Start the training
         LLStats train_ll(vocab_trg.size()), dev_ll(vocab_trg.size());
         Timer time;
-        for(auto loc : boost::irange(0, (int)train_ids.size())) {
+        for(auto id_pos : boost::irange(0, eval_every_)) {
+            if(loc == (int)train_ids.size()) {
+                // Shuffle the access order
+                std::shuffle(train_ids.begin(), train_ids.end(), *cnn::rndeng);
+                loc = 0;
+            }
             cnn::ComputationGraph cg;
             encdec.NewGraph(cg);
             encdec.BuildSentGraph(train_src[train_ids[loc]], train_trg[train_ids[loc]], cg, train_ll);
@@ -363,9 +383,11 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
             train_ll.lik_ -= as_scalar(cg.forward());
             cg.backward();
             trainer->update(learning_scale);
-            if((loc+1) % 100 == 0 || loc+1 == (int)train_ids.size()) {
+            ++loc;
+            if(loc % 100 == 0 || id_pos == eval_every_-1 || epochs_ == epoch) {
                 double elapsed = time.Elapsed();
-                cerr << "Epoch " << epoch+1 << " sent " << loc+1 << ": ppl=" << train_ll.CalcPPL() << ", unk=" << train_ll.unk_ << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << train_ll.words_/elapsed << " w/s)" << endl;
+                cerr << "Epoch " << epoch+1 << " sent " << loc << ": ppl=" << train_ll.CalcPPL() << ", unk=" << train_ll.unk_ << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << train_ll.words_/elapsed << " w/s)" << endl;
+                if(epochs_ == epoch) break;
             }
         }
         // Measure development perplexity
