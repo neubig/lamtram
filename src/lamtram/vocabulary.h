@@ -29,6 +29,7 @@ public:
   Sentence ParseWords(const std::string & str, int pad = 0, bool add_final = false);
   Sentence ParseWords(const std::vector<std::string> & str, int pad = 0, bool add_final = false);
   std::vector<std::string> ConvertWords(const Sentence & sent, bool sentend = true) const;
+  std::string PrintWords(const WordId wid) const;
   std::string PrintWords(const Sentence & sent, bool sentend = true) const;
   std::string PrintWords(const std::vector<std::string> & sent) const;
 
