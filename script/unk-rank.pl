@@ -38,6 +38,6 @@ for(sort { $cnt{$b} <=> $cnt{$a} } keys %cnt) {
 }
 
 for(@crp) {
-    my @arr = map { ($invocab{$_} > $THRESH) ? $_ : $SYM } split(/ /);
+    my @arr = map { defined($invocab{$_}) ? $_ : $SYM } split(/ /);
     print "@arr\n";
 }

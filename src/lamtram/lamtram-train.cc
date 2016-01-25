@@ -433,8 +433,14 @@ void LamtramTrain::LoadFile(const std::string filename, int pad, bool add_last, 
     ifstream iftrain(filename.c_str());
     if(!iftrain) THROW_ERROR("Could not find training file: " << filename);
     string line;
-    while(getline(iftrain, line))
-        sents.push_back(vocab.ParseWords(line, pad, add_last));
+    int line_no = 0;
+    while(getline(iftrain, line)) {
+        line_no++;
+        Sentence sent = vocab.ParseWords(line, pad, add_last);
+        if(sent.size() == (add_last ? 1 : 0) + pad)
+          THROW_ERROR("Empty line found in " << filename << " at " << line_no << endl);
+        sents.push_back(sent);
+    }
     iftrain.close();
 }
 
