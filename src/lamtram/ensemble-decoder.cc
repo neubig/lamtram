@@ -51,6 +51,7 @@ Expression EnsembleDecoder::EnsembleLogProbs(const std::vector<Expression> & in,
 
 template<>
 Expression EnsembleDecoder::EnsembleSingleProb(const std::vector<Expression> & in, const Sentence & sent, int t, cnn::ComputationGraph & cg) {
+  // cout << "word: " << sent[t] << endl;
   if(in.size() == 1)
     return pick({in[0]}, sent[t]);
   std::vector<Expression> i_probs(in);
@@ -75,9 +76,9 @@ inline void CreateWordsAndMask(const vector<Sentence> & sents, int t, bool inver
     if((int)sents[i].size() <= t) {
       if(!mask.size()) mask.resize(sents.size(), inverse_mask ? 0 : 1);
       mask[i] = inverse_mask ? 1 : 0;
-      words.push_back(0);
+      words[i] = 0;
     } else {
-      words.push_back(sents[i][t]);
+      words[i] = sents[i][t];
     }
   }
 }
@@ -85,7 +86,8 @@ inline void CreateWordsAndMask(const vector<Sentence> & sents, int t, bool inver
 template<>
 Expression EnsembleDecoder::EnsembleSingleProb(const std::vector<Expression> & in, const vector<Sentence> & sents, int t, cnn::ComputationGraph & cg) {
   vector<unsigned> words; vector<float> mask;
-  CreateWordsAndMask(sents, t, true, words, mask);
+  CreateWordsAndMask(sents, t, false, words, mask);
+  // cout << "words:"; for(auto w : words) cout << " " << w; cout << endl;
   Expression ret;
   if(in.size() == 1) {
     ret = pick({in[0]}, words);
@@ -95,15 +97,17 @@ Expression EnsembleDecoder::EnsembleSingleProb(const std::vector<Expression> & i
       i_probs[i] = pick({in[i]}, words);
     ret = average(i_probs);
   }
-  if(mask.size())
+  if(mask.size()) {
+    // cout << "mask:"; for(auto w : mask) cout << " " << w; cout << endl;
     ret = pow(ret, input(cg, cnn::Dim({1}, sents.size()), mask));
+  }
   return ret;
 }
 
 template<>
 Expression EnsembleDecoder::EnsembleSingleLogProb(const std::vector<Expression> & in, const vector<Sentence> & sents, int t, cnn::ComputationGraph & cg) {
   vector<unsigned> words; vector<float> mask;
-  CreateWordsAndMask(sents, t, false, words, mask);
+  CreateWordsAndMask(sents, t, true, words, mask);
   Expression ret;
   if(in.size() == 1) {
     ret = pick({in[0]}, words);
@@ -131,6 +135,13 @@ void EnsembleDecoder::AddWords<vector<Sentence>,vector<LLStats> >(const vector<S
     AddWords(sent[i], ll[i]);
 }
 
+inline int MaxLen(const Sentence & sent) { return sent.size(); }
+inline int MaxLen(const vector<Sentence> & sent) {
+  size_t val = 0;
+  for(const auto & s : sent) { val = max(val, s.size()); }
+  return val;
+}
+
 inline void AddLik(cnn::expr::Expression & exp, LLStats & ll) {
   ll.lik_ += as_scalar(exp.value());
 }
@@ -151,7 +162,8 @@ void EnsembleDecoder::CalcSentLL(const Sentence & sent_src, const Sent & sent_tr
   vector<vector<Expression> > last_state = GetInitialStates(sent_src, cg), next_state(lms_.size());
   // Go through and collect the values
   vector<Expression> errs, aligns;
-  for(int t : boost::irange(pad_, (int)sent_trg.size())) {
+  int max_len = MaxLen(sent_trg);
+  for(int t : boost::irange(pad_, max_len)) {
     // Perform the forward step on all models
     vector<Expression> i_sms;
     for(int j : boost::irange(0, (int)lms_.size())) {

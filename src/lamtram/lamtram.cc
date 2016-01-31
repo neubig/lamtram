@@ -167,7 +167,10 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
       // If we've finished the current source, print
       if((my_id != last_id || curr_words+sents_trg.size() > max_minibatch_size) && sents_trg.size() > 0) {
         vector<LLStats> sents_ll(sents_trg.size(), LLStats(vocab_size));
-        decoder.CalcSentLL<vector<Sentence>,vector<LLStats> >(sent_src, sents_trg, sents_ll);
+        if(sents_trg.size() > 1)
+          decoder.CalcSentLL<vector<Sentence>,vector<LLStats> >(sent_src, sents_trg, sents_ll);
+        else
+          decoder.CalcSentLL<Sentence,LLStats>(sent_src, sents_trg[0], sents_ll[0]);
         for(auto & sent_ll : sents_ll)
           cout << "ll=" << sent_ll.CalcUnkLik() << " unk=" << sent_ll.unk_  << endl;
         sents_trg.resize(0);
@@ -179,7 +182,7 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
           THROW_ERROR("Source and target files don't match");
         sent_src = vocab_src->ParseWords(line, 0, false);
         double elapsed = time.Elapsed();
-        cerr << "sent=" << last_id << ", time=" << elapsed << " (" << all_words/elapsed << " w/s)" << endl;
+        if(last_id >= 0) cerr << "sent=" << last_id << ", time=" << elapsed << " (" << all_words/elapsed << " w/s)" << endl;
         last_id = my_id;
       }
       // Add to the data
