@@ -77,6 +77,9 @@ vector<string> Vocabulary::ConvertWords(const Sentence & sent, bool sentend) con
   }
   return ret;
 }
+string Vocabulary::PrintWords(WordId wid) const {
+  return WSym(wid);
+}
 string Vocabulary::PrintWords(const Sentence & sent, bool sentend) const {
   ostringstream oss;
   string filler;

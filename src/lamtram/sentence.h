@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <unordered_map>
+#include <string>
 
 namespace lamtram {
 typedef int WordId;
