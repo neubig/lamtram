@@ -39,16 +39,24 @@ public:
                     const std::vector<NeuralLMPtr> & lms, int pad);
     ~EnsembleDecoder() {}
 
-    void CalcSentLL(const Sentence & sent_src, const Sentence & sent_trg, LLStats & ll);
+    template <class OutSent, class OutLL>
+    void CalcSentLL(const Sentence & sent_src, const OutSent & sent_trg, OutLL & ll);
     Sentence Generate(const Sentence & sent_src, Sentence & align);
 
     std::vector<std::vector<cnn::expr::Expression> > GetInitialStates(const Sentence & sent_src, cnn::ComputationGraph & cg);
     
+    template <class Sent, class Stat>
+    void AddWords(const Sent & sent, Stat & ll);
+
     // Ensemble together probabilities or log probabilities for a single word
     cnn::expr::Expression EnsembleProbs(const std::vector<cnn::expr::Expression> & in, cnn::ComputationGraph & cg);
     cnn::expr::Expression EnsembleLogProbs(const std::vector<cnn::expr::Expression> & in, cnn::ComputationGraph & cg);
-    cnn::expr::Expression EnsembleSingleProb(const std::vector<cnn::expr::Expression> & in, int word, cnn::ComputationGraph & cg);
-    cnn::expr::Expression EnsembleSingleLogProb(const std::vector<cnn::expr::Expression> & in, int word, cnn::ComputationGraph & cg);
+
+    // Ensemble log probs for a single value
+    template <class Sent>
+    cnn::expr::Expression EnsembleSingleProb(const std::vector<cnn::expr::Expression> & in, const Sent & sent, int loc, cnn::ComputationGraph & cg);
+    template <class Sent>
+    cnn::expr::Expression EnsembleSingleLogProb(const std::vector<cnn::expr::Expression> & in, const Sent & sent, int loc, cnn::ComputationGraph & cg);
 
     cnn::real GetWordPen() const { return word_pen_; }
     std::string GetEnsembleOperation() const { return ensemble_operation_; }

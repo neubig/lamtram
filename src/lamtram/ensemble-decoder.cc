@@ -49,24 +49,100 @@ Expression EnsembleDecoder::EnsembleLogProbs(const std::vector<Expression> & in,
   return log_softmax({i_average});
 }
 
-Expression EnsembleDecoder::EnsembleSingleProb(const std::vector<Expression> & in, int word, cnn::ComputationGraph & cg) {
+template<>
+Expression EnsembleDecoder::EnsembleSingleProb(const std::vector<Expression> & in, const Sentence & sent, int t, cnn::ComputationGraph & cg) {
   if(in.size() == 1)
-    return pick({in[0]}, word);
+    return pick({in[0]}, sent[t]);
   std::vector<Expression> i_probs(in);
   for(int i : boost::irange(0, (int)in.size()))
-    i_probs[i] = pick({in[i]}, word);
+    i_probs[i] = pick({in[i]}, sent[t]);
   return average(i_probs);
 }
 
-Expression EnsembleDecoder::EnsembleSingleLogProb(const std::vector<Expression> & in, int word, cnn::ComputationGraph & cg) {
+template<>
+Expression EnsembleDecoder::EnsembleSingleLogProb(const std::vector<Expression> & in, const Sentence & sent, int t, cnn::ComputationGraph & cg) {
   if(in.size() == 1)
-    return pick({in[0]}, word);
+    return pick({in[0]}, sent[t]);
   Expression i_average = average(in);
   Expression i_softmax = log_softmax({i_average});
-  return pick({i_softmax}, word);
+  return pick({i_softmax}, sent[t]);
 }
 
-void EnsembleDecoder::CalcSentLL(const Sentence & sent_src, const Sentence & sent_trg, LLStats & ll) {
+
+inline void CreateWordsAndMask(const vector<Sentence> & sents, int t, bool inverse_mask, vector<unsigned> & words, vector<float> & mask) {
+  words.resize(sents.size()); mask.resize(0);
+  for(size_t i = 0; i < sents.size(); i++) {
+    if((int)sents[i].size() <= t) {
+      if(!mask.size()) mask.resize(sents.size(), inverse_mask ? 0 : 1);
+      mask[i] = inverse_mask ? 1 : 0;
+      words.push_back(0);
+    } else {
+      words.push_back(sents[i][t]);
+    }
+  }
+}
+
+template<>
+Expression EnsembleDecoder::EnsembleSingleProb(const std::vector<Expression> & in, const vector<Sentence> & sents, int t, cnn::ComputationGraph & cg) {
+  vector<unsigned> words; vector<float> mask;
+  CreateWordsAndMask(sents, t, true, words, mask);
+  Expression ret;
+  if(in.size() == 1) {
+    ret = pick({in[0]}, words);
+  } else {
+    std::vector<Expression> i_probs(in);
+    for(int i : boost::irange(0, (int)in.size()))
+      i_probs[i] = pick({in[i]}, words);
+    ret = average(i_probs);
+  }
+  if(mask.size())
+    ret = pow(ret, input(cg, cnn::Dim({1}, sents.size()), mask));
+  return ret;
+}
+
+template<>
+Expression EnsembleDecoder::EnsembleSingleLogProb(const std::vector<Expression> & in, const vector<Sentence> & sents, int t, cnn::ComputationGraph & cg) {
+  vector<unsigned> words; vector<float> mask;
+  CreateWordsAndMask(sents, t, false, words, mask);
+  Expression ret;
+  if(in.size() == 1) {
+    ret = pick({in[0]}, words);
+  } else {
+    Expression i_average = average(in);
+    Expression i_softmax = log_softmax({i_average});
+    ret = pick({i_softmax}, words);
+  }
+  if(mask.size())
+    ret = ret * input(cg, cnn::Dim({1}, sents.size()), mask);
+  return ret;
+}
+
+template <>
+void EnsembleDecoder::AddWords<Sentence,LLStats>(const Sentence & sent, LLStats & ll) {
+  ll.words_ += sent.size()-pad_;
+  for(unsigned t = pad_; t < sent.size(); t++)
+    if(sent[t] == 0)
+      ++ll.unk_;
+}
+
+template <>
+void EnsembleDecoder::AddWords<vector<Sentence>,vector<LLStats> >(const vector<Sentence> & sent, vector<LLStats> & ll) {
+  for(unsigned i = 0; i < sent.size(); i++)
+    AddWords(sent[i], ll[i]);
+}
+
+inline void AddLik(cnn::expr::Expression & exp, LLStats & ll) {
+  ll.lik_ += as_scalar(exp.value());
+}
+inline void AddLik(cnn::expr::Expression & exp, std::vector<LLStats> & ll) {
+  vector<float> ret = as_vector(exp.value());
+  assert(ret.size() == ll.size());
+  for(size_t i = 0; i < ret.size(); i++)
+    ll[i].lik_ += ret[i];
+}
+
+template <class Sent, class Stat>
+void EnsembleDecoder::CalcSentLL(const Sentence & sent_src, const Sent & sent_trg, Stat & ll) {
   // First initialize states and do encoding as necessary
   cnn::ComputationGraph cg;
   for(auto & tm : encdecs_) tm->NewGraph(cg);
@@ -80,30 +156,34 @@ void EnsembleDecoder::CalcSentLL(const Sentence & sent_src, const Sentence & sen
     vector<Expression> i_sms;
     for(int j : boost::irange(0, (int)lms_.size())) {
       if(ensemble_operation_ == "sum")
-        i_sms.push_back(lms_[j]->Forward<cnn::Softmax>(sent_trg, t, externs_[j].get(), last_state[j], next_state[j], cg, aligns));
+        i_sms.push_back(lms_[j]->Forward<cnn::Softmax,Sent>(sent_trg, t, externs_[j].get(), last_state[j], next_state[j], cg, aligns));
       else
-        i_sms.push_back(lms_[j]->Forward<cnn::LogSoftmax>(sent_trg, t, externs_[j].get(), last_state[j], next_state[j], cg, aligns));
+        i_sms.push_back(lms_[j]->Forward<cnn::LogSoftmax,Sent>(sent_trg, t, externs_[j].get(), last_state[j], next_state[j], cg, aligns));
     }
     // Ensemble the probabilities and calculate the likelihood
     Expression i_logprob;
     if(ensemble_operation_ == "sum") {
-      i_logprob = EnsembleSingleProb(i_sms, sent_trg[t], cg);
+      i_logprob = EnsembleSingleProb(i_sms, sent_trg, t, cg);
       i_logprob = log({i_logprob});
     } else if(ensemble_operation_ == "logsum") {
-      i_logprob = EnsembleSingleLogProb(i_sms, sent_trg[t], cg);
+      i_logprob = EnsembleSingleLogProb(i_sms, sent_trg, t, cg);
     } else {
       THROW_ERROR("Bad ensembling operation: " << ensemble_operation_ << endl);
     }
     // Pick the error and add to the vector
     errs.push_back(i_logprob);
     last_state = next_state;
-    // Add to the words
-    if(sent_trg[t] == unk_id_) ll.unk_++;
-    ll.words_++;
+
   }
-  sum(errs);
-  ll.lik_ += as_scalar(cg.forward());
+  Expression err = sum(errs);
+  cg.forward();
+  AddLik(err, ll);
 }                    
+
+template
+void EnsembleDecoder::CalcSentLL<Sentence,LLStats>(const Sentence & sent_src, const Sentence & sent_trg, LLStats & ll);
+template
+void EnsembleDecoder::CalcSentLL<vector<Sentence>,vector<LLStats> >(const Sentence & sent_src, const vector<Sentence> & sent_trg, vector<LLStats> & ll);
 
 Sentence EnsembleDecoder::Generate(const Sentence & sent_src, Sentence & align) {
 

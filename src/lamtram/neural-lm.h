@@ -60,8 +60,8 @@ public:
     //   layer_out: The output of the hidden layer.
     //   cg: The computation graph.
     //   align_out: The alignments.
-    template <class SoftmaxOp>
-    cnn::expr::Expression Forward(const Sentence & sent, int id, 
+    template <class SoftmaxOp, class Sent>
+    cnn::expr::Expression Forward(const Sent & sent, int id, 
                                const ExternCalculator * extern_calc,
                                const std::vector<cnn::expr::Expression> & layer_in,
                                std::vector<cnn::expr::Expression> & layer_out,

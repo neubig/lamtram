@@ -154,6 +154,7 @@ void LamtramTrain::TrainLM() {
                 // Shuffle the access order
                 std::shuffle(train_ids.begin(), train_ids.end(), *cnn::rndeng);
                 loc = 0;
+                epoch++;
             }
             cnn::ComputationGraph cg;
             nlm->NewGraph(cg);
