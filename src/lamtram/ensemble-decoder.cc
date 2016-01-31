@@ -121,20 +121,6 @@ Expression EnsembleDecoder::EnsembleSingleLogProb(const std::vector<Expression> 
   return ret;
 }
 
-template <>
-void EnsembleDecoder::AddWords<Sentence,LLStats>(const Sentence & sent, LLStats & ll) {
-  ll.words_ += sent.size()-pad_;
-  for(unsigned t = pad_; t < sent.size(); t++)
-    if(sent[t] == 0)
-      ++ll.unk_;
-}
-
-template <>
-void EnsembleDecoder::AddWords<vector<Sentence>,vector<LLStats> >(const vector<Sentence> & sent, vector<LLStats> & ll) {
-  for(unsigned i = 0; i < sent.size(); i++)
-    AddWords(sent[i], ll[i]);
-}
-
 inline int MaxLen(const Sentence & sent) { return sent.size(); }
 inline int MaxLen(const vector<Sentence> & sent) {
   size_t val = 0;
@@ -142,14 +128,25 @@ inline int MaxLen(const vector<Sentence> & sent) {
   return val;
 }
 
-inline void AddLik(cnn::expr::Expression & exp, LLStats & ll) {
+template <>
+void EnsembleDecoder::AddLik<Sentence,LLStats>(const Sentence & sent, const cnn::expr::Expression & exp, LLStats & ll) {
   ll.lik_ += as_scalar(exp.value());
+  ll.words_ += sent.size()-pad_;
+  for(unsigned t = pad_; t < sent.size(); t++)
+    if(sent[t] == unk_id_)
+      ++ll.unk_;
 }
-inline void AddLik(cnn::expr::Expression & exp, std::vector<LLStats> & ll) {
+template <>
+void EnsembleDecoder::AddLik<vector<Sentence>,vector<LLStats> >(const vector<Sentence> & sent, const cnn::expr::Expression & exp, std::vector<LLStats> & ll) {
   vector<float> ret = as_vector(exp.value());
   assert(ret.size() == ll.size());
-  for(size_t i = 0; i < ret.size(); i++)
+  for(size_t i = 0; i < ret.size(); i++) {
     ll[i].lik_ += ret[i];
+    ll[i].words_ += sent[i].size()-pad_;
+    for(unsigned t = pad_; t < sent[i].size(); t++)
+      if(sent[i][t] == unk_id_)
+        ++ll[i].unk_;
+  }
 }
 
 template <class Sent, class Stat>
@@ -189,7 +186,7 @@ void EnsembleDecoder::CalcSentLL(const Sentence & sent_src, const Sent & sent_tr
   }
   Expression err = sum(errs);
   cg.forward();
-  AddLik(err, ll);
+  AddLik(sent_trg, err, ll);
 }                    
 
 template
