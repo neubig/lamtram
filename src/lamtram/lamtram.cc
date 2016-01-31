@@ -9,6 +9,7 @@
 #include <lamtram/encoder-attentional.h>
 #include <lamtram/encoder-classifier.h>
 #include <lamtram/model-utils.h>
+#include <lamtram/string-util.h>
 #include <lamtram/ensemble-decoder.h>
 #include <lamtram/ensemble-classifier.h>
 #include <boost/program_options.hpp>
@@ -48,6 +49,8 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
   vector<EncoderAttentionalPtr> encatts;
   vector<shared_ptr<cnn::Model> > models;
   VocabularyPtr vocab_src, vocab_trg;
+
+  int max_minibatch_size = vm["minibatch_size"].as<int>();
   
   // Buffers
   string line;
@@ -128,6 +131,7 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
   Sentence sent_src, sent_trg;
   vector<string> str_src, str_trg;
   Sentence align;
+  int last_id = -1;
   if(operation == "ppl") {
     LLStats corpus_ll(vocab_size);
     Timer time;
@@ -143,12 +147,52 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
         sent_src = vocab_src->ParseWords(line, 0, false);
       }
       // If the encoder
-      decoder.CalcSentLL(sent_src, sent_trg, sent_ll);
+      decoder.CalcSentLL<Sentence,LLStats>(sent_src, sent_trg, sent_ll);
       if(GlobalVars::verbose >= 1) { cout << "ll=" << sent_ll.CalcUnkLik() << " unk=" << sent_ll.unk_  << endl; }
       corpus_ll += sent_ll;
     }
     double elapsed = time.Elapsed();
     cerr << "ppl=" << corpus_ll.CalcPPL() << ", unk=" << corpus_ll.unk_ << ", time=" << elapsed << " (" << corpus_ll.words_/elapsed << " w/s)" << endl;
+  } else if(operation == "nbest") {
+    Timer time;
+    int all_words = 0, curr_words = 0, last_id = -1;
+    std::vector<Sentence> sents_trg;
+    Sentence sent_src, sent_trg;
+    while(getline(cin, line)) { 
+      // Get the new sentence
+      vector<string> columns = Tokenize(line, " ||| ");
+      if(columns.size() < 2) THROW_ERROR("Bad line in n-best:\n" << line);
+      int my_id = stoi(columns[0]);
+      sent_trg = vocab_trg->ParseWords(columns[1], pad, true);
+      // If we've finished the current source, print
+      if((my_id != last_id || curr_words+sents_trg.size() > max_minibatch_size) && sents_trg.size() > 0) {
+        vector<LLStats> sents_ll(sents_trg.size(), LLStats(vocab_size));
+        decoder.CalcSentLL<vector<Sentence>,vector<LLStats> >(sent_src, sents_trg, sents_ll);
+        for(auto & sent_ll : sents_ll)
+          cout << "ll=" << sent_ll.CalcUnkLik() << " unk=" << sent_ll.unk_  << endl;
+        sents_trg.resize(0);
+        curr_words = 0;
+      }
+      // Load the new source word
+      if(my_id != last_id) {
+        if(!getline(*src_in, line))
+          THROW_ERROR("Source and target files don't match");
+        sent_src = vocab_src->ParseWords(line, 0, false);
+        double elapsed = time.Elapsed();
+        cerr << "sent=" << last_id << ", time=" << elapsed << " (" << all_words/elapsed << " w/s)" << endl;
+        last_id = my_id;
+      }
+      // Add to the data
+      sents_trg.push_back(sent_trg);
+      all_words += sent_trg.size()-pad;
+      curr_words += sent_trg.size()-pad;
+    }
+    vector<LLStats> sents_ll(sents_trg.size(), LLStats(vocab_size));
+    decoder.CalcSentLL<vector<Sentence>,vector<LLStats> >(sent_src, sents_trg, sents_ll);
+    for(auto & sent_ll : sents_ll)
+      cout << "ll=" << sent_ll.CalcUnkLik() << " unk=" << sent_ll.unk_  << endl;
+    double elapsed = time.Elapsed();
+    cerr << "sent=" << last_id << ", time=" << elapsed << " (" << all_words/elapsed << " w/s)" << endl;
   } else if(operation == "gen") {
     int max_sents = vm["sents"].as<int>();
     if(max_sents == 0) max_sents = INT_MAX;
@@ -255,12 +299,13 @@ int Lamtram::main(int argc, char** argv) {
   po::options_description desc("*** lamtram-train (by Graham Neubig) ***");
   desc.add_options()
     ("help", "Produce help message")
-    ("operation", po::value<string>()->default_value("ppl"), "Operations (ppl: measure perplexity, gen: generate sentences)")
+    ("operation", po::value<string>()->default_value("ppl"), "Operations (ppl: measure perplexity, nbest: score n-best list, gen: generate sentences)")
     ("models_in", po::value<string>()->default_value(""), "Model files in format \"{encdec,encatt,nlm}=filename\" with encdec for encoder-decoders, encatt for attentional models, nlm for language models. When multiple, separate by a pipe.")
     ("src_in", po::value<string>()->default_value(""), "File to read the source from, if any")
     ("map_in", po::value<string>()->default_value(""), "A file containing a mapping table (\"src trg prob\" format)")
     ("word_pen", po::value<float>()->default_value(0.0), "The \"word penalty\", a larger value favors longer sentences, shorter favors shorter")
     ("ensemble_op", po::value<string>()->default_value("sum"), "The operation to use when ensembling probabilities (sum/logsum)")
+    ("minibatch_size", po::value<int>()->default_value(1), "Max size of a minibatch in words (may be exceeded if there are longer sentences)")
     ("beam", po::value<int>()->default_value(1), "Number of hypotheses to expand")
     ("size_limit", po::value<int>()->default_value(2000), "Limit on the size of sentences")
     ("sents", po::value<int>()->default_value(0), "When generating, maximum of how many sentences (0 for no limit)")
@@ -279,7 +324,7 @@ int Lamtram::main(int argc, char** argv) {
   GlobalVars::verbose = vm["verbose"].as<int>();
 
   string operation = vm["operation"].as<std::string>();
-  if(operation == "ppl" || operation == "gen") {
+  if(operation == "ppl" || operation == "nbest" || operation == "gen") {
     return SequenceOperation(vm);
   } else if(operation == "cls" || operation == "clseval") {
     return ClassifierOperation(vm);

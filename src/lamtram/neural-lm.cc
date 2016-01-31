@@ -52,7 +52,7 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(const Sentence & sent,
         if(extern_context_ > 0) {
             assert(extern_calc != NULL);
             cnn::expr::Expression extern_in;
-            extern_in = extern_calc->CreateContext(sent, t, builder_->final_h(), cg, aligns);
+            extern_in = extern_calc->CreateContext(/*sent, t, */builder_->final_h(), cg, aligns);
             i_wrs_t.push_back(extern_in);
         }
         cnn::expr::Expression i_wr_t = concatenate(i_wrs_t);
@@ -79,9 +79,19 @@ void NeuralLM::NewGraph(cnn::ComputationGraph & cg) {
     curr_graph_ = &cg;
 }
 
+inline unsigned CreateWord(const Sentence & sent, int t) {
+  return t < (int)sent.size() ? sent[t] : 0;
+}
+inline vector<unsigned> CreateWord(const vector<Sentence> & sent, int t) {
+  vector<unsigned> ret(sent.size());
+  for(size_t i = 0; i < sent.size(); i++)
+    ret[i] = CreateWord(sent[i], t);
+  return ret;
+}
+
 // Move forward one step using the language model and return the probabilities
-template <class SoftmaxOp>
-cnn::expr::Expression NeuralLM::Forward(const Sentence & sent, int t, 
+template <class SoftmaxOp, class Sent>
+cnn::expr::Expression NeuralLM::Forward(const Sent & sent, int t, 
                                      const ExternCalculator * extern_calc,
                                      const std::vector<cnn::expr::Expression> & layer_in,
                                      std::vector<cnn::expr::Expression> & layer_out,
@@ -95,9 +105,9 @@ cnn::expr::Expression NeuralLM::Forward(const Sentence & sent, int t,
     // Concatenate wordrep and external context into a vector for the hidden unit
     vector<cnn::expr::Expression> i_wrs_t;
     for(auto hist : boost::irange(t - ngram_context_, t))
-        i_wrs_t.push_back(lookup(cg, p_wr_W_, sent[hist]));
+        i_wrs_t.push_back(lookup(cg, p_wr_W_, CreateWord(sent, hist)));
     if(extern_context_ > 0) {
-        cnn::expr::Expression extern_in = extern_calc->CreateContext(sent, t, layer_in, cg, align_out);
+        cnn::expr::Expression extern_in = extern_calc->CreateContext(/*sent, t, */layer_in, cg, align_out);
         i_wrs_t.push_back(extern_in);
     }
     cnn::expr::Expression i_wr_t = concatenate(i_wrs_t);
@@ -113,7 +123,7 @@ cnn::expr::Expression NeuralLM::Forward(const Sentence & sent, int t,
 
 // Instantiate
 template
-cnn::expr::Expression NeuralLM::Forward<cnn::Softmax>(
+cnn::expr::Expression NeuralLM::Forward<cnn::Softmax,Sentence>(
                                      const Sentence & sent, int t, 
                                      const ExternCalculator * extern_calc,
                                      const std::vector<cnn::expr::Expression> & layer_in,
@@ -121,8 +131,24 @@ cnn::expr::Expression NeuralLM::Forward<cnn::Softmax>(
                                      cnn::ComputationGraph & cg,
                                      std::vector<cnn::expr::Expression> & align_out);
 template
-cnn::expr::Expression NeuralLM::Forward<cnn::LogSoftmax>(
+cnn::expr::Expression NeuralLM::Forward<cnn::LogSoftmax,Sentence>(
                                      const Sentence & sent, int t, 
+                                     const ExternCalculator * extern_calc,
+                                     const std::vector<cnn::expr::Expression> & layer_in,
+                                     std::vector<cnn::expr::Expression> & layer_out,
+                                     cnn::ComputationGraph & cg,
+                                     std::vector<cnn::expr::Expression> & align_out);
+template
+cnn::expr::Expression NeuralLM::Forward<cnn::Softmax,vector<Sentence> >(
+                                     const vector<Sentence>  & sent, int t, 
+                                     const ExternCalculator * extern_calc,
+                                     const std::vector<cnn::expr::Expression> & layer_in,
+                                     std::vector<cnn::expr::Expression> & layer_out,
+                                     cnn::ComputationGraph & cg,
+                                     std::vector<cnn::expr::Expression> & align_out);
+template
+cnn::expr::Expression NeuralLM::Forward<cnn::LogSoftmax,vector<Sentence> >(
+                                     const vector<Sentence>  & sent, int t, 
                                      const ExternCalculator * extern_calc,
                                      const std::vector<cnn::expr::Expression> & layer_in,
                                      std::vector<cnn::expr::Expression> & layer_out,

@@ -36,7 +36,7 @@ public:
 
     // Create a variable encoding the context
     virtual cnn::expr::Expression CreateContext(
-        const Sentence & sent, int loc,
+        // const Sentence & sent, int loc,
         const std::vector<cnn::expr::Expression> & state_in,
         cnn::ComputationGraph & cg,
         std::vector<cnn::expr::Expression> & align_out) const override;
