@@ -119,16 +119,15 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
       THROW_ERROR("Could not find src_in file " << vm["src_in"].as<std::string>());
   }
   
-  // TODO
-  // // Find the range
-  // pair<size_t,size_t> sent_range(0,std::numerical_limits<size_t>::max_value());
-  // if(vm["word_pen"].as<string>() != "") {
-  //   std::vector<string> range_str = Tokenize(vm["word_pen"].as<string>(), ",");
-  //   if(range_str.size() != 2)
-  //     THROW_ERROR("When specifying a range must be two comma-delimited numbers, but got: " << vm["word_pen"].as<string>());
-  //   sent_range.first = std::stoi(range_str[0]);
-  //   sent_range.second = std::stoi(range_str[1]);
-  // }
+  // Find the range
+  pair<size_t,size_t> sent_range(0,INT_MAX);
+  if(vm["sent_range"].as<string>() != "") {
+    std::vector<string> range_str = Tokenize(vm["sent_range"].as<string>(), ",");
+    if(range_str.size() != 2)
+      THROW_ERROR("When specifying a range must be two comma-delimited numbers, but got: " << vm["sent_range"].as<string>());
+    sent_range.first = std::stoi(range_str[0]);
+    sent_range.second = std::stoi(range_str[1]);
+  }
   
   // Create the decoder
   EnsembleDecoder decoder(encdecs, encatts, lms, pad);
@@ -144,11 +143,11 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
   vector<string> str_src, str_trg;
   Sentence align;
   int last_id = -1;
+  bool do_sent = false;
   if(operation == "ppl") {
     LLStats corpus_ll(vocab_size);
     Timer time;
     while(getline(cin, line)) { 
-      LLStats sent_ll(vocab_size);
       // Get the target, and if it exists, source sentences
       if(GlobalVars::verbose >= 2) { cerr << "SentLL trg: " << line << endl; }
       sent_trg = vocab_trg->ParseWords(line, pad, true);
@@ -158,18 +157,21 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
         if(GlobalVars::verbose >= 2) { cerr << "SentLL src: " << line << endl; }
         sent_src = vocab_src->ParseWords(line, 0, false);
       }
-      // If the encoder
-      decoder.CalcSentLL<Sentence,LLStats>(sent_src, sent_trg, sent_ll);
-      if(GlobalVars::verbose >= 1) { cout << "ll=" << sent_ll.CalcUnkLik() << " unk=" << sent_ll.unk_  << endl; }
-      corpus_ll += sent_ll;
+      last_id++;
+      // If we're inside the range, do it
+      if(last_id >= sent_range.first && last_id < sent_range.second) {
+        LLStats sent_ll(vocab_size);
+        decoder.CalcSentLL<Sentence,LLStats>(sent_src, sent_trg, sent_ll);
+        if(GlobalVars::verbose >= 1) { cout << "ll=" << sent_ll.CalcUnkLik() << " unk=" << sent_ll.unk_  << endl; }
+        corpus_ll += sent_ll;
+      }
     }
     double elapsed = time.Elapsed();
     cerr << "ppl=" << corpus_ll.CalcPPL() << ", unk=" << corpus_ll.unk_ << ", time=" << elapsed << " (" << corpus_ll.words_/elapsed << " w/s)" << endl;
   } else if(operation == "nbest") {
     Timer time;
-    int all_words = 0, curr_words = 0, last_id = -1;
+    int all_words = 0, curr_words = 0;
     std::vector<Sentence> sents_trg;
-    Sentence sent_src, sent_trg;
     while(getline(cin, line)) { 
       // Get the new sentence
       vector<string> columns = Tokenize(line, " ||| ");
@@ -193,34 +195,42 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
         if(!getline(*src_in, line))
           THROW_ERROR("Source and target files don't match");
         sent_src = vocab_src->ParseWords(line, 0, false);
-        double elapsed = time.Elapsed();
-        if(last_id >= 0) cerr << "sent=" << last_id << ", time=" << elapsed << " (" << all_words/elapsed << " w/s)" << endl;
+        if(do_sent) {
+          double elapsed = time.Elapsed();
+          cerr << "sent=" << last_id << ", time=" << elapsed << " (" << all_words/elapsed << " w/s)" << endl;
+        }
         last_id = my_id;
+        do_sent = (last_id >= sent_range.first && last_id < sent_range.second);
       }
       // Add to the data
-      sents_trg.push_back(sent_trg);
-      all_words += sent_trg.size()-pad;
-      curr_words += sent_trg.size()-pad;
+      if(do_sent) {
+        sents_trg.push_back(sent_trg);
+        all_words += sent_trg.size()-pad;
+        curr_words += sent_trg.size()-pad;
+      }
     }
-    vector<LLStats> sents_ll(sents_trg.size(), LLStats(vocab_size));
-    decoder.CalcSentLL<vector<Sentence>,vector<LLStats> >(sent_src, sents_trg, sents_ll);
-    for(auto & sent_ll : sents_ll)
-      cout << "ll=" << sent_ll.CalcUnkLik() << " unk=" << sent_ll.unk_  << endl;
-    double elapsed = time.Elapsed();
-    cerr << "sent=" << last_id << ", time=" << elapsed << " (" << all_words/elapsed << " w/s)" << endl;
-  } else if(operation == "gen") {
-    int max_sents = vm["sents"].as<int>();
-    if(max_sents == 0) max_sents = INT_MAX;
-    while(max_sents-- > 0) {
+    if(do_sent) {
+      vector<LLStats> sents_ll(sents_trg.size(), LLStats(vocab_size));
+      decoder.CalcSentLL<vector<Sentence>,vector<LLStats> >(sent_src, sents_trg, sents_ll);
+      for(auto & sent_ll : sents_ll)
+        cout << "ll=" << sent_ll.CalcUnkLik() << " unk=" << sent_ll.unk_  << endl;
+      double elapsed = time.Elapsed();
+      cerr << "sent=" << last_id << ", time=" << elapsed << " (" << all_words/elapsed << " w/s)" << endl;
+    }
+  } else if(operation == "gen" || operation == "samp") {
+    if(operation == "samp") THROW_ERROR("Sampling not implemented yet");
+    for(int i = 0; i < sent_range.second; ++i) {
       if(encdecs.size() + encatts.size() > 0) {
         if(!getline(*src_in, line)) break;
         str_src = vocab_src->SplitWords(line);
         sent_src = vocab_src->ParseWords(str_src, 0, false);
       }
-      sent_trg = decoder.Generate(sent_src, align);
-      str_trg = vocab_trg->ConvertWords(sent_trg, false);
-      MapWords(str_src, sent_trg, align, mapping, pad, str_trg);
-      cout << vocab_trg->PrintWords(str_trg) << endl;
+      if(i >= sent_range.first) {
+        sent_trg = decoder.Generate(sent_src, align);
+        str_trg = vocab_trg->ConvertWords(sent_trg, false);
+        MapWords(str_src, sent_trg, align, mapping, pad, str_trg);
+        cout << vocab_trg->PrintWords(str_trg) << endl;
+      }
     }
   } else {
     THROW_ERROR("Illegal operation " << operation);
@@ -321,9 +331,8 @@ int Lamtram::main(int argc, char** argv) {
     ("map_in", po::value<string>()->default_value(""), "A file containing a mapping table (\"src trg prob\" format)")
     ("minibatch_size", po::value<int>()->default_value(1), "Max size of a minibatch in words (may be exceeded if there are longer sentences)")
     ("models_in", po::value<string>()->default_value(""), "Model files in format \"{encdec,encatt,nlm}=filename\" with encdec for encoder-decoders, encatt for attentional models, nlm for language models. When multiple, separate by a pipe.")
-    ("operation", po::value<string>()->default_value("ppl"), "Operations (ppl: measure perplexity, nbest: score n-best list, gen: generate sentences)")
-    ("sents", po::value<int>()->default_value(0), "When generating, maximum of how many sentences (0 for no limit)")
-    ("sent_range", po::value<string>()->default_value(""), "Opetionally specify a comma-delimited range on how many sentences to process")
+    ("operation", po::value<string>()->default_value("ppl"), "Operations (ppl: measure perplexity, nbest: score n-best list, gen: generate most likely sentence, samp: sample sentences randomly)")
+    ("sent_range", po::value<string>()->default_value(""), "Optionally specify a comma-delimited range on how many sentences to process")
     ("size_limit", po::value<int>()->default_value(2000), "Limit on the size of sentences")
     ("src_in", po::value<string>()->default_value(""), "File to read the source from, if any")
     ("word_pen", po::value<float>()->default_value(0.0), "The \"word penalty\", a larger value favors longer sentences, shorter favors shorter")
@@ -340,7 +349,7 @@ int Lamtram::main(int argc, char** argv) {
   GlobalVars::verbose = vm["verbose"].as<int>();
 
   string operation = vm["operation"].as<std::string>();
-  if(operation == "ppl" || operation == "nbest" || operation == "gen") {
+  if(operation == "ppl" || operation == "nbest" || operation == "gen" || operation == "samp") {
     return SequenceOperation(vm);
   } else if(operation == "cls" || operation == "clseval") {
     return ClassifierOperation(vm);
