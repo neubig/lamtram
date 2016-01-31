@@ -127,13 +127,6 @@ Expression EnsembleDecoder::EnsembleSingleLogProb(const std::vector<Expression> 
   return ret;
 }
 
-inline int MaxLen(const Sentence & sent) { return sent.size(); }
-inline int MaxLen(const vector<Sentence> & sent) {
-  size_t val = 0;
-  for(const auto & s : sent) { val = max(val, s.size()); }
-  return val;
-}
-
 template <>
 void EnsembleDecoder::AddLik<Sentence,LLStats>(const Sentence & sent, const cnn::expr::Expression & exp, LLStats & ll) {
   ll.lik_ += as_scalar(exp.value());
@@ -153,6 +146,14 @@ void EnsembleDecoder::AddLik<vector<Sentence>,vector<LLStats> >(const vector<Sen
       if(sent[i][t] == unk_id_)
         ++ll[i].unk_;
   }
+}
+}
+
+inline int MaxLen(const Sentence & sent) { return sent.size(); }
+inline int MaxLen(const vector<Sentence> & sent) {
+  size_t val = 0;
+  for(const auto & s : sent) { val = max(val, s.size()); }
+  return val;
 }
 
 template <class Sent, class Stat>
