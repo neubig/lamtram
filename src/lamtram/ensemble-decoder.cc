@@ -49,6 +49,8 @@ Expression EnsembleDecoder::EnsembleLogProbs(const std::vector<Expression> & in,
   return log_softmax({i_average});
 }
 
+namespace lamtram {
+
 template<>
 Expression EnsembleDecoder::EnsembleSingleProb(const std::vector<Expression> & in, const Sentence & sent, int t, cnn::ComputationGraph & cg) {
   if(in.size() == 1)
@@ -68,6 +70,8 @@ Expression EnsembleDecoder::EnsembleSingleLogProb(const std::vector<Expression> 
   return pick({i_softmax}, sent[t]);
 }
 
+}
+
 
 inline void CreateWordsAndMask(const vector<Sentence> & sents, int t, bool inverse_mask, vector<unsigned> & words, vector<float> & mask) {
   words.resize(sents.size()); mask.resize(0);
@@ -82,6 +86,8 @@ inline void CreateWordsAndMask(const vector<Sentence> & sents, int t, bool inver
   }
 }
 
+
+namespace lamtram {
 template<>
 Expression EnsembleDecoder::EnsembleSingleProb(const std::vector<Expression> & in, const vector<Sentence> & sents, int t, cnn::ComputationGraph & cg) {
   vector<unsigned> words; vector<float> mask;
@@ -129,6 +135,7 @@ template <>
 void EnsembleDecoder::AddWords<vector<Sentence>,vector<LLStats> >(const vector<Sentence> & sent, vector<LLStats> & ll) {
   for(unsigned i = 0; i < sent.size(); i++)
     AddWords(sent[i], ll[i]);
+}
 }
 
 inline void AddLik(cnn::expr::Expression & exp, LLStats & ll) {
