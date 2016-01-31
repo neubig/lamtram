@@ -119,12 +119,24 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
       THROW_ERROR("Could not find src_in file " << vm["src_in"].as<std::string>());
   }
   
+  // TODO
+  // // Find the range
+  // pair<size_t,size_t> sent_range(0,std::numerical_limits<size_t>::max_value());
+  // if(vm["word_pen"].as<string>() != "") {
+  //   std::vector<string> range_str = Tokenize(vm["word_pen"].as<string>(), ",");
+  //   if(range_str.size() != 2)
+  //     THROW_ERROR("When specifying a range must be two comma-delimited numbers, but got: " << vm["word_pen"].as<string>());
+  //   sent_range.first = std::stoi(range_str[0]);
+  //   sent_range.second = std::stoi(range_str[1]);
+  // }
+  
   // Create the decoder
   EnsembleDecoder decoder(encdecs, encatts, lms, pad);
   decoder.SetWordPen(vm["word_pen"].as<float>());
   decoder.SetEnsembleOperation(vm["ensemble_op"].as<string>());
   decoder.SetBeamSize(vm["beam"].as<int>());
   decoder.SetSizeLimit(vm["size_limit"].as<int>());
+
   
   // Perform operation
   string operation = vm["operation"].as<std::string>();
@@ -302,18 +314,19 @@ int Lamtram::main(int argc, char** argv) {
   po::options_description desc("*** lamtram-train (by Graham Neubig) ***");
   desc.add_options()
     ("help", "Produce help message")
-    ("operation", po::value<string>()->default_value("ppl"), "Operations (ppl: measure perplexity, nbest: score n-best list, gen: generate sentences)")
-    ("models_in", po::value<string>()->default_value(""), "Model files in format \"{encdec,encatt,nlm}=filename\" with encdec for encoder-decoders, encatt for attentional models, nlm for language models. When multiple, separate by a pipe.")
-    ("src_in", po::value<string>()->default_value(""), "File to read the source from, if any")
-    ("map_in", po::value<string>()->default_value(""), "A file containing a mapping table (\"src trg prob\" format)")
-    ("word_pen", po::value<float>()->default_value(0.0), "The \"word penalty\", a larger value favors longer sentences, shorter favors shorter")
-    ("ensemble_op", po::value<string>()->default_value("sum"), "The operation to use when ensembling probabilities (sum/logsum)")
-    ("minibatch_size", po::value<int>()->default_value(1), "Max size of a minibatch in words (may be exceeded if there are longer sentences)")
-    ("beam", po::value<int>()->default_value(1), "Number of hypotheses to expand")
-    ("size_limit", po::value<int>()->default_value(2000), "Limit on the size of sentences")
-    ("sents", po::value<int>()->default_value(0), "When generating, maximum of how many sentences (0 for no limit)")
     ("verbose", po::value<int>()->default_value(0), "How much verbose output to print")
+    ("beam", po::value<int>()->default_value(1), "Number of hypotheses to expand")
     ("cnn_mem", po::value<int>()->default_value(512), "How much memory to allocate to cnn")
+    ("ensemble_op", po::value<string>()->default_value("sum"), "The operation to use when ensembling probabilities (sum/logsum)")
+    ("map_in", po::value<string>()->default_value(""), "A file containing a mapping table (\"src trg prob\" format)")
+    ("minibatch_size", po::value<int>()->default_value(1), "Max size of a minibatch in words (may be exceeded if there are longer sentences)")
+    ("models_in", po::value<string>()->default_value(""), "Model files in format \"{encdec,encatt,nlm}=filename\" with encdec for encoder-decoders, encatt for attentional models, nlm for language models. When multiple, separate by a pipe.")
+    ("operation", po::value<string>()->default_value("ppl"), "Operations (ppl: measure perplexity, nbest: score n-best list, gen: generate sentences)")
+    ("sents", po::value<int>()->default_value(0), "When generating, maximum of how many sentences (0 for no limit)")
+    ("sent_range", po::value<string>()->default_value(""), "Opetionally specify a comma-delimited range on how many sentences to process")
+    ("size_limit", po::value<int>()->default_value(2000), "Limit on the size of sentences")
+    ("src_in", po::value<string>()->default_value(""), "File to read the source from, if any")
+    ("word_pen", po::value<float>()->default_value(0.0), "The \"word penalty\", a larger value favors longer sentences, shorter favors shorter")
     ;
   po::variables_map vm;
   po::store(po::parse_command_line(argc, argv, desc), vm);
