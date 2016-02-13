@@ -15,7 +15,17 @@ LIBCPP = \
     classifier.cc \
     builder-factory.cc \
     model-utils.cc \
-    vocabulary.cc
+    vocabulary.cc \
+    counts.cc \
+    input-file-stream.cc \
+    dict-utils.cc \
+    dist-factory.cc \
+    dist-ngram.cc \
+    dist-one-hot.cc \
+    dist-train.cc \
+    dist-uniform.cc \
+    dist-unk.cc
+
 
 AM_CXXFLAGS = $(BOOST_CPPFLAGS) $(EIGEN_CPPFLAGS) $(CNN_CPPFLAGS) $(OPENMP_CXXFLAGS) -I$(srcdir)/..
 
@@ -32,12 +42,16 @@ LDADD=liblamtram.la \
     $(BOOST_SYSTEM_LIB) \
     $(BOOST_PROGRAM_OPTIONS_LIB) \
     $(BOOST_SERIALIZATION_LIB) \
+    $(BOOST_IOSTREAMS_LIB) \
     $(OPENMP_CXXFLAGS)
 
-bin_PROGRAMS = lamtram-train lamtram
+bin_PROGRAMS = lamtram-train lamtram dist-train
 
 lamtram_train_SOURCES = lamtram-train-main.cc
 lamtram_train_LDADD = $(LDADD)
 
 lamtram_SOURCES = lamtram-main.cc
 lamtram_LDADD = $(LDADD)
+
+dist_train_SOURCES = dist-train-main.cc
+dist_train_LDADD = $(LDADD)
