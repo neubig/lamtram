@@ -36,11 +36,11 @@ void EncoderDecoder::NewGraph(cnn::ComputationGraph & cg) {
 }
 
 std::vector<cnn::expr::Expression> EncoderDecoder::GetEncodedState(
-                                    const Sentence & sent_src, cnn::ComputationGraph & cg) {
+                                    const Sentence & sent_src, bool train, cnn::ComputationGraph & cg) {
     // Perform encoding with each encoder
     vector<cnn::expr::Expression> inputs;
     for(auto & enc : encoders_) {
-        enc->BuildSentGraph(sent_src, cg);
+        enc->BuildSentGraph(sent_src, train, cg);
         for(auto & id : enc->GetFinalHiddenLayers())
             inputs.push_back(id);
     }
@@ -60,16 +60,17 @@ std::vector<cnn::expr::Expression> EncoderDecoder::GetEncodedState(
 }
 
 cnn::expr::Expression EncoderDecoder::BuildSentGraph(const Sentence & sent_src, const Sentence & sent_trg,
-                                                  cnn::ComputationGraph & cg, LLStats & ll) {
+                                                     bool train,
+                                                     cnn::ComputationGraph & cg, LLStats & ll) {
     if(&cg != curr_graph_)
         THROW_ERROR("Initialized computation graph and passed comptuation graph don't match."); 
     // Perform encoding with each encoder
-    vector<cnn::expr::Expression> decoder_in = GetEncodedState(sent_src, cg);
-    return decoder_->BuildSentGraph(sent_trg, NULL, decoder_in, cg, ll);
+    vector<cnn::expr::Expression> decoder_in = GetEncodedState(sent_src, train, cg);
+    return decoder_->BuildSentGraph(sent_trg, NULL, decoder_in, train, cg, ll);
 }
 
 
-EncoderDecoder* EncoderDecoder::Read(std::istream & in, cnn::Model & model) {
+EncoderDecoder* EncoderDecoder::Read(const VocabularyPtr & vocab_src, const VocabularyPtr & vocab_trg, std::istream & in, cnn::Model & model) {
     int num_encoders;
     string version_id, line;
     if(!getline(in, line))
@@ -81,7 +82,7 @@ EncoderDecoder* EncoderDecoder::Read(std::istream & in, cnn::Model & model) {
     vector<LinearEncoderPtr> encoders;
     while(num_encoders-- > 0)
         encoders.push_back(LinearEncoderPtr(LinearEncoder::Read(in, model)));
-    NeuralLMPtr decoder(NeuralLM::Read(in, model));
+    NeuralLMPtr decoder(NeuralLM::Read(vocab_trg, in, model));
     return new EncoderDecoder(encoders, decoder, model);
 }
 void EncoderDecoder::Write(std::ostream & out) {

@@ -18,6 +18,10 @@ LIBCPP = \
     vocabulary.cc \
     counts.cc \
     input-file-stream.cc \
+    softmax-full.cc \
+    softmax-mod.cc \
+    softmax-class.cc \
+    softmax-factory.cc \
     dict-utils.cc \
     dist-factory.cc \
     dist-ngram.cc \

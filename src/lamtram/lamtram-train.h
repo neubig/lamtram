@@ -53,6 +53,7 @@ protected:
     int epochs_, context_, eval_every_;
     std::string model_in_file_, model_out_file_;
     std::string train_file_trg_, dev_file_trg_, train_file_src_, dev_file_src_;
+    std::string softmax_sig_;
 
 };
 

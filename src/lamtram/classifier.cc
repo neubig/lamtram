@@ -28,6 +28,7 @@ Classifier::Classifier(int input_size, int label_size,
 }
 
 cnn::expr::Expression Classifier::BuildGraph(const cnn::expr::Expression & input, int label,
+                                             bool train,
                                              cnn::ComputationGraph & cg) const {
     if(&cg != curr_graph_)
         THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");

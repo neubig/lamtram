@@ -32,9 +32,9 @@ vector<vector<Expression> > EnsembleDecoder::GetInitialStates(const Sentence & s
   vector<vector<Expression> > last_state(encdecs_.size() + encatts_.size() + lms_.size());
   int id = 0;
   for(auto & tm : encdecs_)
-    last_state[id++] = tm->GetEncodedState(sent_src, cg);
+    last_state[id++] = tm->GetEncodedState(sent_src, false, cg);
   for(int i : boost::irange(0, (int)encatts_.size()))
-    externs_[id + i]->InitializeSentence(sent_src, cg);
+    externs_[id + i]->InitializeSentence(sent_src, false, cg);
   return last_state;
 }
 
@@ -170,12 +170,8 @@ void EnsembleDecoder::CalcSentLL(const Sentence & sent_src, const Sent & sent_tr
   for(int t : boost::irange(pad_, max_len)) {
     // Perform the forward step on all models
     vector<Expression> i_sms;
-    for(int j : boost::irange(0, (int)lms_.size())) {
-      if(ensemble_operation_ == "sum")
-        i_sms.push_back(lms_[j]->Forward<cnn::Softmax,Sent>(sent_trg, t, externs_[j].get(), last_state[j], next_state[j], cg, aligns));
-      else
-        i_sms.push_back(lms_[j]->Forward<cnn::LogSoftmax,Sent>(sent_trg, t, externs_[j].get(), last_state[j], next_state[j], cg, aligns));
-    }
+    for(int j : boost::irange(0, (int)lms_.size()))
+      i_sms.push_back(lms_[j]->Forward<Sent>(sent_trg, t, externs_[j].get(), ensemble_operation_ == "logsum", last_state[j], next_state[j], cg, aligns));
     // Ensemble the probabilities and calculate the likelihood
     Expression i_logprob;
     if(ensemble_operation_ == "sum") {
@@ -230,12 +226,8 @@ Sentence EnsembleDecoder::Generate(const Sentence & sent_src, Sentence & align) 
       if(sent_len != pad_ && *sent.rbegin() == 0) continue;
       // Perform the forward step on all models
       vector<Expression> i_softmaxes, i_aligns;
-      for(int j : boost::irange(0, (int)lms_.size())) {
-        if(ensemble_operation_ == "sum")
-          i_softmaxes.push_back( lms_[j]->Forward<cnn::Softmax>(sent, sent_len, externs_[j].get(), curr_hyp->GetStates()[j], last_states[hypid][j], cg, i_aligns) );
-        else
-          i_softmaxes.push_back( lms_[j]->Forward<cnn::LogSoftmax>(sent, sent_len, externs_[j].get(), curr_hyp->GetStates()[j], last_states[hypid][j], cg, i_aligns) );
-      }
+      for(int j : boost::irange(0, (int)lms_.size()))
+        i_softmaxes.push_back( lms_[j]->Forward(sent, sent_len, externs_[j].get(), ensemble_operation_ == "logsum", curr_hyp->GetStates()[j], last_states[hypid][j], cg, i_aligns) );
       // Ensemble and calculate the likelihood
       Expression i_softmax, i_logprob;
       if(ensemble_operation_ == "sum") {

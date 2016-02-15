@@ -17,12 +17,13 @@ public:
     ExternCalculator(int context_size) : context_size_(context_size) { }
     virtual ~ExternCalculator() { }
 
-    virtual void InitializeSentence(const Sentence & sent, cnn::ComputationGraph & cg) { }
+    virtual void InitializeSentence(const Sentence & sent, bool train, cnn::ComputationGraph & cg) { }
 
     // Create a variable encoding the context
     virtual cnn::expr::Expression CreateContext(
         // const Sentence & sent, int loc,
         const std::vector<cnn::expr::Expression> & state_in,
+        bool train,
         cnn::ComputationGraph & cg,
         std::vector<cnn::expr::Expression> & align_out) const = 0;
 

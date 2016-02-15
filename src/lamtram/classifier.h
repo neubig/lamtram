@@ -18,6 +18,7 @@ public:
 
     // Calculate the log likelihood
     cnn::expr::Expression BuildGraph(const cnn::expr::Expression & input, int label,
+                                     bool train,
                                      cnn::ComputationGraph & cg) const;
 
     // Calculate the probabilities from the model, or predict

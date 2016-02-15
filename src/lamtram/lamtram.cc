@@ -71,15 +71,15 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
     shared_ptr<cnn::Model> mod_temp;
     // Read in the model
     if(type == "encdec") {
-      EncoderDecoder * tm = ModelUtils::LoadModel<EncoderDecoder>(file, mod_temp, vocab_src_temp, vocab_trg_temp);
+      EncoderDecoder * tm = ModelUtils::LoadBilingualModel<EncoderDecoder>(file, mod_temp, vocab_src_temp, vocab_trg_temp);
       encdecs.push_back(shared_ptr<EncoderDecoder>(tm));
       pad = max(pad, tm->GetDecoder().GetNgramContext());
     } else if(type == "encatt") {
-      EncoderAttentional * tm = ModelUtils::LoadModel<EncoderAttentional>(file, mod_temp, vocab_src_temp, vocab_trg_temp);
+      EncoderAttentional * tm = ModelUtils::LoadBilingualModel<EncoderAttentional>(file, mod_temp, vocab_src_temp, vocab_trg_temp);
       encatts.push_back(shared_ptr<EncoderAttentional>(tm));
       pad = max(pad, tm->GetDecoder().GetNgramContext());
     } else if(type == "nlm") {
-      NeuralLM * lm = ModelUtils::LoadModel<NeuralLM>(file, mod_temp, vocab_src_temp, vocab_trg_temp);
+      NeuralLM * lm = ModelUtils::LoadMonolingualModel<NeuralLM>(file, mod_temp, vocab_trg_temp);
       lms.push_back(shared_ptr<NeuralLM>(lm));
       pad = max(pad, lm->GetNgramContext());
     }
@@ -260,7 +260,7 @@ int Lamtram::ClassifierOperation(const boost::program_options::variables_map & v
     VocabularyPtr vocab_src_temp, vocab_trg_temp;
     shared_ptr<cnn::Model> mod_temp;
     // Read in the model
-    EncoderClassifier * tm = ModelUtils::LoadModel<EncoderClassifier>(file, mod_temp, vocab_src_temp, vocab_trg_temp);
+    EncoderClassifier * tm = ModelUtils::LoadBilingualModel<EncoderClassifier>(file, mod_temp, vocab_src_temp, vocab_trg_temp);
     encclss.push_back(shared_ptr<EncoderClassifier>(tm));
     // Sanity check
     if(vocab_trg.get() && *vocab_trg_temp != *vocab_trg)

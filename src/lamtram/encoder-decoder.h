@@ -31,12 +31,13 @@ public:
 
     // Build the computation graph for the sentence including loss
     cnn::expr::Expression BuildSentGraph(const Sentence & sent_src, const Sentence & sent_trg,
-                                      cnn::ComputationGraph & cg, LLStats & ll);
+                                         bool train,
+                                         cnn::ComputationGraph & cg, LLStats & ll);
     std::vector<cnn::expr::Expression> GetEncodedState(
-                                        const Sentence & sent_src, cnn::ComputationGraph & cg);
+                                        const Sentence & sent_src, bool train, cnn::ComputationGraph & cg);
 
     // Reading/writing functions
-    static EncoderDecoder* Read(std::istream & in, cnn::Model & model);
+    static EncoderDecoder* Read(const VocabularyPtr & vocab_src, const VocabularyPtr & vocab_trg, std::istream & in, cnn::Model & model);
     void Write(std::ostream & out);
 
     // Index the parameters in a computation graph

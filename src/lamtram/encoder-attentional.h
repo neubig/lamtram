@@ -32,12 +32,13 @@ public:
     void NewGraph(cnn::ComputationGraph & cg);
 
     // Initialize the sentence with one or more sets of encoded input
-    void InitializeSentence(const Sentence & sent, cnn::ComputationGraph & cg) override;
+    void InitializeSentence(const Sentence & sent, bool train, cnn::ComputationGraph & cg) override;
 
     // Create a variable encoding the context
     virtual cnn::expr::Expression CreateContext(
         // const Sentence & sent, int loc,
         const std::vector<cnn::expr::Expression> & state_in,
+        bool train,
         cnn::ComputationGraph & cg,
         std::vector<cnn::expr::Expression> & align_out) const override;
 
@@ -95,12 +96,13 @@ public:
 
     // Build the computation graph for the sentence including loss
     cnn::expr::Expression BuildSentGraph(const Sentence & sent_src, const Sentence & sent_trg,
-                                      cnn::ComputationGraph & cg, LLStats & ll);
+                                         bool train,
+                                         cnn::ComputationGraph & cg, LLStats & ll);
     std::vector<cnn::expr::Expression> GetEncodedState(
                                     const Sentence & sent_src, cnn::ComputationGraph & cg);
 
     // Reading/writing functions
-    static EncoderAttentional* Read(std::istream & in, cnn::Model & model);
+    static EncoderAttentional* Read(const VocabularyPtr & vocab_src, const VocabularyPtr & vocab_trg, std::istream & in, cnn::Model & model);
     void Write(std::ostream & out);
 
     // Index the parameters in a computation graph
