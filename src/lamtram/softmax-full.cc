@@ -17,18 +17,23 @@ void SoftmaxFull::NewGraph(cnn::ComputationGraph & cg) {
 
 // Calculate training loss for one word
 cnn::expr::Expression SoftmaxFull::CalcLoss(cnn::expr::Expression & in, WordId word, bool train) {
-  THROW_ERROR("SoftmaxFull::CalcLoss Not implemented yet");
+  Expression score = affine_transform({i_sm_b_, i_sm_W_, in});
+  return pickneglogsoftmax(score, word);
 }
 // Calculate training loss for multiple words
 cnn::expr::Expression SoftmaxFull::CalcLoss(cnn::expr::Expression & in, const std::vector<WordId> & word, bool train) {
-  THROW_ERROR("SoftmaxFull::CalcLoss Not implemented yet");
+  Expression score = affine_transform({i_sm_b_, i_sm_W_, in});
+  std::vector<unsigned> wvec(word.size());
+  for(size_t i = 0; i < word.size(); i++)
+    wvec[i] = word[i];
+  return pickneglogsoftmax(score, wvec);
 }
 
 // Calculate the full probability distribution
 cnn::expr::Expression SoftmaxFull::CalcProbability(cnn::expr::Expression & in) {
-  THROW_ERROR("SoftmaxFull::CalcLogProbability Not implemented yet");
+  return softmax(affine_transform({i_sm_b_, i_sm_W_, in}));
 }
 cnn::expr::Expression SoftmaxFull::CalcLogProbability(cnn::expr::Expression & in) {
-  THROW_ERROR("SoftmaxFull::CalcLogProbability Not implemented yet");
+  return log_softmax(affine_transform({i_sm_b_, i_sm_W_, in}));
 }
 
