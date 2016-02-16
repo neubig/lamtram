@@ -4,6 +4,7 @@
 #include <string>
 #include <memory>
 #include <lamtram/sentence.h>
+#include <lamtram/dict-utils.h>
 
 namespace cnn {
   class Dict;
@@ -15,8 +16,6 @@ namespace lamtram {
 // * first is a dense vector of distributions
 // * second is a sparse vector of distributions
 // typedef std::pair<std::vector<float>, std::vector<std::pair<int, float> > > DistTarget;
-
-typedef std::shared_ptr<cnn::Dict> DictPtr;
 
 // A base class implementing the functions necessary for calculation
 class DistBase {

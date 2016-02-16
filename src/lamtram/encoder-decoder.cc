@@ -1,5 +1,4 @@
 #include <lamtram/encoder-decoder.h>
-#include <lamtram/vocabulary.h>
 #include <lamtram/macros.h>
 #include <lamtram/builder-factory.h>
 #include <cnn/model.h>
@@ -70,7 +69,7 @@ cnn::expr::Expression EncoderDecoder::BuildSentGraph(const Sentence & sent_src, 
 }
 
 
-EncoderDecoder* EncoderDecoder::Read(const VocabularyPtr & vocab_src, const VocabularyPtr & vocab_trg, std::istream & in, cnn::Model & model) {
+EncoderDecoder* EncoderDecoder::Read(const DictPtr & vocab_src, const DictPtr & vocab_trg, std::istream & in, cnn::Model & model) {
     int num_encoders;
     string version_id, line;
     if(!getline(in, line))

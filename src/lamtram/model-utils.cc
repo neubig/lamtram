@@ -6,6 +6,7 @@
 #include <lamtram/encoder-classifier.h>
 #include <lamtram/neural-lm.h>
 #include <cnn/model.h>
+#include <cnn/dict.h>
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/archive/text_oarchive.hpp>
 #include <fstream>
@@ -29,13 +30,13 @@ void ModelUtils::ReadModelText(istream & in, cnn::Model & mod) {
 template <class ModelType>
 ModelType* ModelUtils::LoadBilingualModel(std::istream & model_in,
                                           std::shared_ptr<cnn::Model> & mod,
-                                          VocabularyPtr & vocab_src, VocabularyPtr & vocab_trg) {
-    vocab_src.reset(Vocabulary::Read(model_in));
-    vocab_src->SetFreeze(true);
-    vocab_src->SetDefault("<unk>");
-    vocab_trg.reset(Vocabulary::Read(model_in));
-    vocab_trg->SetFreeze(true);
-    vocab_trg->SetDefault("<unk>");
+                                          DictPtr & vocab_src, DictPtr & vocab_trg) {
+    vocab_src.reset(ReadDict(model_in));
+    vocab_src->Freeze();
+    vocab_src->SetUnk("<unk>");
+    vocab_trg.reset(ReadDict(model_in));
+    vocab_trg->Freeze();
+    vocab_trg->SetUnk("<unk>");
     mod.reset(new cnn::Model);
     ModelType* ret = ModelType::Read(vocab_src, vocab_trg, model_in, *mod);
     ModelUtils::ReadModelText(model_in, *mod);
@@ -48,7 +49,7 @@ ModelType* ModelUtils::LoadBilingualModel(std::istream & model_in,
 template <class ModelType>
 ModelType* ModelUtils::LoadBilingualModel(const std::string & file,
                                           std::shared_ptr<cnn::Model> & mod,
-                                          VocabularyPtr & vocab_src, VocabularyPtr & vocab_trg) {
+                                          DictPtr & vocab_src, DictPtr & vocab_trg) {
     ifstream model_in(file);
     if(!model_in) THROW_ERROR("Could not open model file " << file);
     return ModelUtils::LoadBilingualModel<ModelType>(model_in, mod, vocab_src, vocab_trg);
@@ -60,10 +61,10 @@ ModelType* ModelUtils::LoadBilingualModel(const std::string & file,
 template <class ModelType>
 ModelType* ModelUtils::LoadMonolingualModel(std::istream & model_in,
                                           std::shared_ptr<cnn::Model> & mod,
-                                          VocabularyPtr & vocab_trg) {
-    vocab_trg.reset(Vocabulary::Read(model_in));
-    vocab_trg->SetFreeze(true);
-    vocab_trg->SetDefault("<unk>");
+                                          DictPtr & vocab_trg) {
+    vocab_trg.reset(ReadDict(model_in));
+    vocab_trg->Freeze();
+    vocab_trg->SetUnk("<unk>");
     mod.reset(new cnn::Model);
     ModelType* ret = ModelType::Read(vocab_trg, model_in, *mod);
     ModelUtils::ReadModelText(model_in, *mod);
@@ -76,7 +77,7 @@ ModelType* ModelUtils::LoadMonolingualModel(std::istream & model_in,
 template <class ModelType>
 ModelType* ModelUtils::LoadMonolingualModel(const std::string & file,
                                           std::shared_ptr<cnn::Model> & mod,
-                                          VocabularyPtr & vocab_trg) {
+                                          DictPtr & vocab_trg) {
     ifstream model_in(file);
     if(!model_in) THROW_ERROR("Could not open model file " << file);
     return ModelUtils::LoadMonolingualModel<ModelType>(model_in, mod, vocab_trg);
@@ -86,32 +87,32 @@ ModelType* ModelUtils::LoadMonolingualModel(const std::string & file,
 template
 EncoderDecoder* ModelUtils::LoadBilingualModel<EncoderDecoder>(std::istream & model_in,
                                                       std::shared_ptr<cnn::Model> & mod,
-                                                      VocabularyPtr & vocab_src, VocabularyPtr & vocab_trg);
+                                                      DictPtr & vocab_src, DictPtr & vocab_trg);
 template
 EncoderAttentional* ModelUtils::LoadBilingualModel<EncoderAttentional>(std::istream & model_in,
                                                               std::shared_ptr<cnn::Model> & mod,
-                                                              VocabularyPtr & vocab_src, VocabularyPtr & vocab_trg);
+                                                              DictPtr & vocab_src, DictPtr & vocab_trg);
 template
 EncoderClassifier* ModelUtils::LoadBilingualModel<EncoderClassifier>(std::istream & model_in,
                                                             std::shared_ptr<cnn::Model> & mod,
-                                                            VocabularyPtr & vocab_src, VocabularyPtr & vocab_trg);
+                                                            DictPtr & vocab_src, DictPtr & vocab_trg);
 template
 NeuralLM* ModelUtils::LoadMonolingualModel<NeuralLM>(std::istream & model_in,
                                           std::shared_ptr<cnn::Model> & mod,
-                                          VocabularyPtr & vocab_trg);
+                                          DictPtr & vocab_trg);
 template
 EncoderDecoder* ModelUtils::LoadBilingualModel<EncoderDecoder>(const std::string & infile,
                                                       std::shared_ptr<cnn::Model> & mod,
-                                                      VocabularyPtr & vocab_src, VocabularyPtr & vocab_trg);
+                                                      DictPtr & vocab_src, DictPtr & vocab_trg);
 template
 EncoderAttentional* ModelUtils::LoadBilingualModel<EncoderAttentional>(const std::string & infile,
                                                               std::shared_ptr<cnn::Model> & mod,
-                                                              VocabularyPtr & vocab_src, VocabularyPtr & vocab_trg);
+                                                              DictPtr & vocab_src, DictPtr & vocab_trg);
 template
 EncoderClassifier* ModelUtils::LoadBilingualModel<EncoderClassifier>(const std::string & infile,
                                                             std::shared_ptr<cnn::Model> & mod,
-                                                            VocabularyPtr & vocab_src, VocabularyPtr & vocab_trg);
+                                                            DictPtr & vocab_src, DictPtr & vocab_trg);
 template
 NeuralLM* ModelUtils::LoadMonolingualModel<NeuralLM>(const std::string & infile,
                                                      std::shared_ptr<cnn::Model> & mod,
-                                                     VocabularyPtr & vocab_trg);
+                                                     DictPtr & vocab_trg);

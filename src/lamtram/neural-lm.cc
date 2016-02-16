@@ -1,9 +1,9 @@
 #include <lamtram/neural-lm.h>
-#include <lamtram/vocabulary.h>
 #include <lamtram/macros.h>
 #include <lamtram/builder-factory.h>
 #include <lamtram/extern-calculator.h>
 #include <lamtram/softmax-factory.h>
+#include <cnn/dict.h>
 #include <cnn/model.h>
 #include <cnn/nodes.h>
 #include <cnn/rnn.h>
@@ -14,7 +14,7 @@
 using namespace std;
 using namespace lamtram;
 
-NeuralLM::NeuralLM(const VocabularyPtr & vocab, int ngram_context, int extern_context, int wordrep_size,
+NeuralLM::NeuralLM(const DictPtr & vocab, int ngram_context, int extern_context, int wordrep_size,
                    const string & hidden_spec, int unk_id, const std::string & softmax_sig,
                    cnn::Model & model) :
             vocab_(vocab), ngram_context_(ngram_context),
@@ -143,7 +143,7 @@ cnn::expr::Expression NeuralLM::Forward<vector<Sentence> >(
                                      cnn::ComputationGraph & cg,
                                      std::vector<cnn::expr::Expression> & align_out);
 
-NeuralLM* NeuralLM::Read(const VocabularyPtr & vocab, std::istream & in, cnn::Model & model) {
+NeuralLM* NeuralLM::Read(const DictPtr & vocab, std::istream & in, cnn::Model & model) {
     int vocab_size, ngram_context, extern_context = 0, wordrep_size, unk_id;
     string version_id, hidden_spec, line, softmax_sig;
     if(!getline(in, line))
@@ -165,3 +165,6 @@ NeuralLM* NeuralLM::Read(const VocabularyPtr & vocab, std::istream & in, cnn::Mo
 void NeuralLM::Write(std::ostream & out) {
     out << "nlm_004 " << vocab_->size() << " " << ngram_context_ << " " << extern_context_ << " " << wordrep_size_ << " " << hidden_spec_ << " " << unk_id_ << " " << softmax_->GetSig() << endl;
 }
+
+int NeuralLM::GetVocabSize() const { return vocab_->size(); }
+

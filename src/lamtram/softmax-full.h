@@ -13,7 +13,7 @@ namespace lamtram {
 class SoftmaxFull : public SoftmaxBase {
 
 public:
-  SoftmaxFull(const std::string & sig, int input_size, const VocabularyPtr & vocab, cnn::Model & mod);
+  SoftmaxFull(const std::string & sig, int input_size, const DictPtr & vocab, cnn::Model & mod);
   ~SoftmaxFull() { };
 
   // Create a new graph

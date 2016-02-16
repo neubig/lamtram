@@ -1,6 +1,5 @@
 #pragma once
 
-#include <lamtram/vocabulary.h>
 #include <lamtram/sentence.h>
 #include <cnn/tensor.h>
 #include <boost/program_options.hpp>
@@ -9,11 +8,11 @@
 namespace cnn {
 struct Trainer;
 class Model;
+class Dict;
 }
 
 namespace lamtram {
 
-class Vocabulary;
 
 class LamtramTrain {
 
@@ -31,8 +30,8 @@ public:
                            const std::vector<OutputType> & train_trg,
                            const std::vector<Sentence> & dev_src,
                            const std::vector<OutputType> & dev_trg,
-                           const Vocabulary & vocab_src,
-                           const Vocabulary & vocab_trg,
+                           const cnn::Dict & vocab_src,
+                           const cnn::Dict & vocab_trg,
                            cnn::Model & mod,
                            ModelType & encdec);
 
@@ -41,8 +40,8 @@ public:
     TrainerPtr GetTrainer(const std::string & trainer_id, const cnn::real learning_rate, cnn::Model & model);
 
     // Load in the training data
-    void LoadFile(const std::string filename, int pad, bool add_last, Vocabulary & vocab, std::vector<Sentence> & sents);
-    void LoadLabels(const std::string filename, Vocabulary & vocab, std::vector<int> & labs);
+    void LoadFile(const std::string filename, bool add_last, cnn::Dict & vocab, std::vector<Sentence> & sents);
+    void LoadLabels(const std::string filename, cnn::Dict & vocab, std::vector<int> & labs);
 
 protected:
 

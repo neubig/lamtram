@@ -11,7 +11,7 @@
 using namespace std;
 using namespace lamtram;
 
-SoftmaxPtr SoftmaxFactory::CreateSoftmax(const std::string & sig, int input_size, const VocabularyPtr & vocab, cnn::Model & mod) {
+SoftmaxPtr SoftmaxFactory::CreateSoftmax(const std::string & sig, int input_size, const DictPtr & vocab, cnn::Model & mod) {
   if(sig == "full") {
     return SoftmaxPtr(new SoftmaxFull(sig, input_size, vocab, mod));
   } else if(sig.substr(0,5) == "class") {

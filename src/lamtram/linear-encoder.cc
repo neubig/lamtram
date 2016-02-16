@@ -1,5 +1,4 @@
 #include <lamtram/linear-encoder.h>
-#include <lamtram/vocabulary.h>
 #include <lamtram/macros.h>
 #include <lamtram/builder-factory.h>
 #include <cnn/model.h>

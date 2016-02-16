@@ -87,7 +87,7 @@ void Counts::calc_word_dists(const Sentence & ngram,
 
 void Counts::write(DictPtr dict, std::ostream & out) const {
   for(const auto & cnt : cnts_) {
-    out << PrintSentence(cnt.first, dict) << '\t';
+    out << PrintWords(*dict, cnt.first) << '\t';
     std::string prev = "";
     assert(cnt.second.get() != NULL);
     for(const auto & kv : cnt.second->cnts) {
@@ -106,7 +106,7 @@ void Counts::read(DictPtr dict, std::istream & in) {
     if(line == "") break;
     boost::split(strs, line, boost::is_any_of("\t"));
     assert(strs.size() == 2);
-    ContextCountsPtr & ptr = cnts_[ParseSentence(strs[0], dict, false)];
+    ContextCountsPtr & ptr = cnts_[ParseWords(*dict, strs[0], false)];
     assert(ptr.get() == NULL);
     ptr.reset(new_counts_ptr());
     boost::split(words, strs[1], boost::is_any_of(" "));

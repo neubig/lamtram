@@ -1,11 +1,12 @@
 #include <lamtram/softmax-full.h>
 #include <lamtram/macros.h>
 #include <cnn/expr.h>
+#include <cnn/dict.h>
 
 using namespace lamtram;
 using namespace cnn::expr;
 
-SoftmaxFull::SoftmaxFull(const std::string & sig, int input_size, const VocabularyPtr & vocab, cnn::Model & mod) : SoftmaxBase(sig,input_size,vocab,mod) {
+SoftmaxFull::SoftmaxFull(const std::string & sig, int input_size, const DictPtr & vocab, cnn::Model & mod) : SoftmaxBase(sig,input_size,vocab,mod) {
   p_sm_W_ = mod.add_parameters({(unsigned int)vocab->size(), (unsigned int)input_size});
   p_sm_b_ = mod.add_parameters({(unsigned int)vocab->size()});  
 }

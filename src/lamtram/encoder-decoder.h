@@ -37,7 +37,7 @@ public:
                                         const Sentence & sent_src, bool train, cnn::ComputationGraph & cg);
 
     // Reading/writing functions
-    static EncoderDecoder* Read(const VocabularyPtr & vocab_src, const VocabularyPtr & vocab_trg, std::istream & in, cnn::Model & model);
+    static EncoderDecoder* Read(const DictPtr & vocab_src, const DictPtr & vocab_trg, std::istream & in, cnn::Model & model);
     void Write(std::ostream & out);
 
     // Index the parameters in a computation graph

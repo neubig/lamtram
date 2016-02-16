@@ -102,7 +102,7 @@ public:
                                     const Sentence & sent_src, cnn::ComputationGraph & cg);
 
     // Reading/writing functions
-    static EncoderAttentional* Read(const VocabularyPtr & vocab_src, const VocabularyPtr & vocab_trg, std::istream & in, cnn::Model & model);
+    static EncoderAttentional* Read(const DictPtr & vocab_src, const DictPtr & vocab_trg, std::istream & in, cnn::Model & model);
     void Write(std::ostream & out);
 
     // Index the parameters in a computation graph

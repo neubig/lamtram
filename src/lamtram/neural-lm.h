@@ -4,7 +4,7 @@
 #include <lamtram/ll-stats.h>
 #include <lamtram/builder-factory.h>
 #include <lamtram/softmax-base.h>
-#include <lamtram/vocabulary.h>
+#include <lamtram/dict-utils.h>
 #include <cnn/cnn.h>
 #include <cnn/expr.h>
 #include <vector>
@@ -37,7 +37,7 @@ public:
     //   unk_id: The ID of unknown words.
     //   softmax_sig: A signature indicating the type of softmax to use
     //   model: The model in which to store the parameters.
-    NeuralLM(const VocabularyPtr & vocab, int ngram_context, int extern_context,
+    NeuralLM(const DictPtr & vocab, int ngram_context, int extern_context,
              int wordrep_size, const std::string & hidden_spec, int unk_id,
              const std::string & softmax_sig,
              cnn::Model & model);
@@ -80,7 +80,7 @@ public:
     void NewGraph(cnn::ComputationGraph & cg);
 
     // Reading/writing functions
-    static NeuralLM* Read(const VocabularyPtr & vocab, std::istream & in, cnn::Model & model);
+    static NeuralLM* Read(const DictPtr & vocab, std::istream & in, cnn::Model & model);
     void Write(std::ostream & out);
 
     // Information functions
@@ -88,7 +88,7 @@ public:
     static std::string ModelID() { return "nlm"; }
 
     // Accessors
-    int GetVocabSize() const { return vocab_->size(); }
+    int GetVocabSize() const;
     int GetNgramContext() const { return ngram_context_; }
     int GetExternalContext() const { return extern_context_; }
     int GetWordrepSize() const { return wordrep_size_; }
@@ -99,7 +99,7 @@ public:
 protected:
 
     // The vocabulary
-    VocabularyPtr vocab_;
+    DictPtr vocab_;
 
     // Variables
     int ngram_context_, extern_context_, wordrep_size_, unk_id_;

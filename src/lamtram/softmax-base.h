@@ -1,7 +1,7 @@
 #pragma once
 
 #include <lamtram/sentence.h>
-#include <lamtram/vocabulary.h>
+#include <lamtram/dict-utils.h>
 #include <memory>
 
 namespace cnn { 
@@ -18,7 +18,7 @@ namespace lamtram {
 class SoftmaxBase {
 
 public:
-  SoftmaxBase(const std::string & sig, int input_size, const VocabularyPtr & vocab, cnn::Model & mod) : sig_(sig), input_size_(input_size), vocab_(vocab) { };
+  SoftmaxBase(const std::string & sig, int input_size, const DictPtr & vocab, cnn::Model & mod) : sig_(sig), input_size_(input_size), vocab_(vocab) { };
   ~SoftmaxBase() { };
 
   // Create a new graph
@@ -40,7 +40,7 @@ public:
 protected:
   std::string sig_;
   int input_size_;
-  VocabularyPtr vocab_;
+  DictPtr vocab_;
 
 };
 

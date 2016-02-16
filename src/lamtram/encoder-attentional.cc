@@ -1,5 +1,4 @@
 #include <lamtram/encoder-attentional.h>
-#include <lamtram/vocabulary.h>
 #include <lamtram/macros.h>
 #include <lamtram/builder-factory.h>
 #include <cnn/model.h>
@@ -152,7 +151,7 @@ cnn::expr::Expression EncoderAttentional::BuildSentGraph(
 }
 
 
-EncoderAttentional* EncoderAttentional::Read(const VocabularyPtr & vocab_src, const VocabularyPtr & vocab_trg, std::istream & in, cnn::Model & model) {
+EncoderAttentional* EncoderAttentional::Read(const DictPtr & vocab_src, const DictPtr & vocab_trg, std::istream & in, cnn::Model & model) {
     string version_id, line;
     if(!getline(in, line))
         THROW_ERROR("Premature end of model file when expecting EncoderAttentional");

@@ -8,6 +8,7 @@
 #include <lamtram/timer.h>
 #include <lamtram/model-utils.h>
 #include <cnn/cnn.h>
+#include <cnn/dict.h>
 #include <cnn/random.h>
 #include <cnn/training.h>
 #include <cnn/tensor.h>
@@ -110,27 +111,27 @@ int LamtramTrain::main(int argc, char** argv) {
 
 void LamtramTrain::TrainLM() {
 
-  // Vocabulary
-  VocabularyPtr vocab_trg, vocab_src;
+  // cnn::Dict
+  DictPtr vocab_trg, vocab_src;
   std::shared_ptr<cnn::Model> model;
   std::shared_ptr<NeuralLM> nlm;
   if(model_in_file_.size()) {
     nlm.reset(ModelUtils::LoadMonolingualModel<NeuralLM>(model_in_file_, model, vocab_trg));
   } else {
-    vocab_trg.reset(new Vocabulary); vocab_trg->SetDefault("<unk>");
+    vocab_trg.reset(new cnn::Dict); vocab_trg->Convert("<unk>");
     model.reset(new cnn::Model);
   }
-  // if(!trg_sent) vocab_trg = Vocabulary("");
+  // if(!trg_sent) vocab_trg = cnn::Dict("");
 
   // Read the training files
   vector<Sentence> train_trg, dev_trg;
-  LoadFile(train_file_trg_, context_, true, *vocab_trg, train_trg); vocab_trg->SetFreeze(true);
-  if(dev_file_trg_.size()) LoadFile(dev_file_trg_, context_, true, *vocab_trg, dev_trg);
+  LoadFile(train_file_trg_, true, *vocab_trg, train_trg); vocab_trg->Freeze(); vocab_trg->SetUnk("<unk>");
+  if(dev_file_trg_.size()) LoadFile(dev_file_trg_, true, *vocab_trg, dev_trg);
   if(eval_every_ == -1) eval_every_ = train_trg.size();
 
   // Create the model
   if(model_in_file_.size() == 0)
-    nlm.reset(new NeuralLM(vocab_trg, context_, 0, vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_trg->GetDefault(), softmax_sig_, *model));
+    nlm.reset(new NeuralLM(vocab_trg, context_, 0, vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_trg->GetUnkId(), softmax_sig_, *model));
   TrainerPtr trainer = GetTrainer(vm_["trainer"].as<string>(), vm_["learning_rate"].as<double>(), *model);
   
   // TODO: Learning rate
@@ -200,7 +201,8 @@ void LamtramTrain::TrainLM() {
       ofstream out(model_out_file_.c_str());
       if(!out) THROW_ERROR("Could not open output file: " << model_out_file_);
       // Write the model (TODO: move this to a separate file?)
-      vocab_trg->Write(out);
+      WriteDict(*vocab_trg, out);
+      // vocab_trg->Write(out);
       nlm->Write(out);
       ModelUtils::WriteModelText(out, *model);
       best_ll = my_ll;
@@ -213,25 +215,25 @@ void LamtramTrain::TrainLM() {
 
 void LamtramTrain::TrainEncDec() {
 
-  // Vocabulary
-  VocabularyPtr vocab_trg, vocab_src;
+  // cnn::Dict
+  DictPtr vocab_trg, vocab_src;
   std::shared_ptr<cnn::Model> model;
   std::shared_ptr<EncoderDecoder> encdec;
   if(model_in_file_.size()) {
     encdec.reset(ModelUtils::LoadBilingualModel<EncoderDecoder>(model_in_file_, model, vocab_src, vocab_trg));
   } else {
-    vocab_src.reset(new Vocabulary); vocab_src->SetDefault("<unk>");
-    vocab_trg.reset(new Vocabulary); vocab_trg->SetDefault("<unk>");
+    vocab_src.reset(new cnn::Dict);
+    vocab_trg.reset(new cnn::Dict);
     model.reset(new cnn::Model);
   }
-  // if(!trg_sent) vocab_trg = Vocabulary("");
+  // if(!trg_sent) vocab_trg = cnn::Dict("");
 
   // Read the training files
   vector<Sentence> train_trg, dev_trg, train_src, dev_src;
-  LoadFile(train_file_trg_, context_, true, *vocab_trg, train_trg); vocab_trg->SetFreeze(true);
-  if(dev_file_trg_.size()) LoadFile(dev_file_trg_, context_, true, *vocab_trg, dev_trg);
-  LoadFile(train_file_src_, 0, false, *vocab_src, train_src); vocab_src->SetFreeze(true);
-  if(dev_file_src_.size()) LoadFile(dev_file_src_, 0, false, *vocab_src, dev_src);
+  LoadFile(train_file_trg_, true, *vocab_trg, train_trg); vocab_trg->Freeze(); vocab_trg->SetUnk("<unk>");
+  if(dev_file_trg_.size()) LoadFile(dev_file_trg_, true, *vocab_trg, dev_trg);
+  LoadFile(train_file_src_, false, *vocab_src, train_src); vocab_src->Freeze(); vocab_src->SetUnk("<unk>");
+  if(dev_file_src_.size()) LoadFile(dev_file_src_, false, *vocab_src, dev_src);
   if(eval_every_ == -1) eval_every_ = train_trg.size();
 
   // Create the model
@@ -240,13 +242,13 @@ void LamtramTrain::TrainEncDec() {
     vector<string> encoder_types;
     boost::algorithm::split(encoder_types, vm_["encoder_types"].as<string>(), boost::is_any_of("|"));
     for(auto & spec : encoder_types) {
-      LinearEncoderPtr enc(new LinearEncoder(vocab_src->size(), vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_src->GetDefault(), *model));
+      LinearEncoderPtr enc(new LinearEncoder(vocab_src->size(), vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_src->GetUnkId(), *model));
       if(spec == "for") { }
       else if(spec == "rev") { enc->SetReverse(true); }
       else { THROW_ERROR("Illegal encoder type: " << spec); }
       encoders.push_back(enc);
     }
-    NeuralLMPtr decoder(new NeuralLM(vocab_trg, context_, 0, vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_trg->GetDefault(), softmax_sig_, *model));
+    NeuralLMPtr decoder(new NeuralLM(vocab_trg, context_, 0, vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_trg->GetUnkId(), softmax_sig_, *model));
     encdec.reset(new EncoderDecoder(encoders, decoder, *model));
   }
 
@@ -256,24 +258,24 @@ void LamtramTrain::TrainEncDec() {
 
 void LamtramTrain::TrainEncAtt() {
 
-  // Vocabulary
-  VocabularyPtr vocab_trg, vocab_src;
+  // cnn::Dict
+  DictPtr vocab_trg, vocab_src;
   std::shared_ptr<cnn::Model> model;
   std::shared_ptr<EncoderAttentional> encatt;
   if(model_in_file_.size()) {
     encatt.reset(ModelUtils::LoadBilingualModel<EncoderAttentional>(model_in_file_, model, vocab_src, vocab_trg));
   } else {
-    vocab_src.reset(new Vocabulary); vocab_src->SetDefault("<unk>");
-    vocab_trg.reset(new Vocabulary); vocab_trg->SetDefault("<unk>");
+    vocab_src.reset(new cnn::Dict);
+    vocab_trg.reset(new cnn::Dict);
     model.reset(new cnn::Model);
   }
 
   // Read the training file
   vector<Sentence> train_trg, dev_trg, train_src, dev_src;
-  LoadFile(train_file_trg_, context_, true, *vocab_trg, train_trg); vocab_trg->SetFreeze(true);
-  if(dev_file_trg_.size()) LoadFile(dev_file_trg_, context_, true, *vocab_trg, dev_trg);
-  LoadFile(train_file_src_, 0, false, *vocab_src, train_src); vocab_src->SetFreeze(true);
-  if(dev_file_src_.size()) LoadFile(dev_file_src_, 0, false, *vocab_src, dev_src);
+  LoadFile(train_file_trg_, true, *vocab_trg, train_trg); vocab_trg->Freeze(); vocab_trg->SetUnk("<unk>");
+  if(dev_file_trg_.size()) LoadFile(dev_file_trg_, true, *vocab_trg, dev_trg);
+  LoadFile(train_file_src_, false, *vocab_src, train_src); vocab_src->Freeze(); vocab_src->SetUnk("<unk>");
+  if(dev_file_src_.size()) LoadFile(dev_file_src_, false, *vocab_src, dev_src);
   if(eval_every_ == -1) eval_every_ = train_trg.size();
 
   // Create the model
@@ -282,13 +284,13 @@ void LamtramTrain::TrainEncAtt() {
     vector<string> encoder_types;
     boost::algorithm::split(encoder_types, vm_["encoder_types"].as<string>(), boost::is_any_of("|"));
     for(auto & spec : encoder_types) {
-      LinearEncoderPtr enc(new LinearEncoder(vocab_src->size(), vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_src->GetDefault(), *model));
+      LinearEncoderPtr enc(new LinearEncoder(vocab_src->size(), vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_src->GetUnkId(), *model));
       if(spec == "rev") enc->SetReverse(true);
       encoders.push_back(enc);
     }
     BuilderSpec bspec(vm_["layers"].as<string>());
     ExternAttentionalPtr extatt(new ExternAttentional(encoders, vm_["attention_nodes"].as<int>(), bspec.nodes, *model));
-    NeuralLMPtr decoder(new NeuralLM(vocab_trg, context_, bspec.nodes * encoders.size(), vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_trg->GetDefault(), softmax_sig_, *model));
+    NeuralLMPtr decoder(new NeuralLM(vocab_trg, context_, bspec.nodes * encoders.size(), vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_trg->GetUnkId(), softmax_sig_, *model));
     encatt.reset(new EncoderAttentional(extatt, decoder, *model));
   }
 
@@ -298,26 +300,26 @@ void LamtramTrain::TrainEncAtt() {
 
 void LamtramTrain::TrainEncCls() {
 
-  // Vocabulary
-  VocabularyPtr vocab_trg, vocab_src;
+  // cnn::Dict
+  DictPtr vocab_trg, vocab_src;
   std::shared_ptr<cnn::Model> model;
   std::shared_ptr<EncoderClassifier> enccls;
   if(model_in_file_.size()) {
     enccls.reset(ModelUtils::LoadBilingualModel<EncoderClassifier>(model_in_file_, model, vocab_src, vocab_trg));
   } else {
-    vocab_src.reset(new Vocabulary); vocab_src->SetDefault("<unk>");
-    vocab_trg.reset(new Vocabulary(""));
+    vocab_src.reset(new cnn::Dict);
+    vocab_trg.reset(new cnn::Dict);
     model.reset(new cnn::Model);
   }
-  // if(!trg_sent) vocab_trg = Vocabulary("");
+  // if(!trg_sent) vocab_trg = cnn::Dict("");
 
   // Read the training files
   vector<int> train_trg, dev_trg;
   vector<Sentence> train_src, dev_src;
-  LoadLabels(train_file_trg_, *vocab_trg, train_trg); vocab_trg->SetFreeze(true);
+  LoadLabels(train_file_trg_, *vocab_trg, train_trg); vocab_trg->Freeze();
   if(dev_file_trg_.size()) LoadLabels(dev_file_trg_, *vocab_trg, dev_trg);
-  LoadFile(train_file_src_, 0, false, *vocab_src, train_src); vocab_src->SetFreeze(true);
-  if(dev_file_src_.size()) LoadFile(dev_file_src_, 0, false, *vocab_src, dev_src);
+  LoadFile(train_file_src_, false, *vocab_src, train_src); vocab_src->Freeze(); vocab_src->SetUnk("<unk>");
+  if(dev_file_src_.size()) LoadFile(dev_file_src_, false, *vocab_src, dev_src);
   if(eval_every_ == -1) eval_every_ = train_trg.size();
 
   // Create the model
@@ -326,7 +328,7 @@ void LamtramTrain::TrainEncCls() {
     vector<string> encoder_types;
     boost::algorithm::split(encoder_types, vm_["encoder_types"].as<string>(), boost::is_any_of("|"));
     for(auto & spec : encoder_types) {
-      LinearEncoderPtr enc(new LinearEncoder(vocab_src->size(), vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_src->GetDefault(), *model));
+      LinearEncoderPtr enc(new LinearEncoder(vocab_src->size(), vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_src->GetUnkId(), *model));
       if(spec == "rev") enc->SetReverse(true);
       encoders.push_back(enc);
     }
@@ -344,8 +346,8 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
                     const vector<OutputType> & train_trg,
                     const vector<Sentence> & dev_src,
                     const vector<OutputType> & dev_trg,
-                    const Vocabulary & vocab_src,
-                    const Vocabulary & vocab_trg,
+                    const cnn::Dict & vocab_src,
+                    const cnn::Dict & vocab_trg,
                     cnn::Model & model,
                     ModelType & encdec) {
 
@@ -419,8 +421,8 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
       ofstream out(model_out_file_.c_str());
       if(!out) THROW_ERROR("Could not open output file: " << model_out_file_);
       // Write the model (TODO: move this to a separate file?)
-      vocab_src.Write(out);
-      vocab_trg.Write(out);
+      WriteDict(vocab_src, out);
+      WriteDict(vocab_trg, out);
       encdec.Write(out);
       ModelUtils::WriteModelText(out, model);
       best_ll = my_ll;
@@ -431,27 +433,27 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
   }
 }
 
-void LamtramTrain::LoadFile(const std::string filename, int pad, bool add_last, Vocabulary & vocab, std::vector<Sentence> & sents) {
+void LamtramTrain::LoadFile(const std::string filename, bool add_last, cnn::Dict & vocab, std::vector<Sentence> & sents) {
   ifstream iftrain(filename.c_str());
   if(!iftrain) THROW_ERROR("Could not find training file: " << filename);
   string line;
   int line_no = 0;
   while(getline(iftrain, line)) {
     line_no++;
-    Sentence sent = vocab.ParseWords(line, pad, add_last);
-    if(sent.size() == (add_last ? 1 : 0) + pad)
+    Sentence sent = ParseWords(vocab, line, add_last);
+    if(sent.size() == (add_last ? 1 : 0))
       THROW_ERROR("Empty line found in " << filename << " at " << line_no << endl);
     sents.push_back(sent);
   }
   iftrain.close();
 }
 
-void LamtramTrain::LoadLabels(const std::string filename, Vocabulary & vocab, std::vector<int> & labs) {
+void LamtramTrain::LoadLabels(const std::string filename, cnn::Dict & vocab, std::vector<int> & labs) {
   ifstream iftrain(filename.c_str());
   if(!iftrain) THROW_ERROR("Could not find training file: " << filename);
   string line;
   while(getline(iftrain, line))
-    labs.push_back(vocab.WID(line));
+    labs.push_back(vocab.Convert(line));
   iftrain.close();
 }
 

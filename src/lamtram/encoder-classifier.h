@@ -4,7 +4,7 @@
 #include <lamtram/linear-encoder.h>
 #include <lamtram/classifier.h>
 #include <lamtram/ll-stats.h>
-#include <lamtram/vocabulary.h>
+#include <lamtram/dict-utils.h>
 #include <cnn/cnn.h>
 #include <vector>
 #include <iostream>
@@ -46,7 +46,7 @@ public:
                                   cnn::ComputationGraph & cg) const;
 
     // Reading/writing functions
-    static EncoderClassifier* Read(const VocabularyPtr & vocab_src, const VocabularyPtr & vocab_trg, std::istream & in, cnn::Model & model);
+    static EncoderClassifier* Read(const DictPtr & vocab_src, const DictPtr & vocab_trg, std::istream & in, cnn::Model & model);
     void Write(std::ostream & out);
 
     // Index the parameters in a computation graph

@@ -3,14 +3,13 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <memory>
+#include <lamtram/dict-utils.h>
 #include <lamtram/hashes.h>
 #include <lamtram/training-data.h>
 
 namespace cnn { class Dict; }
 
 namespace lamtram {
-
-typedef std::shared_ptr<cnn::Dict> DictPtr;
 
 class ContextCounts {
 public:

@@ -66,7 +66,7 @@ int DistTrain::main(int argc, char** argv) {
     ifstream train_file(vm_["train_file"].as<string>());
     if(!train_file) THROW_ERROR("Couldn't open file: " << vm_["train_file"].as<string>());
     while(getline(train_file, line)) {
-    dist->add_stats(ParseSentence(line, dict, true));
+      dist->add_stats(ParseWords(*dict, line, true));
     }
   }
   dist->finalize_stats();

@@ -82,7 +82,7 @@ cnn::expr::Expression EncoderClassifier::Forward<cnn::LogSoftmax>(const Sentence
 
 
 
-EncoderClassifier* EncoderClassifier::Read(const VocabularyPtr & vocab_src, const VocabularyPtr & vocab_trg, std::istream & in, cnn::Model & model) {
+EncoderClassifier* EncoderClassifier::Read(const DictPtr & vocab_src, const DictPtr & vocab_trg, std::istream & in, cnn::Model & model) {
     int num_encoders;
     string version_id, line;
     if(!getline(in, line))

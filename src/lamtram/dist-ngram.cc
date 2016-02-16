@@ -268,7 +268,7 @@ void DistNgram::write(DictPtr dict, std::ostream & out) const {
   }
   out << "mapping " << mapping_.size() << ' ' << ctxt_cnts_.size() << '\n';
   for(auto & map_elem : mapping_) {
-    out << PrintSentence(map_elem.first, dict) << '\t';
+    out << PrintWords(*dict, map_elem.first) << '\t';
     if(map_elem.first.size() == ngram_len_) {
       out << map_elem.second;
     } else {
@@ -319,7 +319,7 @@ void DistNgram::read(DictPtr dict, std::istream & in) {
       getline_or_die(in, line);
       boost::split(strs, line, boost::is_any_of("\t"));
       if(strs.size() != 2) THROW_ERROR("Expecting two columns: " << line << endl);
-      Sentence ngram = ParseSentence(strs[0], dict, false);
+      Sentence ngram = ParseWords(*dict, strs[0], false);
       for(WordId wid : ngram) if(wid == -1) THROW_ERROR("Out-of-vocabulary word found in one hot model: " << line);
       if(ngram.size() == ngram_len_) {
         mapping_[ngram] = stoi(strs[1]);

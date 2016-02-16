@@ -1,6 +1,5 @@
 #include <lamtram/lamtram.h>
 #include <lamtram/macros.h>
-#include <lamtram/vocabulary.h>
 #include <lamtram/sentence.h>
 #include <lamtram/timer.h>
 #include <lamtram/macros.h>
@@ -14,6 +13,7 @@
 #include <lamtram/ensemble-classifier.h>
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string.hpp>
+#include <cnn/dict.h>
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -48,7 +48,7 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
   vector<EncoderDecoderPtr> encdecs;
   vector<EncoderAttentionalPtr> encatts;
   vector<shared_ptr<cnn::Model> > models;
-  VocabularyPtr vocab_src, vocab_trg;
+  DictPtr vocab_src, vocab_trg;
 
   int max_minibatch_size = vm["minibatch_size"].as<int>();
   
@@ -67,7 +67,7 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
       THROW_ERROR("Bad model type. Must specify encdec=, encatt=, or nlm= before model name." << endl << infile);
     type = infile.substr(0, eqpos);
     file = infile.substr(eqpos+1);
-    VocabularyPtr vocab_src_temp, vocab_trg_temp;
+    DictPtr vocab_src_temp, vocab_trg_temp;
     shared_ptr<cnn::Model> mod_temp;
     // Read in the model
     if(type == "encdec") {
@@ -84,9 +84,9 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
       pad = max(pad, lm->GetNgramContext());
     }
     // Sanity check
-    if(vocab_trg.get() && *vocab_trg_temp != *vocab_trg)
+    if(vocab_trg.get() && vocab_trg_temp->GetWords() != vocab_trg->GetWords())
       THROW_ERROR("Target vocabularies for translation/language models are not equal.");
-    if(vocab_src.get() && vocab_src_temp.get() && *vocab_src_temp != *vocab_src)
+    if(vocab_src.get() && vocab_src_temp.get() && vocab_src_temp->GetWords() != vocab_src->GetWords())
       THROW_ERROR("Source vocabularies for translation/language models are not equal.");
     models.push_back(mod_temp);
     vocab_trg = vocab_trg_temp;
@@ -150,12 +150,12 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
     while(getline(cin, line)) { 
       // Get the target, and if it exists, source sentences
       if(GlobalVars::verbose >= 2) { cerr << "SentLL trg: " << line << endl; }
-      sent_trg = vocab_trg->ParseWords(line, pad, true);
+      sent_trg = ParseWords(*vocab_trg, line, true);
       if(encdecs.size() + encatts.size() > 0) {
         if(!getline(*src_in, line))
           THROW_ERROR("Source and target files don't match");
         if(GlobalVars::verbose >= 2) { cerr << "SentLL src: " << line << endl; }
-        sent_src = vocab_src->ParseWords(line, 0, false);
+        sent_src = ParseWords(*vocab_src, line, false);
       }
       last_id++;
       // If we're inside the range, do it
@@ -177,7 +177,7 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
       vector<string> columns = Tokenize(line, " ||| ");
       if(columns.size() < 2) THROW_ERROR("Bad line in n-best:\n" << line);
       int my_id = stoi(columns[0]);
-      sent_trg = vocab_trg->ParseWords(columns[1], pad, true);
+      sent_trg = ParseWords(*vocab_trg, columns[1], true);
       // If we've finished the current source, print
       if((my_id != last_id || curr_words+sents_trg.size() > max_minibatch_size) && sents_trg.size() > 0) {
         vector<LLStats> sents_ll(sents_trg.size(), LLStats(vocab_size));
@@ -194,7 +194,7 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
       if(my_id != last_id) {
         if(!getline(*src_in, line))
           THROW_ERROR("Source and target files don't match");
-        sent_src = vocab_src->ParseWords(line, 0, false);
+        sent_src = ParseWords(*vocab_src, line, false);
         if(do_sent) {
           double elapsed = time.Elapsed();
           cerr << "sent=" << last_id << ", time=" << elapsed << " (" << all_words/elapsed << " w/s)" << endl;
@@ -222,14 +222,14 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
     for(int i = 0; i < sent_range.second; ++i) {
       if(encdecs.size() + encatts.size() > 0) {
         if(!getline(*src_in, line)) break;
-        str_src = vocab_src->SplitWords(line);
-        sent_src = vocab_src->ParseWords(str_src, 0, false);
+        str_src = SplitWords(line);
+        sent_src = ParseWords(*vocab_src, str_src, false);
       }
       if(i >= sent_range.first) {
         sent_trg = decoder.Generate(sent_src, align);
-        str_trg = vocab_trg->ConvertWords(sent_trg, false);
+        str_trg = ConvertWords(*vocab_trg, sent_trg, false);
         MapWords(str_src, sent_trg, align, mapping, pad, str_trg);
-        cout << vocab_trg->PrintWords(str_trg) << endl;
+        cout << PrintWords(str_trg) << endl;
       }
     }
   } else {
@@ -242,7 +242,7 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
 int Lamtram::ClassifierOperation(const boost::program_options::variables_map & vm) {
   // Models
   vector<EncoderClassifierPtr> encclss;
-  shared_ptr<Vocabulary> vocab_src, vocab_trg;
+  DictPtr vocab_src, vocab_trg;
   vector<shared_ptr<cnn::Model> > models;
 
   // Read in the files
@@ -257,15 +257,15 @@ int Lamtram::ClassifierOperation(const boost::program_options::variables_map & v
     if(type != "enccls")
       THROW_ERROR("Bad model type. Must specify enccls= before model name." << endl << infile);
     file = infile.substr(eqpos+1);
-    VocabularyPtr vocab_src_temp, vocab_trg_temp;
+    DictPtr vocab_src_temp, vocab_trg_temp;
     shared_ptr<cnn::Model> mod_temp;
     // Read in the model
     EncoderClassifier * tm = ModelUtils::LoadBilingualModel<EncoderClassifier>(file, mod_temp, vocab_src_temp, vocab_trg_temp);
     encclss.push_back(shared_ptr<EncoderClassifier>(tm));
     // Sanity check
-    if(vocab_trg.get() && *vocab_trg_temp != *vocab_trg)
+    if(vocab_trg.get() && vocab_trg_temp->GetWords() != vocab_trg->GetWords())
       THROW_ERROR("Target vocabularies for translation/language models are not equal.");
-    if(vocab_src.get() && vocab_src_temp.get() && *vocab_src_temp != *vocab_src)
+    if(vocab_src.get() && vocab_src_temp.get() && vocab_src_temp->GetWords() != vocab_src->GetWords())
       THROW_ERROR("Target vocabularies for translation/language models are not equal.");
     models.push_back(mod_temp);
     vocab_trg = vocab_trg_temp;
@@ -295,11 +295,11 @@ int Lamtram::ClassifierOperation(const boost::program_options::variables_map & v
       LLStats sent_ll(vocab_size);
       // Get the target, and if it exists, source sentences
       if(GlobalVars::verbose > 0) { cerr << "ClsEval trg: " << line << endl; }
-      trg = vocab_trg->WID(line);
+      trg = vocab_trg->Convert(line);
       if(!getline(*src_in, line))
         THROW_ERROR("Source and target files don't match");
       if(GlobalVars::verbose > 0) { cerr << "ClsEval src: " << line << endl; }
-      sent_src = vocab_src->ParseWords(line, 0, false);
+      sent_src = ParseWords(*vocab_src, line, false);
       // If the encoder
       ensemble.CalcEval(sent_src, trg, sent_ll);
       if(GlobalVars::verbose > 0) { cout << "ll=" << sent_ll.CalcUnkLik() << " correct=" << sent_ll.correct_ << endl; }
@@ -309,9 +309,9 @@ int Lamtram::ClassifierOperation(const boost::program_options::variables_map & v
     cerr << "ppl=" << corpus_ll.CalcPPL() << ", acc="<< corpus_ll.CalcAcc() << ", time=" << elapsed << " (" << corpus_ll.words_/elapsed << " w/s)" << endl;
   } else if(operation == "cls") {
     while(getline(*src_in, line)) {
-      sent_src = vocab_src->ParseWords(line, 0, false);
+      sent_src = ParseWords(*vocab_src, line, false);
       trg = ensemble.Predict(sent_src);
-      cout << vocab_trg->WSym(trg) << endl;
+      cout << vocab_trg->Convert(trg) << endl;
     }
   } else {
     THROW_ERROR("Illegal operation " << operation);

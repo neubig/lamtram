@@ -15,7 +15,6 @@ LIBCPP = \
     classifier.cc \
     builder-factory.cc \
     model-utils.cc \
-    vocabulary.cc \
     counts.cc \
     input-file-stream.cc \
     softmax-full.cc \

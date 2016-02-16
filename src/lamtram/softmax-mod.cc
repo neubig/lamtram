@@ -5,7 +5,7 @@
 using namespace lamtram;
 using namespace cnn::expr;
 
-SoftmaxMod::SoftmaxMod(const std::string & sig, int input_size, const VocabularyPtr & vocab, cnn::Model & mod) : SoftmaxBase(sig,input_size,vocab,mod) {
+SoftmaxMod::SoftmaxMod(const std::string & sig, int input_size, const DictPtr & vocab, cnn::Model & mod) : SoftmaxBase(sig,input_size,vocab,mod) {
   THROW_ERROR("SoftmaxMod::Constructor not implemented yet"); 
 }
 
