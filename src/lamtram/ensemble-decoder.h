@@ -36,7 +36,7 @@ class EnsembleDecoder {
 public:
     EnsembleDecoder(const std::vector<EncoderDecoderPtr> & encdecs,
                     const std::vector<EncoderAttentionalPtr> & encatts,
-                    const std::vector<NeuralLMPtr> & lms, int pad);
+                    const std::vector<NeuralLMPtr> & lms);
     ~EnsembleDecoder() {}
 
     template <class OutSent, class OutLL>
@@ -74,7 +74,6 @@ protected:
     std::vector<NeuralLMPtr> lms_;
     std::vector<ExternCalculatorPtr> externs_;
     cnn::real word_pen_;
-    int pad_;
     int unk_id_;
     int size_limit_;
     int beam_size_;

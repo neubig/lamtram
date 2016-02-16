@@ -9,8 +9,8 @@ using namespace std;
 using namespace cnn::expr;
 
 
-EnsembleDecoder::EnsembleDecoder(const vector<EncoderDecoderPtr> & encdecs, const vector<EncoderAttentionalPtr> & encatts, const vector<NeuralLMPtr> & lms, int pad)
-      : encdecs_(encdecs), encatts_(encatts), word_pen_(0.0), pad_(pad), size_limit_(2000), beam_size_(1), ensemble_operation_("sum") {
+EnsembleDecoder::EnsembleDecoder(const vector<EncoderDecoderPtr> & encdecs, const vector<EncoderAttentionalPtr> & encatts, const vector<NeuralLMPtr> & lms)
+      : encdecs_(encdecs), encatts_(encatts), word_pen_(0.0), size_limit_(2000), beam_size_(1), ensemble_operation_("sum") {
   if(encdecs.size() + encatts.size() + lms.size() == 0)
     THROW_ERROR("Cannot decode with no models!");
   for(auto & ed : encdecs) {
@@ -130,8 +130,8 @@ Expression EnsembleDecoder::EnsembleSingleLogProb(const std::vector<Expression> 
 template <>
 void EnsembleDecoder::AddLik<Sentence,LLStats>(const Sentence & sent, const cnn::expr::Expression & exp, LLStats & ll) {
   ll.lik_ += as_scalar(exp.value());
-  ll.words_ += sent.size()-pad_;
-  for(unsigned t = pad_; t < sent.size(); t++)
+  ll.words_ += sent.size();
+  for(unsigned t = 0; t < sent.size(); t++)
     if(sent[t] == unk_id_)
       ++ll.unk_;
 }
@@ -141,8 +141,8 @@ void EnsembleDecoder::AddLik<vector<Sentence>,vector<LLStats> >(const vector<Sen
   assert(ret.size() == ll.size());
   for(size_t i = 0; i < ret.size(); i++) {
     ll[i].lik_ += ret[i];
-    ll[i].words_ += sent[i].size()-pad_;
-    for(unsigned t = pad_; t < sent[i].size(); t++)
+    ll[i].words_ += sent[i].size();
+    for(unsigned t = 0; t < sent[i].size(); t++)
       if(sent[i][t] == unk_id_)
         ++ll[i].unk_;
   }
@@ -167,7 +167,7 @@ void EnsembleDecoder::CalcSentLL(const Sentence & sent_src, const Sent & sent_tr
   // Go through and collect the values
   vector<Expression> errs, aligns;
   int max_len = MaxLen(sent_trg);
-  for(int t : boost::irange(pad_, max_len)) {
+  for(int t : boost::irange(0, max_len)) {
     // Perform the forward step on all models
     vector<Expression> i_sms;
     for(int j : boost::irange(0, (int)lms_.size()))
@@ -211,19 +211,19 @@ Sentence EnsembleDecoder::Generate(const Sentence & sent_src, Sentence & align) 
   vector<vector<vector<Expression> > > last_states(beam_size_, vector<vector<Expression> >(lms_.size()));
   vector<EnsembleDecoderHypPtr> curr_beam(1, 
       EnsembleDecoderHypPtr(new EnsembleDecoderHyp(
-          0.0, GetInitialStates(sent_src, cg), Sentence(pad_, 0), Sentence(pad_, 0))));
+          0.0, GetInitialStates(sent_src, cg), Sentence(), Sentence())));
   int bid;
   Expression empty_idx;
 
   // Perform decoding
-  for(int sent_len = pad_; sent_len <= size_limit_; sent_len++) {
+  for(int sent_len = 0; sent_len <= size_limit_; sent_len++) {
     // This vector will hold the best IDs
     vector<tuple<cnn::real,int,int,int> > next_beam_id(beam_size_+1, tuple<cnn::real,int,int,int>(-DBL_MAX,-1,-1,-1));
     // Go through all the hypothesis IDs
     for(int hypid = 0; hypid < (int)curr_beam.size(); hypid++) {
       EnsembleDecoderHypPtr curr_hyp = curr_beam[hypid];
       const Sentence & sent = curr_beam[hypid]->GetSentence();
-      if(sent_len != pad_ && *sent.rbegin() == 0) continue;
+      if(sent_len != 0 && *sent.rbegin() == 0) continue;
       // Perform the forward step on all models
       vector<Expression> i_softmaxes, i_aligns;
       for(int j : boost::irange(0, (int)lms_.size()))
@@ -282,5 +282,5 @@ Sentence EnsembleDecoder::Generate(const Sentence & sent_src, Sentence & align) 
     curr_beam = next_beam;
   }
   cerr << "WARNING: Generated sentence size exceeded " << size_limit_ << ". Returning empty sentence." << endl;
-  return Sentence(pad_+1, 0);
+  return Sentence();
 }

@@ -41,16 +41,17 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(const Sentence & sent,
     int slen = sent.size() - 1;
     builder_->start_new_sequence(layer_in);
     // First get all the word representations
+    cnn::expr::Expression i_wr_start = lookup(cg, p_wr_W_, (unsigned)0);
     vector<cnn::expr::Expression> i_wr;
     for(auto t : boost::irange(0, slen))
         i_wr.push_back(lookup(cg, p_wr_W_, sent[t]));
     // Next, do the computation
     vector<cnn::expr::Expression> errs, aligns;
-    for(auto t : boost::irange(ngram_context_, slen+1)) {
+    for(auto t : boost::irange(0, slen+1)) {
         // Concatenate wordrep and external context into a vector for the hidden unit
         vector<cnn::expr::Expression> i_wrs_t;
         for(auto hist : boost::irange(t - ngram_context_, t))
-            i_wrs_t.push_back(i_wr[hist]);
+            i_wrs_t.push_back(hist >= 0 ? i_wr[hist] : i_wr_start);
         if(extern_context_ > 0) {
             assert(extern_calc != NULL);
             cnn::expr::Expression extern_in;

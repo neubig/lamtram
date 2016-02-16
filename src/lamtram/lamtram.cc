@@ -25,13 +25,13 @@ namespace po = boost::program_options;
 typedef std::unordered_map<std::string, std::pair<std::string, float> > Mapping;
 typedef std::vector<std::vector<float> > Sentence;
 
-void Lamtram::MapWords(const vector<string> & src_strs, const Sentence & trg_sent, const Sentence & align, const Mapping & mapping, int pad, vector<string> & trg_strs) {
+void Lamtram::MapWords(const vector<string> & src_strs, const Sentence & trg_sent, const Sentence & align, const Mapping & mapping, vector<string> & trg_strs) {
   if(align.size() == 0) return;
-  assert(trg_sent.size() >= trg_strs.size() + pad);
+  assert(trg_sent.size() >= trg_strs.size());
   assert(align.size() == trg_sent.size());
   WordId unk_id = 1;
   for(size_t i = 0; i < trg_strs.size(); i++) {
-    if(trg_sent[i+pad] == unk_id) {
+    if(trg_sent[i] == unk_id) {
       size_t max_id = align[i];
       if(max_id != -1) {
         assert(src_strs.size() > max_id);
@@ -57,7 +57,6 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
   vector<string> strs;
 
   // Read in the files
-  int pad = 0;
   vector<string> infiles;
   boost::split(infiles, vm["models_in"].as<std::string>(), boost::is_any_of("|"));
   string type, file;
@@ -73,15 +72,12 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
     if(type == "encdec") {
       EncoderDecoder * tm = ModelUtils::LoadBilingualModel<EncoderDecoder>(file, mod_temp, vocab_src_temp, vocab_trg_temp);
       encdecs.push_back(shared_ptr<EncoderDecoder>(tm));
-      pad = max(pad, tm->GetDecoder().GetNgramContext());
     } else if(type == "encatt") {
       EncoderAttentional * tm = ModelUtils::LoadBilingualModel<EncoderAttentional>(file, mod_temp, vocab_src_temp, vocab_trg_temp);
       encatts.push_back(shared_ptr<EncoderAttentional>(tm));
-      pad = max(pad, tm->GetDecoder().GetNgramContext());
     } else if(type == "nlm") {
       NeuralLM * lm = ModelUtils::LoadMonolingualModel<NeuralLM>(file, mod_temp, vocab_trg_temp);
       lms.push_back(shared_ptr<NeuralLM>(lm));
-      pad = max(pad, lm->GetNgramContext());
     }
     // Sanity check
     if(vocab_trg.get() && vocab_trg_temp->GetWords() != vocab_trg->GetWords())
@@ -130,7 +126,7 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
   }
   
   // Create the decoder
-  EnsembleDecoder decoder(encdecs, encatts, lms, pad);
+  EnsembleDecoder decoder(encdecs, encatts, lms);
   decoder.SetWordPen(vm["word_pen"].as<float>());
   decoder.SetEnsembleOperation(vm["ensemble_op"].as<string>());
   decoder.SetBeamSize(vm["beam"].as<int>());
@@ -205,8 +201,8 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
       // Add to the data
       if(do_sent) {
         sents_trg.push_back(sent_trg);
-        all_words += sent_trg.size()-pad;
-        curr_words += sent_trg.size()-pad;
+        all_words += sent_trg.size();
+        curr_words += sent_trg.size();
       }
     }
     if(do_sent) {
@@ -228,7 +224,7 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
       if(i >= sent_range.first) {
         sent_trg = decoder.Generate(sent_src, align);
         str_trg = ConvertWords(*vocab_trg, sent_trg, false);
-        MapWords(str_src, sent_trg, align, mapping, pad, str_trg);
+        MapWords(str_src, sent_trg, align, mapping, str_trg);
         cout << PrintWords(str_trg) << endl;
       }
     }
