@@ -76,6 +76,7 @@ void WriteDict(const cnn::Dict & dict, const std::string & file) {
   WriteDict(dict, out);
 }
 void WriteDict(const cnn::Dict & dict, std::ostream & out) {
+  out << "dict_v001" << '\n';
   for(const auto & str : dict.GetWords())
     out << str << '\n';
   out << endl;
@@ -88,6 +89,8 @@ cnn::Dict* ReadDict(const std::string & file) {
 cnn::Dict* ReadDict(std::istream & in) {
   cnn::Dict* dict = new cnn::Dict;
   string line;
+  if(!getline(in, line) || line != "dict_v001")
+    THROW_ERROR("Expecting dictionary version dict_v001, but got: " << line);
   while(getline(in, line)) {
     if(line == "") break;
     dict->Convert(line);

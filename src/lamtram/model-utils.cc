@@ -32,11 +32,7 @@ ModelType* ModelUtils::LoadBilingualModel(std::istream & model_in,
                                           std::shared_ptr<cnn::Model> & mod,
                                           DictPtr & vocab_src, DictPtr & vocab_trg) {
     vocab_src.reset(ReadDict(model_in));
-    vocab_src->Freeze();
-    vocab_src->SetUnk("<unk>");
     vocab_trg.reset(ReadDict(model_in));
-    vocab_trg->Freeze();
-    vocab_trg->SetUnk("<unk>");
     mod.reset(new cnn::Model);
     ModelType* ret = ModelType::Read(vocab_src, vocab_trg, model_in, *mod);
     ModelUtils::ReadModelText(model_in, *mod);
@@ -63,8 +59,6 @@ ModelType* ModelUtils::LoadMonolingualModel(std::istream & model_in,
                                           std::shared_ptr<cnn::Model> & mod,
                                           DictPtr & vocab_trg) {
     vocab_trg.reset(ReadDict(model_in));
-    vocab_trg->Freeze();
-    vocab_trg->SetUnk("<unk>");
     mod.reset(new cnn::Model);
     ModelType* ret = ModelType::Read(vocab_trg, model_in, *mod);
     ModelUtils::ReadModelText(model_in, *mod);
