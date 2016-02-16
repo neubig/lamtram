@@ -4,6 +4,7 @@
 #include <lamtram/macros.h>
 #include <lamtram/encoder-attentional.h>
 #include <lamtram/model-utils.h>
+#include <cnn/dict.h>
 
 using namespace std;
 using namespace lamtram;
@@ -26,8 +27,8 @@ BOOST_FIXTURE_TEST_SUITE(encoder_attentional, TestEncoderAttentional)
 // Note that this is just checking if serialized strings is equal,
 // which is a hack for now because cnn::Model doesn't have an equality operator.
 BOOST_AUTO_TEST_CASE(TestWriteRead) {
-  VocabularyPtr vocab(new Vocabulary);
-  vocab->WID("<s>"); vocab->WID("<unk>"); vocab->WID("hello");
+  DictPtr vocab(new cnn::Dict);
+  vocab->Convert("<s>"); vocab->Convert("<unk>"); vocab->Convert("hello");
   // Create a randomized lm
   cnn::Model act_mod, exp_mod;
   cnn::VariableIndex empty_idx;
@@ -40,7 +41,7 @@ BOOST_AUTO_TEST_CASE(TestWriteRead) {
   exp_encatt.Write(out);
   ModelUtils::WriteModelText(out, exp_mod);
   // Read the LM
-  VocabularyPtr act_src(new Vocabulary), act_trg(new Vocabulary);
+  DictPtr act_src(new cnn::Dict), act_trg(new cnn::Dict);
   string first_string = out.str();
   istringstream in(out.str());
   EncoderAttentionalPtr act_lm(EncoderAttentional::Read(act_src, act_trg, in, act_mod));

@@ -1,8 +1,10 @@
 #define BOOST_TEST_DYN_LINK
 #include <boost/test/unit_test.hpp>
 
-#include <lamtram/vocabulary.h>
 #include <lamtram/macros.h>
+#include <lamtram/sentence.h>
+#include <lamtram/dict-utils.h>
+#include <cnn/dict.h>
 #include <sstream>
 
 using namespace std;
@@ -13,7 +15,7 @@ BOOST_AUTO_TEST_SUITE(vocabulary)
 
 BOOST_AUTO_TEST_CASE(TestParseWords) {
     // Create the words. Sentence end symbol is always 0.
-    Vocabulary vocab;
+    cnn::Dict vocab;
     string in = "  a b  c a c <s> b  ";
     Sentence exp(7), act;
     exp[0] = 1;
@@ -23,31 +25,28 @@ BOOST_AUTO_TEST_CASE(TestParseWords) {
     exp[4] = 3;
     exp[5] = 0;
     exp[6] = 2;
-    act = vocab.ParseWords(in);
+    act = ParseWords(vocab, in, false);
     BOOST_CHECK_EQUAL_COLLECTIONS(exp.begin(), exp.end(), act.begin(), act.end());
 }
 
 BOOST_AUTO_TEST_CASE(TestPrintWords) {
-    Vocabulary vocab;
+    cnn::Dict vocab;
     string in = "  a b  c a c <s> b  ";
     string exp = "a b c a c <s> b";
-    string act = vocab.PrintWords(vocab.ParseWords(in));
+    string act = PrintWords(vocab, ParseWords(vocab, in, false));
     BOOST_CHECK_EQUAL(exp, act);
 }
 
 BOOST_AUTO_TEST_CASE(TestReadWrite) {
-    Vocabulary vocab_exp;
+    cnn::Dict vocab_exp;
     string in = "  a b  c a c <s> b  ";
-    vocab_exp.ParseWords(in);
+    ParseWords(vocab_exp, in, false);
     stringstream out;
-    vocab_exp.Write(out);
-    shared_ptr<Vocabulary> vocab_act(Vocabulary::Read(out));
+    WriteDict(vocab_exp, out);
+    shared_ptr<cnn::Dict> vocab_act(ReadDict(out));
     BOOST_CHECK_EQUAL_COLLECTIONS(
-        vocab_exp.GetWIDs().begin(), vocab_exp.GetWIDs().end(),
-        vocab_act->GetWIDs().begin(), vocab_act->GetWIDs().end());
-    BOOST_CHECK_EQUAL_COLLECTIONS(
-        vocab_exp.GetWSyms().begin(), vocab_exp.GetWSyms().end(),
-        vocab_act->GetWSyms().begin(), vocab_act->GetWSyms().end());
+        vocab_exp.GetWords().begin(), vocab_exp.GetWords().end(),
+        vocab_act->GetWords().begin(), vocab_act->GetWords().end());
 }
 
 
