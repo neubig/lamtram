@@ -97,7 +97,15 @@ cnn::Dict* ReadDict(std::istream & in) {
   }
   dict->Freeze();
   dict->SetUnk("<unk>");
+  assert(dict->Convert("<s>") == 0);
+  assert(dict->Convert("<unk>") == 1);
   return dict;
+}
+cnn::Dict * CreateNewDict() {
+  cnn::Dict * ret = new cnn::Dict;
+  ret->Convert("<s>");
+  ret->Convert("<unk>");
+  return ret;
 }
 
 }

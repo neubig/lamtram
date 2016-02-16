@@ -45,9 +45,7 @@ int DistTrain::main(int argc, char** argv) {
 
   // Read in the vocabulary if necessary
   string line;
-  DictPtr dict(new cnn::Dict);
-  dict->Convert("<unk>");
-  dict->Convert("<s>");
+  DictPtr dict(CreateNewDict());
   if(vm_["vocab_file"].as<string>() != "") {
     ifstream vocab_file(vm_["vocab_file"].as<string>());
     if(!(getline(vocab_file, line) && line == "<unk>" && getline(vocab_file, line) && line == "<s>"))

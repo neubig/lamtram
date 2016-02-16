@@ -118,7 +118,7 @@ void LamtramTrain::TrainLM() {
   if(model_in_file_.size()) {
     nlm.reset(ModelUtils::LoadMonolingualModel<NeuralLM>(model_in_file_, model, vocab_trg));
   } else {
-    vocab_trg.reset(new cnn::Dict); vocab_trg->Convert("<unk>");
+    vocab_trg.reset(CreateNewDict());
     model.reset(new cnn::Model);
   }
   // if(!trg_sent) vocab_trg = cnn::Dict("");
@@ -222,8 +222,8 @@ void LamtramTrain::TrainEncDec() {
   if(model_in_file_.size()) {
     encdec.reset(ModelUtils::LoadBilingualModel<EncoderDecoder>(model_in_file_, model, vocab_src, vocab_trg));
   } else {
-    vocab_src.reset(new cnn::Dict);
-    vocab_trg.reset(new cnn::Dict);
+    vocab_src.reset(CreateNewDict());
+    vocab_trg.reset(CreateNewDict());
     model.reset(new cnn::Model);
   }
   // if(!trg_sent) vocab_trg = cnn::Dict("");
@@ -265,8 +265,8 @@ void LamtramTrain::TrainEncAtt() {
   if(model_in_file_.size()) {
     encatt.reset(ModelUtils::LoadBilingualModel<EncoderAttentional>(model_in_file_, model, vocab_src, vocab_trg));
   } else {
-    vocab_src.reset(new cnn::Dict);
-    vocab_trg.reset(new cnn::Dict);
+    vocab_src.reset(CreateNewDict());
+    vocab_trg.reset(CreateNewDict());
     model.reset(new cnn::Model);
   }
 
@@ -307,8 +307,8 @@ void LamtramTrain::TrainEncCls() {
   if(model_in_file_.size()) {
     enccls.reset(ModelUtils::LoadBilingualModel<EncoderClassifier>(model_in_file_, model, vocab_src, vocab_trg));
   } else {
-    vocab_src.reset(new cnn::Dict);
-    vocab_trg.reset(new cnn::Dict);
+    vocab_src.reset(CreateNewDict());
+    vocab_trg.reset(CreateNewDict());
     model.reset(new cnn::Model);
   }
   // if(!trg_sent) vocab_trg = cnn::Dict("");
