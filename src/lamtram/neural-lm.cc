@@ -36,6 +36,7 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(const Sentence & sent,
                       const std::vector<cnn::expr::Expression> & layer_in,
                       bool train,
                       cnn::ComputationGraph & cg, LLStats & ll) {
+  size_t i;
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
   int slen = sent.size() - 1;
@@ -47,6 +48,7 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(const Sentence & sent,
     i_wr.push_back(lookup(cg, p_wr_W_, sent[t]));
   // Next, do the computation
   vector<cnn::expr::Expression> errs, aligns;
+  Sentence ngram(softmax_->GetCtxtLen()+1, 0);
   for(auto t : boost::irange(0, slen+1)) {
     // Concatenate wordrep and external context into a vector for the hidden unit
     vector<cnn::expr::Expression> i_wrs_t;
@@ -62,7 +64,9 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(const Sentence & sent,
     // Run the hidden unit
     cnn::expr::Expression i_h_t = builder_->add_input(i_wr_t);
     // Run the softmax and calculate the error
-    cnn::expr::Expression i_err = softmax_->CalcLoss(i_h_t, sent[t], train);
+    for(i = 0; i < ngram.size()-1; i++) ngram[i] = ngram[i+1];
+    ngram[i] = sent[t];
+    cnn::expr::Expression i_err = softmax_->CalcLoss(i_h_t, ngram, train);
     errs.push_back(i_err);
     // If this word is unknown, then add to the unknown count
     if(sent[t] == unk_id_)

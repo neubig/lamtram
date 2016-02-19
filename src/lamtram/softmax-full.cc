@@ -17,16 +17,16 @@ void SoftmaxFull::NewGraph(cnn::ComputationGraph & cg) {
 }
 
 // Calculate training loss for one word
-cnn::expr::Expression SoftmaxFull::CalcLoss(cnn::expr::Expression & in, WordId word, bool train) {
+cnn::expr::Expression SoftmaxFull::CalcLoss(cnn::expr::Expression & in, const Sentence & ngram, bool train) {
   Expression score = affine_transform({i_sm_b_, i_sm_W_, in});
-  return pickneglogsoftmax(score, word);
+  return pickneglogsoftmax(score, *ngram.rbegin());
 }
 // Calculate training loss for multiple words
-cnn::expr::Expression SoftmaxFull::CalcLoss(cnn::expr::Expression & in, const std::vector<WordId> & word, bool train) {
+cnn::expr::Expression SoftmaxFull::CalcLoss(cnn::expr::Expression & in, const std::vector<Sentence> & ngrams, bool train) {
   Expression score = affine_transform({i_sm_b_, i_sm_W_, in});
-  std::vector<unsigned> wvec(word.size());
-  for(size_t i = 0; i < word.size(); i++)
-    wvec[i] = word[i];
+  std::vector<unsigned> wvec(ngrams.size());
+  for(size_t i = 0; i < ngrams.size(); i++)
+    wvec[i] = *ngrams[i].rbegin();
   return pickneglogsoftmax(score, wvec);
 }
 

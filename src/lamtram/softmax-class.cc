@@ -19,11 +19,11 @@ void SoftmaxClass::NewGraph(cnn::ComputationGraph & cg) {
 }
 
 // Calculate training loss for one word
-cnn::expr::Expression SoftmaxClass::CalcLoss(cnn::expr::Expression & in, WordId word, bool train) {
-  return cfsm_builder_->neg_log_softmax(in, word);
+cnn::expr::Expression SoftmaxClass::CalcLoss(cnn::expr::Expression & in, const Sentence & ngram, bool train) {
+  return cfsm_builder_->neg_log_softmax(in, *ngram.rbegin());
 }
 // Calculate training loss for multiple words
-cnn::expr::Expression SoftmaxClass::CalcLoss(cnn::expr::Expression & in, const std::vector<WordId> & word, bool train) {
+cnn::expr::Expression SoftmaxClass::CalcLoss(cnn::expr::Expression & in, const std::vector<Sentence> & ngrams, bool train) {
   THROW_ERROR("SoftmaxClass::CalcLoss Not implemented for batches yet");
 }
 
