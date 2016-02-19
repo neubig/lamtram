@@ -1,8 +1,14 @@
 #pragma once
 
 #include <lamtram/softmax-base.h>
+#include <cnn/model.h>
+
+namespace cnn {
+  class ClassFactoredSoftmaxBuilder;
+}
 
 namespace lamtram {
+
 
 // An interface to a class that takes a vector as input
 // (potentially batched) and calculates a probability distribution
@@ -24,6 +30,9 @@ public:
   // Calculate the full probability distribution
   virtual cnn::expr::Expression CalcProbability(cnn::expr::Expression & in) override;
   virtual cnn::expr::Expression CalcLogProbability(cnn::expr::Expression & in) override;
+
+protected:
+  std::shared_ptr<cnn::ClassFactoredSoftmaxBuilder> cfsm_builder_;
 
 };
 
