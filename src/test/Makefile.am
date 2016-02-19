@@ -10,10 +10,11 @@ test_lamtram_SOURCES = \
     test-vocabulary.cc
 
 test_lamtram_LDADD = \
-	../lamtram/liblamtram.la \
+    ../lamtram/liblamtram.la \
     $(CNN_LDFLAGS) \
-	$(BOOST_LDFLAGS) \
-	$(BOOST_UNIT_TEST_FRAMEWORK_LIB) \
+    $(BOOST_LDFLAGS) \
+    $(BOOST_UNIT_TEST_FRAMEWORK_LIB) \
     $(BOOST_PROGRAM_OPTIONS_LIB) \
     $(BOOST_SERIALIZATION_LIB) \
+    $(BOOST_IOSTREAMS_LIB) \    
     $(OPENMP_CXXFLAGS)

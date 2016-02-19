@@ -1,6 +1,10 @@
 #pragma once
 
+#include <cnn/expr.h>
 #include <lamtram/softmax-base.h>
+#include <lamtram/dist-base.h>
+
+namespace cnn { class Parameters; }
 
 namespace lamtram {
 
@@ -24,6 +28,16 @@ public:
   // Calculate the full probability distribution
   virtual cnn::expr::Expression CalcProbability(cnn::expr::Expression & in) override;
   virtual cnn::expr::Expression CalcLogProbability(cnn::expr::Expression & in) override;
+
+protected:
+  cnn::Parameters *p_sms_W_, *p_smd_W_; // Softmax weights
+  cnn::Parameters *p_sms_b_, *p_smd_b_; // Softmax bias
+
+  cnn::expr::Expression i_sms_W_, i_smd_W_;
+  cnn::expr::Expression i_sms_b_, i_smd_b_;
+
+  float dropout_; // How much to drop out the dense distributions (at training)
+  std::vector<DistPtr> dist_ptrs_;
 
 };
 
