@@ -37,11 +37,11 @@ int LamtramTrain::main(int argc, char** argv) {
     ("model_in", po::value<string>()->default_value(""), "If resuming training, read the model in")
     ("model_type", po::value<string>()->default_value("nlm"), "Model type (Neural LM nlm, Encoder Decoder encdec, Attentional Model encatt, or Encoder Classifier enccls)")
     ("epochs", po::value<int>()->default_value(100), "Number of epochs")
-    ("rate_thresh",  po::value<double>()->default_value(1e-5), "Threshold for the learning rate")
+    ("rate_thresh",  po::value<float>()->default_value(1e-5), "Threshold for the learning rate")
     ("trainer", po::value<string>()->default_value("sgd"), "Training algorithm (sgd/momentum/adagrad/adadelta)")
     ("softmax", po::value<string>()->default_value("full"), "The type of softmax to use (full/hier/mod)")
     ("seed", po::value<int>()->default_value(0), "Random seed (default 0 -> changes every time)")
-    ("learning_rate", po::value<double>()->default_value(0.1), "Learning rate")
+    ("learning_rate", po::value<float>()->default_value(0.1), "Learning rate")
     ("encoder_types", po::value<string>()->default_value("for"), "The type of encoder, multiple separated by a pipe (for=forward, rev=reverse)")
     ("context", po::value<int>()->default_value(2), "Amount of context information to use")
     ("wordrep", po::value<int>()->default_value(100), "Size of the word representations")
@@ -96,7 +96,7 @@ int LamtramTrain::main(int argc, char** argv) {
     THROW_ERROR("The specified model requires a source file to train, specify source files using train_src.");
 
   // Save some variables
-  rate_thresh_ = vm_["rate_thresh"].as<double>();
+  rate_thresh_ = vm_["rate_thresh"].as<float>();
   epochs_ = vm_["epochs"].as<int>();
   context_ = vm_["context"].as<int>();
   model_in_file_ = vm_["model_in"].as<string>();
@@ -142,13 +142,13 @@ void LamtramTrain::TrainLM() {
   // Create the model
   if(model_in_file_.size() == 0)
     nlm.reset(new NeuralLM(vocab_trg, context_, 0, vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_trg->GetUnkId(), softmax_sig_, *model));
-  TrainerPtr trainer = GetTrainer(vm_["trainer"].as<string>(), vm_["learning_rate"].as<double>(), *model);
+  TrainerPtr trainer = GetTrainer(vm_["trainer"].as<string>(), vm_["learning_rate"].as<float>(), *model);
 
   // If necessary, cache the softmax
   nlm->GetSoftmax().Cache(train_trg, train_trg_ids);
   
   // TODO: Learning rate
-  cnn::real learning_rate = vm_["learning_rate"].as<double>();
+  cnn::real learning_rate = vm_["learning_rate"].as<float>();
   cnn::real learning_scale = 1.0;
 
   // Create a sentence list and random generator
@@ -181,7 +181,7 @@ void LamtramTrain::TrainLM() {
       trainer->update();
       ++loc;
       if(loc % 100 == 0 || id_pos == eval_every_-1 || epochs_ == epoch) {
-        double elapsed = time.Elapsed();
+        float elapsed = time.Elapsed();
         cerr << "Epoch " << epoch+1 << " sent " << loc+1 << ": ppl=" << train_ll.CalcPPL() << ", unk=" << train_ll.unk_ << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << train_ll.words_/elapsed << " w/s)" << endl;
         if(epochs_ == epoch) break;
       }
@@ -195,7 +195,7 @@ void LamtramTrain::TrainLM() {
         nlm->BuildSentGraph(-1, sent, NULL, empty_hist, false, cg, dev_ll);
         dev_ll.lik_ -= as_scalar(cg.forward());
       }
-      double elapsed = time.Elapsed();
+      float elapsed = time.Elapsed();
       cerr << "Epoch " << epoch+1 << " dev: ppl=" << dev_ll.CalcPPL() << ", unk=" << dev_ll.unk_ << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << dev_ll.words_/elapsed << " w/s)" << endl;
     }
     // Adjust the learning rate
@@ -399,10 +399,10 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
   assert(train_src.size() == train_trg.size());
   assert(dev_src.size() == dev_trg.size());
 
-  TrainerPtr trainer = GetTrainer(vm_["trainer"].as<string>(), vm_["learning_rate"].as<double>(), model);
+  TrainerPtr trainer = GetTrainer(vm_["trainer"].as<string>(), vm_["learning_rate"].as<float>(), model);
   
   // Learning rate
-  cnn::real learning_rate = vm_["learning_rate"].as<double>();
+  cnn::real learning_rate = vm_["learning_rate"].as<float>();
   cnn::real learning_scale = 1.0;
 
   // Create a sentence list and random generator
@@ -433,7 +433,7 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
       trainer->update(learning_scale);
       ++loc;
       if(loc % 100 == 0 || id_pos == eval_every_-1 || epochs_ == epoch) {
-        double elapsed = time.Elapsed();
+        float elapsed = time.Elapsed();
         cerr << "Epoch " << epoch+1 << " sent " << loc << ": ppl=" << train_ll.CalcPPL() << ", unk=" << train_ll.unk_ << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << train_ll.words_/elapsed << " w/s)" << endl;
         if(epochs_ == epoch) break;
       }
@@ -447,7 +447,7 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
         encdec.BuildSentGraph(-1, dev_src[i], dev_trg[i], false, cg, dev_ll);
         dev_ll.lik_ -= as_scalar(cg.forward());
       }
-      double elapsed = time.Elapsed();
+      float elapsed = time.Elapsed();
       cerr << "Epoch " << epoch+1 << " dev: ppl=" << dev_ll.CalcPPL() << ", unk=" << dev_ll.unk_ << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << dev_ll.words_/elapsed << " w/s)" << endl;
     }
     // Adjust the learning rate
