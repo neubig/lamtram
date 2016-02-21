@@ -75,7 +75,7 @@ void SoftmaxMod::CalcDists(const Sentence & ngram, CtxtDist & ctxt_dist) {
   int dense_offset = 0, sparse_offset = 0, ctxt_offset = 0;
   Sentence ctxt_ngram(ngram); ctxt_ngram.resize(ngram.size()-1);
   for(auto & dist : dist_ptrs_) {
-    dist->calc_word_dists(ngram, 1.f/vocab_->size(), 0.f, ctxt_dist.second, dense_offset, sparse_dist, sparse_offset);
+    dist->calc_word_dists(ngram, 1.f/vocab_->size(), 1.f, ctxt_dist.second, dense_offset, sparse_dist, sparse_offset);
     dist->calc_ctxt_feats(ctxt_ngram, &ctxt_dist.first[ctxt_offset]);
     ctxt_offset += dist->get_ctxt_size();
   }
@@ -98,6 +98,7 @@ void SoftmaxMod::Cache(const vector<Sentence> sents, const vector<int> set_ids) 
         ngram[k] = ngram[k+1];
       ngram[k] = sents[i][j];
       CalcDists(ngram, curr_ctxt_dist);
+      // cerr << "ngram: " << ngram << " ||| dist: " << curr_ctxt_dist.second << endl;
       auto it = ctxt_map.find(curr_ctxt_dist);
       if(it != ctxt_map.end()) {
         cache_ids_[i][j] = it->second;

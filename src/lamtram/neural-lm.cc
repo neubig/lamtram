@@ -70,7 +70,9 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
     for(i = 0; i < ngram.size()-1; i++) ngram[i] = ngram[i+1];
     ngram[i] = sent[t];
     sent_pos.second = t;
-    cnn::expr::Expression i_err = softmax_->CalcLossCache(i_h_t, ngram, sent_pos, train);
+    cnn::expr::Expression i_err = (sent_id >= 0 ?
+      softmax_->CalcLossCache(i_h_t, ngram, sent_pos, train) :
+      softmax_->CalcLoss(i_h_t, ngram, train));
     errs.push_back(i_err);
     // If this word is unknown, then add to the unknown count
     if(sent[t] == unk_id_)

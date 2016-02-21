@@ -48,8 +48,8 @@ int DistTrain::main(int argc, char** argv) {
   DictPtr dict(CreateNewDict());
   if(vm_["vocab_file"].as<string>() != "") {
     ifstream vocab_file(vm_["vocab_file"].as<string>());
-    if(!(getline(vocab_file, line) && line == "<unk>" && getline(vocab_file, line) && line == "<s>"))
-    THROW_ERROR("First two lines of a vocabulary file must be <unk> and <s>");
+    if(!(getline(vocab_file, line) && line == "<s>" && getline(vocab_file, line) && line == "<unk>"))
+    THROW_ERROR("First two lines of a vocabulary file must be <s> and <unk>");
     while(getline(vocab_file, line))
     dict->Convert(line);
     dict->Freeze();

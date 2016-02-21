@@ -8,6 +8,9 @@
 #include <lamtram/dict-utils.h>
 #include <lamtram/counts.h>
 
+#define EOS_ID 0
+#define UNK_ID 1
+
 using namespace std;
 using namespace lamtram;
 
@@ -52,7 +55,7 @@ std::string DistNgram::get_sig() const {
 }
 
 inline WordId get_sym(const Sentence & sent, int pos) {
-  return pos >= 0 ? sent[pos] : 1;
+  return pos >= 0 ? sent[pos] : 0;
 }
 
 int DistNgram::get_ctxt_id(const Sentence & ngram) {
@@ -230,7 +233,7 @@ void DistNgram::calc_word_dists(const Sentence & ngram,
                                 int & dense_offset,
                                 std::vector<std::pair<int,float> > & trg_sparse,
                                 int & sparse_offset) const {
-  float base_prob = (*ngram.rbegin() != 0 ? 1.0 : unk_prob);
+  float base_prob = (*ngram.rbegin() != UNK_ID ? 1.0 : unk_prob);
   Sentence this_ngram(1, *ngram.rbegin()), this_ctxt;
   for(int j = ctxt_pos_.size(); j >= 0; j--) {
     auto ngram_it = mapping_.find(this_ngram);
@@ -243,10 +246,10 @@ void DistNgram::calc_word_dists(const Sentence & ngram,
       assert(context_it != mapping_.end());
       int value = (j == 0 ? ngram_it->second : ctxt_cnts_[ngram_it->second].first);
       if(smoothing_ == SMOOTH_MABS || smoothing_ == SMOOTH_MKN) {
-        // cerr << "value: " << (value-discounts_[this_ctxt.size()][min(value,3)]) << "/" << disc_ctxt_cnts_[context_it->second] * base_prob << endl;
+        // cerr << "value_absmkn: " << (value-discounts_[this_ctxt.size()][min(value,3)]) << "/" << disc_ctxt_cnts_[context_it->second] * base_prob << endl;
         trg_dense[dense_offset++] = (value-discounts_[this_ctxt.size()][min(value,3)])/disc_ctxt_cnts_[context_it->second] * base_prob;
       } else {
-        // cerr << "value: " << value << "/" << (float)ctxt_cnts_[context_it->second].second * base_prob << endl;
+        // cerr << "value_lin: " << value << "/" << (float)ctxt_cnts_[context_it->second].second * base_prob << endl;
         trg_dense[dense_offset++] = value/(float)ctxt_cnts_[context_it->second].second * base_prob;
       }
     }
