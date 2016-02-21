@@ -58,14 +58,15 @@ std::vector<cnn::expr::Expression> EncoderDecoder::GetEncodedState(
     return decoder_in;
 }
 
-cnn::expr::Expression EncoderDecoder::BuildSentGraph(const Sentence & sent_src, const Sentence & sent_trg,
+cnn::expr::Expression EncoderDecoder::BuildSentGraph(int sent_id,
+                                                     const Sentence & sent_src, const Sentence & sent_trg,
                                                      bool train,
                                                      cnn::ComputationGraph & cg, LLStats & ll) {
     if(&cg != curr_graph_)
         THROW_ERROR("Initialized computation graph and passed comptuation graph don't match."); 
     // Perform encoding with each encoder
     vector<cnn::expr::Expression> decoder_in = GetEncodedState(sent_src, train, cg);
-    return decoder_->BuildSentGraph(sent_trg, NULL, decoder_in, train, cg, ll);
+    return decoder_->BuildSentGraph(sent_id, sent_trg, NULL, decoder_in, train, cg, ll);
 }
 
 

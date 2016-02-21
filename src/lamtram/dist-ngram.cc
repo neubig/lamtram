@@ -200,6 +200,7 @@ size_t DistNgram::get_ctxt_size() const {
 
 // And calculate these features
 void DistNgram::calc_ctxt_feats(const Sentence & ctxt, float* feats_out) const {
+  assert(ctxt.size() >= ctxt_len_);
   Sentence ngram;
   int ctxt_size = (smoothing_ == SMOOTH_LIN ? 3 : 4);
   for(int j = ctxt_pos_.size(); j >= 0; j--) {

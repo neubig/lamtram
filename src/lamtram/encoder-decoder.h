@@ -30,7 +30,8 @@ public:
     ~EncoderDecoder() { }
 
     // Build the computation graph for the sentence including loss
-    cnn::expr::Expression BuildSentGraph(const Sentence & sent_src, const Sentence & sent_trg,
+    cnn::expr::Expression BuildSentGraph(int sent_id,
+                                         const Sentence & sent_src, const Sentence & sent_trg,
                                          bool train,
                                          cnn::ComputationGraph & cg, LLStats & ll);
     std::vector<cnn::expr::Expression> GetEncodedState(

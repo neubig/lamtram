@@ -45,13 +45,16 @@ public:
 
     // Build the computation graph for the sentence including loss
     //  REQUIRES NewGraph to be called before usage
+    //   sent_id: Sentence id if caching is used, can be set to -1
     //   sent: The sentence to be used.
     //   extern_in: The id of the extern context. Ignored if extern_context=0.
     //   layer_in: The input of the hidden layer.
     //   train: Whether we're training or not (so we know whether to use dropout, etc.)
     //   cg: The computation graph.
     //   ll: The log likelihood statistics will be used here.
-    cnn::expr::Expression BuildSentGraph(const Sentence & sent,
+    cnn::expr::Expression BuildSentGraph(
+                                   int sent_id,
+                                   const Sentence & sent,
                                    const ExternCalculator * extern_calc,
                                    const std::vector<cnn::expr::Expression> & layer_in,
                                    bool train,
@@ -95,6 +98,7 @@ public:
     int GetUnkId() const { return unk_id_; }
     int GetNumLayers() const { return hidden_spec_.layers; }
     int GetNumNodes() const { return hidden_spec_.nodes; }
+    SoftmaxBase & GetSoftmax() { return *softmax_; }
 
 protected:
 

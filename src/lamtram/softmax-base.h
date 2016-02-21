@@ -2,12 +2,12 @@
 
 #include <lamtram/sentence.h>
 #include <lamtram/dict-utils.h>
+#include <cnn/expr.h>
 #include <memory>
 
 namespace cnn { 
   class Model;
   class ComputationGraph;
-  namespace expr { class Expression; }
 }
 
 namespace lamtram {
@@ -29,10 +29,22 @@ public:
   virtual cnn::expr::Expression CalcLoss(cnn::expr::Expression & in, const Sentence & ngram, bool train) = 0;
   // Calculate training loss for a multi-word batch
   virtual cnn::expr::Expression CalcLoss(cnn::expr::Expression & in, const std::vector<Sentence> & ngrams, bool train) = 0;
+
+  // Calculate loss using cached info
+  virtual cnn::expr::Expression CalcLossCache(cnn::expr::Expression & in, const Sentence & ngram, std::pair<int,int> sent_word, bool train) {
+    return CalcLoss(in, ngram, train);
+  }
+  virtual cnn::expr::Expression CalcLossCache(cnn::expr::Expression & in, const std::vector<Sentence> & ngrams, const std::vector<std::pair<int,int> > & sent_words, bool train) {
+    return CalcLoss(in, ngrams, train);
+  }
   
   // Calculate the full probability distribution
   virtual cnn::expr::Expression CalcProbability(cnn::expr::Expression & in) = 0;
   virtual cnn::expr::Expression CalcLogProbability(cnn::expr::Expression & in) = 0;
+
+  // Cache data for the entire training corpus if necessary
+  //  data is the data, set_ids is which data set the sentences belong to
+  virtual void Cache(const std::vector<Sentence> sents, const std::vector<int> set_ids) { }
 
   virtual const std::string & GetSig() const { return sig_; }
   virtual int GetInputSize() const { return input_size_; }

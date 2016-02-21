@@ -7,6 +7,7 @@
 #include <lamtram/macros.h>
 #include <lamtram/timer.h>
 #include <lamtram/model-utils.h>
+#include <lamtram/string-util.h>
 #include <cnn/cnn.h>
 #include <cnn/dict.h>
 #include <cnn/random.h>
@@ -27,9 +28,9 @@ int LamtramTrain::main(int argc, char** argv) {
   po::options_description desc("*** lamtram-train (by Graham Neubig) ***");
   desc.add_options()
     ("help", "Produce help message")
-    ("train_trg", po::value<string>()->default_value(""), "Training file")
-    ("dev_trg", po::value<string>()->default_value(""), "Development file")
-    ("train_src", po::value<string>()->default_value(""), "Training source file for TMs")
+    ("train_trg", po::value<string>()->default_value(""), "Training files, possibly separated by pipes")
+    ("dev_trg", po::value<string>()->default_value(""), "Development files")
+    ("train_src", po::value<string>()->default_value(""), "Training source files for TMs, possibly separated by pipes")
     ("dev_src", po::value<string>()->default_value(""), "Development source file for TMs")
     ("eval_every", po::value<int>()->default_value(-1), "Evaluate every n sentences (-1 for full training set)")
     ("model_out", po::value<string>()->default_value(""), "File to write the model to")
@@ -46,6 +47,7 @@ int LamtramTrain::main(int argc, char** argv) {
     ("wordrep", po::value<int>()->default_value(100), "Size of the word representations")
     ("layers", po::value<string>()->default_value("lstm:100:1"), "Descriptor for hidden layers, type:num_units:num_layers")
     ("cls_layers", po::value<string>()->default_value(""), "Descriptor for classifier layers, nodes1:nodes2:...")
+    ("wildcards", po::value<string>()->default_value(""), "Wildcards to be used in loading training files")
     ("attention_nodes", po::value<int>()->default_value(100), "Number of nodes in the attention layer for encatt")
     ("cnn_mem", po::value<int>()->default_value(512), "How much memory to allocate to cnn")
     ("verbose", po::value<int>()->default_value(0), "How much verbose output to print")
@@ -75,19 +77,22 @@ int LamtramTrain::main(int argc, char** argv) {
   }
   bool use_src = model_type == "encdec" || model_type == "enccls" || model_type == "encatt";
 
+  // Create the wildcards
+  wildcards_ = Tokenize(vm_["wildcards"].as<string>(), "|");
+
   // Other sanity checks
-  try { train_file_trg_ = vm_["train_trg"].as<string>(); } catch(std::exception & e) { }
+  try { train_files_trg_ = TokenizeWildcarded(vm_["train_trg"].as<string>(), wildcards_, "|"); } catch(std::exception & e) { }
   try { dev_file_trg_ = vm_["dev_trg"].as<string>(); } catch(std::exception & e) { }
   try { model_out_file_ = vm_["model_out"].as<string>(); } catch(std::exception & e) { }
-  if(!train_file_trg_.size())
+  if(!train_files_trg_.size())
     THROW_ERROR("Must specify a training file with --train_trg");
   if(!model_out_file_.size())
     THROW_ERROR("Must specify a model output file with --model_out");
 
   // Sanity checks for the source
-  try { train_file_src_ = vm_["train_src"].as<string>(); } catch(std::exception & e) { }
+  try { train_files_src_ = TokenizeWildcarded(vm_["train_src"].as<string>(), wildcards_, "|"); } catch(std::exception & e) { }
   try { dev_file_src_ = vm_["dev_src"].as<string>(); } catch(std::exception & e) { }
-  if(use_src && ((!train_file_src_.size()) || (dev_file_trg_.size() && !dev_file_src_.size())))
+  if(use_src && ((!train_files_src_.size()) || (dev_file_trg_.size() && !dev_file_src_.size())))
     THROW_ERROR("The specified model requires a source file to train, specify source files using train_src.");
 
   // Save some variables
@@ -125,7 +130,12 @@ void LamtramTrain::TrainLM() {
 
   // Read the training files
   vector<Sentence> train_trg, dev_trg;
-  LoadFile(train_file_trg_, true, *vocab_trg, train_trg); vocab_trg->Freeze(); vocab_trg->SetUnk("<unk>");
+  vector<int> train_trg_ids;
+  for(size_t i = 0; i < train_files_trg_.size(); i++) {
+    LoadFile(train_files_trg_[i], true, *vocab_trg, train_trg);
+    train_trg_ids.resize(train_trg.size(), i);
+  }
+  vocab_trg->Freeze(); vocab_trg->SetUnk("<unk>");
   if(dev_file_trg_.size()) LoadFile(dev_file_trg_, true, *vocab_trg, dev_trg);
   if(eval_every_ == -1) eval_every_ = train_trg.size();
 
@@ -133,6 +143,9 @@ void LamtramTrain::TrainLM() {
   if(model_in_file_.size() == 0)
     nlm.reset(new NeuralLM(vocab_trg, context_, 0, vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_trg->GetUnkId(), softmax_sig_, *model));
   TrainerPtr trainer = GetTrainer(vm_["trainer"].as<string>(), vm_["learning_rate"].as<double>(), *model);
+
+  // If necessary, cache the softmax
+  nlm->GetSoftmax().Cache(train_trg, train_trg_ids);
   
   // TODO: Learning rate
   cnn::real learning_rate = vm_["learning_rate"].as<double>();
@@ -161,7 +174,7 @@ void LamtramTrain::TrainLM() {
       }
       cnn::ComputationGraph cg;
       nlm->NewGraph(cg);
-      nlm->BuildSentGraph(train_trg[train_ids[loc]], NULL, empty_hist, true, cg, train_ll);
+      nlm->BuildSentGraph(train_ids[loc], train_trg[train_ids[loc]], NULL, empty_hist, true, cg, train_ll);
       // cg.PrintGraphviz();
       train_ll.lik_ -= as_scalar(cg.forward());
       cg.backward();
@@ -179,7 +192,7 @@ void LamtramTrain::TrainLM() {
       for(auto & sent : dev_trg) {
         cnn::ComputationGraph cg;
         nlm->NewGraph(cg);
-        nlm->BuildSentGraph(sent, NULL, empty_hist, false, cg, dev_ll);
+        nlm->BuildSentGraph(-1, sent, NULL, empty_hist, false, cg, dev_ll);
         dev_ll.lik_ -= as_scalar(cg.forward());
       }
       double elapsed = time.Elapsed();
@@ -230,9 +243,18 @@ void LamtramTrain::TrainEncDec() {
 
   // Read the training files
   vector<Sentence> train_trg, dev_trg, train_src, dev_src;
-  LoadFile(train_file_trg_, true, *vocab_trg, train_trg); vocab_trg->Freeze(); vocab_trg->SetUnk("<unk>");
+  vector<int> train_trg_ids, train_src_ids;
+  for(size_t i = 0; i < train_files_trg_.size(); i++) {
+    LoadFile(train_files_trg_[i], true, *vocab_trg, train_trg);
+    train_trg_ids.resize(train_trg.size(), i);
+  }
+  vocab_trg->Freeze(); vocab_trg->SetUnk("<unk>");
   if(dev_file_trg_.size()) LoadFile(dev_file_trg_, true, *vocab_trg, dev_trg);
-  LoadFile(train_file_src_, false, *vocab_src, train_src); vocab_src->Freeze(); vocab_src->SetUnk("<unk>");
+  for(size_t i = 0; i < train_files_src_.size(); i++) {
+    LoadFile(train_files_src_[i], false, *vocab_src, train_src);
+    train_src_ids.resize(train_src.size(), i);
+  }
+  vocab_src->Freeze(); vocab_src->SetUnk("<unk>");
   if(dev_file_src_.size()) LoadFile(dev_file_src_, false, *vocab_src, dev_src);
   if(eval_every_ == -1) eval_every_ = train_trg.size();
 
@@ -249,6 +271,8 @@ void LamtramTrain::TrainEncDec() {
       encoders.push_back(enc);
     }
     NeuralLMPtr decoder(new NeuralLM(vocab_trg, context_, 0, vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_trg->GetUnkId(), softmax_sig_, *model));
+    // If necessary, cache the softmax
+    decoder->GetSoftmax().Cache(train_trg, train_trg_ids);
     encdec.reset(new EncoderDecoder(encoders, decoder, *model));
   }
 
@@ -272,9 +296,18 @@ void LamtramTrain::TrainEncAtt() {
 
   // Read the training file
   vector<Sentence> train_trg, dev_trg, train_src, dev_src;
-  LoadFile(train_file_trg_, true, *vocab_trg, train_trg); vocab_trg->Freeze(); vocab_trg->SetUnk("<unk>");
+  vector<int> train_trg_ids, train_src_ids;
+  for(size_t i = 0; i < train_files_trg_.size(); i++) {
+    LoadFile(train_files_trg_[i], true, *vocab_trg, train_trg);
+    train_trg_ids.resize(train_trg.size(), i);
+  }
+  vocab_trg->Freeze(); vocab_trg->SetUnk("<unk>");
   if(dev_file_trg_.size()) LoadFile(dev_file_trg_, true, *vocab_trg, dev_trg);
-  LoadFile(train_file_src_, false, *vocab_src, train_src); vocab_src->Freeze(); vocab_src->SetUnk("<unk>");
+  for(size_t i = 0; i < train_files_src_.size(); i++) {
+    LoadFile(train_files_src_[i], false, *vocab_src, train_src);
+    train_src_ids.resize(train_src.size(), i);
+  }
+  vocab_src->Freeze(); vocab_src->SetUnk("<unk>");
   if(dev_file_src_.size()) LoadFile(dev_file_src_, false, *vocab_src, dev_src);
   if(eval_every_ == -1) eval_every_ = train_trg.size();
 
@@ -291,6 +324,8 @@ void LamtramTrain::TrainEncAtt() {
     BuilderSpec bspec(vm_["layers"].as<string>());
     ExternAttentionalPtr extatt(new ExternAttentional(encoders, vm_["attention_nodes"].as<int>(), bspec.nodes, *model));
     NeuralLMPtr decoder(new NeuralLM(vocab_trg, context_, bspec.nodes * encoders.size(), vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_trg->GetUnkId(), softmax_sig_, *model));
+    // If necessary, cache the softmax
+    decoder->GetSoftmax().Cache(train_trg, train_trg_ids);
     encatt.reset(new EncoderAttentional(extatt, decoder, *model));
   }
 
@@ -313,12 +348,21 @@ void LamtramTrain::TrainEncCls() {
   }
   // if(!trg_sent) vocab_trg = cnn::Dict("");
 
-  // Read the training files
-  vector<int> train_trg, dev_trg;
+  // Read the training file
   vector<Sentence> train_src, dev_src;
-  LoadLabels(train_file_trg_, *vocab_trg, train_trg); vocab_trg->Freeze();
+  vector<int> train_trg, dev_trg;
+  vector<int> train_trg_ids, train_src_ids;
+  for(size_t i = 0; i < train_files_trg_.size(); i++) {
+    LoadLabels(train_files_trg_[i], *vocab_trg, train_trg);
+    train_trg_ids.resize(train_trg.size(), i);
+  }
+  vocab_trg->Freeze();
   if(dev_file_trg_.size()) LoadLabels(dev_file_trg_, *vocab_trg, dev_trg);
-  LoadFile(train_file_src_, false, *vocab_src, train_src); vocab_src->Freeze(); vocab_src->SetUnk("<unk>");
+  for(size_t i = 0; i < train_files_src_.size(); i++) {
+    LoadFile(train_files_src_[i], false, *vocab_src, train_src);
+    train_src_ids.resize(train_src.size(), i);
+  }
+  vocab_src->Freeze(); vocab_src->SetUnk("<unk>");
   if(dev_file_src_.size()) LoadFile(dev_file_src_, false, *vocab_src, dev_src);
   if(eval_every_ == -1) eval_every_ = train_trg.size();
 
@@ -382,7 +426,7 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
       }
       cnn::ComputationGraph cg;
       encdec.NewGraph(cg);
-      encdec.BuildSentGraph(train_src[train_ids[loc]], train_trg[train_ids[loc]], true, cg, train_ll);
+      encdec.BuildSentGraph(train_ids[loc], train_src[train_ids[loc]], train_trg[train_ids[loc]], true, cg, train_ll);
       // cg.PrintGraphviz();
       train_ll.lik_ -= as_scalar(cg.forward());
       cg.backward();
@@ -400,7 +444,7 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
       for(int i : boost::irange(0, (int)dev_src.size())) {
         cnn::ComputationGraph cg;
         encdec.NewGraph(cg);
-        encdec.BuildSentGraph(dev_src[i], dev_trg[i], false, cg, dev_ll);
+        encdec.BuildSentGraph(-1, dev_src[i], dev_trg[i], false, cg, dev_ll);
         dev_ll.lik_ -= as_scalar(cg.forward());
       }
       double elapsed = time.Elapsed();

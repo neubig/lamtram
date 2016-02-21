@@ -48,7 +48,8 @@ cnn::expr::Expression EncoderClassifier::GetEncodedState(
     return tanh(affine_transform({i_enc2cls_b_, i_enc2cls_W_, i_combined}));
 }
 
-cnn::expr::Expression EncoderClassifier::BuildSentGraph(const Sentence & sent_src, int trg,
+cnn::expr::Expression EncoderClassifier::BuildSentGraph(int sent_id,
+                                                        const Sentence & sent_src, int trg,
                                                         bool train,
                                                         cnn::ComputationGraph & cg, LLStats & ll) const {
     if(&cg != curr_graph_)

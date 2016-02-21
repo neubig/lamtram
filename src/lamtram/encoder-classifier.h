@@ -35,7 +35,8 @@ public:
                       const Sentence & sent_src, bool train, cnn::ComputationGraph & cg) const;
 
     // Build the computation graph for the sentence including loss
-    cnn::expr::Expression BuildSentGraph(const Sentence & sent_src, int trg,
+    cnn::expr::Expression BuildSentGraph(int sent_id,
+                                         const Sentence & sent_src, int trg,
                                          bool train,
                                          cnn::ComputationGraph & cg, LLStats & ll) const;
 
