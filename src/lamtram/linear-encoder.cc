@@ -1,5 +1,4 @@
 #include <lamtram/linear-encoder.h>
-#include <lamtram/vocabulary.h>
 #include <lamtram/macros.h>
 #include <lamtram/builder-factory.h>
 #include <cnn/model.h>
@@ -22,7 +21,7 @@ LinearEncoder::LinearEncoder(int vocab_size, int wordrep_size,
     p_wr_W_ = model.add_lookup_parameters(vocab_size, {(unsigned int)wordrep_size}); 
 }
 
-cnn::expr::Expression LinearEncoder::BuildSentGraph(const Sentence & sent, cnn::ComputationGraph & cg) {
+cnn::expr::Expression LinearEncoder::BuildSentGraph(const Sentence & sent, bool train, cnn::ComputationGraph & cg) {
     if(&cg != curr_graph_)
         THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
     word_states_.resize(sent.size());

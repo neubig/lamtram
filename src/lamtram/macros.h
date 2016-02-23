@@ -10,6 +10,7 @@ namespace lamtram {
 class GlobalVars { 
 public:
     static int verbose;
+    static int curr_word;
 };
 
 }

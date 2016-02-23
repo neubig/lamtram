@@ -36,7 +36,7 @@ class EnsembleDecoder {
 public:
     EnsembleDecoder(const std::vector<EncoderDecoderPtr> & encdecs,
                     const std::vector<EncoderAttentionalPtr> & encatts,
-                    const std::vector<NeuralLMPtr> & lms, int pad);
+                    const std::vector<NeuralLMPtr> & lms);
     ~EnsembleDecoder() {}
 
     template <class OutSent, class OutLL>
@@ -46,7 +46,7 @@ public:
     std::vector<std::vector<cnn::expr::Expression> > GetInitialStates(const Sentence & sent_src, cnn::ComputationGraph & cg);
     
     template <class Sent, class Stat>
-    void AddWords(const Sent & sent, Stat & ll);
+    void AddLik(const Sent & sent, const cnn::expr::Expression & expr, Stat & ll);
 
     // Ensemble together probabilities or log probabilities for a single word
     cnn::expr::Expression EnsembleProbs(const std::vector<cnn::expr::Expression> & in, cnn::ComputationGraph & cg);
@@ -74,7 +74,6 @@ protected:
     std::vector<NeuralLMPtr> lms_;
     std::vector<ExternCalculatorPtr> externs_;
     cnn::real word_pen_;
-    int pad_;
     int unk_id_;
     int size_limit_;
     int beam_size_;

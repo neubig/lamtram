@@ -22,9 +22,9 @@ void EnsembleClassifier::CalcEval(const Sentence & sent_src, int trg, LLStats & 
     for(auto & tm : encclss_) {
         tm->NewGraph(cg);
         if(ensemble_operation_ == "sum") {
-            i_sms.push_back(tm->Forward<cnn::Softmax>(sent_src, cg));
+            i_sms.push_back(tm->Forward<cnn::Softmax>(sent_src, false, cg));
         } else {
-            i_sms.push_back(tm->Forward<cnn::LogSoftmax>(sent_src, cg));
+            i_sms.push_back(tm->Forward<cnn::LogSoftmax>(sent_src, false, cg));
         }
     }
     Expression i_average = average(i_sms);
@@ -51,9 +51,9 @@ int EnsembleClassifier::Predict(const Sentence & sent_src) {
     for(auto & tm : encclss_) {
         tm->NewGraph(cg);
         if(ensemble_operation_ == "sum") {
-            i_sms.push_back(tm->Forward<cnn::Softmax>(sent_src, cg));
+            i_sms.push_back(tm->Forward<cnn::Softmax>(sent_src, false, cg));
         } else {
-            i_sms.push_back(tm->Forward<cnn::LogSoftmax>(sent_src, cg));
+            i_sms.push_back(tm->Forward<cnn::LogSoftmax>(sent_src, false, cg));
         }
     }
     sum(i_sms);

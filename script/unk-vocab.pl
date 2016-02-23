@@ -19,15 +19,17 @@ if(@ARGV != 1) {
     exit 1;
 }
 
-my %vocab;
-open FILE0, "<:utf8", $ARGV[0] or die "Couldn't open $ARGV[0]";
+my %inv;
+open FILE0, "<:utf8", $ARGV[0] or die "Couldn't open $ARGV[0]\n";
 while(<FILE0>) {
   chomp;
-  $vocab{$_}++;
+  for(split(/ /)) {
+    $inv{$_}++;
+  }
 }
 
 while(<STDIN>) {
   chomp;
-  my @arr = map { $vocab{$_} ? $_ : $SYM } split(/ /);
+  my @arr = map { $inv{$_} ? $_ : $SYM } split(/ /);
   print "@arr\n";
 }

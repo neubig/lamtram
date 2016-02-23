@@ -4,6 +4,9 @@
 /* define if the Boost library is available */
 #define HAVE_BOOST /**/
 
+/* define if the Boost::IOStreams library is available */
+#define HAVE_BOOST_IOSTREAMS /**/
+
 /* define if the Boost::PROGRAM_OPTIONS library is available */
 #define HAVE_BOOST_PROGRAM_OPTIONS /**/
 
@@ -62,7 +65,7 @@
 #define HAVE_SYS_TYPES_H 1
 
 /* Define to 1 if you have the <tr1/unordered_map> header file. */
-#define HAVE_TR1_UNORDERED_MAP 1
+/* #undef HAVE_TR1_UNORDERED_MAP */
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #define HAVE_UNISTD_H 1
@@ -70,8 +73,7 @@
 /* Define to 1 if the system has the type `_Bool'. */
 /* #undef HAVE__BOOL */
 
-/* Define to the sub-directory in which libtool stores uninstalled libraries.
-   */
+/* Define to the sub-directory where libtool stores uninstalled libraries. */
 #define LT_OBJDIR ".libs/"
 
 /* Name of package */

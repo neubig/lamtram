@@ -4,6 +4,7 @@
 #include <lamtram/linear-encoder.h>
 #include <lamtram/classifier.h>
 #include <lamtram/ll-stats.h>
+#include <lamtram/dict-utils.h>
 #include <cnn/cnn.h>
 #include <vector>
 #include <iostream>
@@ -31,19 +32,22 @@ public:
 
     // Encode the input sentence as a vector to be input to the classifier
     cnn::expr::Expression GetEncodedState(
-                                    const Sentence & sent_src, cnn::ComputationGraph & cg) const;
+                      const Sentence & sent_src, bool train, cnn::ComputationGraph & cg) const;
 
     // Build the computation graph for the sentence including loss
-    cnn::expr::Expression BuildSentGraph(const Sentence & sent_src, int trg,
+    cnn::expr::Expression BuildSentGraph(int sent_id,
+                                         const Sentence & sent_src, int trg,
+                                         bool train,
                                          cnn::ComputationGraph & cg, LLStats & ll) const;
 
     // Calculate the probabilities from the model, or predict
     template <class SoftmaxOp>
     cnn::expr::Expression Forward(const Sentence & sent_src, 
+                                  bool train,
                                   cnn::ComputationGraph & cg) const;
 
     // Reading/writing functions
-    static EncoderClassifier* Read(std::istream & in, cnn::Model & model);
+    static EncoderClassifier* Read(const DictPtr & vocab_src, const DictPtr & vocab_trg, std::istream & in, cnn::Model & model);
     void Write(std::ostream & out);
 
     // Index the parameters in a computation graph

@@ -1,5 +1,4 @@
 #include <lamtram/encoder-attentional.h>
-#include <lamtram/vocabulary.h>
 #include <lamtram/macros.h>
 #include <lamtram/builder-factory.h>
 #include <cnn/model.h>
@@ -59,14 +58,14 @@ void ExternAttentional::Write(std::ostream & out) {
 
 
 void ExternAttentional::InitializeSentence(
-            const Sentence & sent_src, cnn::ComputationGraph & cg) {
+            const Sentence & sent_src, bool train, cnn::ComputationGraph & cg) {
 
     sent_len_ = sent_src.size();
 
     // First get the states in a digestable format
     vector<vector<cnn::expr::Expression> > hs_sep;
     for(auto & enc : encoders_) {
-        enc->BuildSentGraph(sent_src, cg);
+        enc->BuildSentGraph(sent_src, train, cg);
         hs_sep.push_back(enc->GetWordStates());
     }
     // Concatenate them if necessary
@@ -98,6 +97,7 @@ void ExternAttentional::InitializeSentence(
 cnn::expr::Expression ExternAttentional::CreateContext(
         // const Sentence & sent, int loc,
         const std::vector<cnn::expr::Expression> & state_in,
+        bool train,
         cnn::ComputationGraph & cg,
         std::vector<cnn::expr::Expression> & align_out) const {
     if(&cg != curr_graph_)
@@ -140,17 +140,19 @@ void EncoderAttentional::NewGraph(cnn::ComputationGraph & cg) {
 }
 
 cnn::expr::Expression EncoderAttentional::BuildSentGraph(
+                    int sent_id,
                     const Sentence & sent_src, const Sentence & sent_trg,
+                    bool train,
                     cnn::ComputationGraph & cg, LLStats & ll) {
     if(&cg != curr_graph_)
         THROW_ERROR("Initialized computation graph and passed comptuation graph don't match."); 
-    extern_calc_->InitializeSentence(sent_src, cg);
+    extern_calc_->InitializeSentence(sent_src, train, cg);
     vector<cnn::expr::Expression> decoder_in;
-    return decoder_->BuildSentGraph(sent_trg, extern_calc_.get(), decoder_in, cg, ll);
+    return decoder_->BuildSentGraph(sent_id, sent_trg, extern_calc_.get(), decoder_in, train, cg, ll);
 }
 
 
-EncoderAttentional* EncoderAttentional::Read(std::istream & in, cnn::Model & model) {
+EncoderAttentional* EncoderAttentional::Read(const DictPtr & vocab_src, const DictPtr & vocab_trg, std::istream & in, cnn::Model & model) {
     string version_id, line;
     if(!getline(in, line))
         THROW_ERROR("Premature end of model file when expecting EncoderAttentional");
@@ -159,7 +161,7 @@ EncoderAttentional* EncoderAttentional::Read(std::istream & in, cnn::Model & mod
     if(version_id != "encatt_001")
         THROW_ERROR("Expecting a EncoderAttentional of version encatt_001, but got something different:" << endl << line);
     ExternAttentionalPtr extern_calc(ExternAttentional::Read(in, model));
-    NeuralLMPtr decoder(NeuralLM::Read(in, model));
+    NeuralLMPtr decoder(NeuralLM::Read(vocab_trg, in, model));
     return new EncoderAttentional(extern_calc, decoder, model);
 }
 void EncoderAttentional::Write(std::ostream & out) {

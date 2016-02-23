@@ -35,6 +35,7 @@ ltmain.sh
 gmon.out
 missing
 src/lamtram/lamtram-train
+src/lamtram/dist-train
 src/lamtram/lamtram
 src/lamtram/config.h
 src/test/test-lamtram

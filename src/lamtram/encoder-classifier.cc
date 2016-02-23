@@ -32,11 +32,11 @@ void EncoderClassifier::NewGraph(cnn::ComputationGraph & cg) {
 }
 
 cnn::expr::Expression EncoderClassifier::GetEncodedState(
-                        const Sentence & sent_src, cnn::ComputationGraph & cg) const {
+                        const Sentence & sent_src, bool train, cnn::ComputationGraph & cg) const {
     // Perform encoding with each encoder
     vector<cnn::expr::Expression> inputs;
     for(auto & enc : encoders_) {
-        enc->BuildSentGraph(sent_src, cg);
+        enc->BuildSentGraph(sent_src, train, cg);
         for(auto & id : enc->GetFinalHiddenLayers())
             inputs.push_back(id);
     }
@@ -48,37 +48,42 @@ cnn::expr::Expression EncoderClassifier::GetEncodedState(
     return tanh(affine_transform({i_enc2cls_b_, i_enc2cls_W_, i_combined}));
 }
 
-cnn::expr::Expression EncoderClassifier::BuildSentGraph(const Sentence & sent_src, int trg,
-                                                  cnn::ComputationGraph & cg, LLStats & ll) const {
+cnn::expr::Expression EncoderClassifier::BuildSentGraph(int sent_id,
+                                                        const Sentence & sent_src, int trg,
+                                                        bool train,
+                                                        cnn::ComputationGraph & cg, LLStats & ll) const {
     if(&cg != curr_graph_)
         THROW_ERROR("Initialized computation graph and passed comptuation graph don't match."); 
     // Perform encoding with each encoder
-    cnn::expr::Expression classifier_in = GetEncodedState(sent_src, cg);
+    cnn::expr::Expression classifier_in = GetEncodedState(sent_src, train, cg);
     ll.words_++;
-    return classifier_->BuildGraph(classifier_in, trg, cg);
+    return classifier_->BuildGraph(classifier_in, trg, train, cg);
 }
 
 template <class SoftmaxOp>
-cnn::expr::Expression EncoderClassifier::Forward(const Sentence & sent_src, 
+cnn::expr::Expression EncoderClassifier::Forward(const Sentence & sent_src,
+                                                 bool train, 
                                                  cnn::ComputationGraph & cg) const {
     if(&cg != curr_graph_)
         THROW_ERROR("Initialized computation graph and passed comptuation graph don't match."); 
     // Perform encoding with each encoder
-    cnn::expr::Expression classifier_in = GetEncodedState(sent_src, cg);
+    cnn::expr::Expression classifier_in = GetEncodedState(sent_src, train, cg);
     return classifier_->Forward<SoftmaxOp>(classifier_in, cg);
 }
 
 // Instantiate
 template
 cnn::expr::Expression EncoderClassifier::Forward<cnn::Softmax>(const Sentence & sent_src, 
+                                                               bool train,
                                                                cnn::ComputationGraph & cg) const;
 template
 cnn::expr::Expression EncoderClassifier::Forward<cnn::LogSoftmax>(const Sentence & sent_src, 
+                                                               bool train,
                                                                cnn::ComputationGraph & cg) const;
 
 
 
-EncoderClassifier* EncoderClassifier::Read(std::istream & in, cnn::Model & model) {
+EncoderClassifier* EncoderClassifier::Read(const DictPtr & vocab_src, const DictPtr & vocab_trg, std::istream & in, cnn::Model & model) {
     int num_encoders;
     string version_id, line;
     if(!getline(in, line))
