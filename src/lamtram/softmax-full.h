@@ -25,8 +25,10 @@ public:
   virtual cnn::expr::Expression CalcLoss(cnn::expr::Expression & in, const std::vector<Sentence> & ngrams, bool train) override;
   
   // Calculate the full probability distribution
-  virtual cnn::expr::Expression CalcProbability(cnn::expr::Expression & in) override;
-  virtual cnn::expr::Expression CalcLogProbability(cnn::expr::Expression & in) override;
+  virtual cnn::expr::Expression CalcProbability(cnn::expr::Expression & in, const Sentence & ctxt) override;
+  virtual cnn::expr::Expression CalcProbability(cnn::expr::Expression & in, const std::vector<Sentence> & ctxt) override;
+  virtual cnn::expr::Expression CalcLogProbability(cnn::expr::Expression & in, const Sentence & ctxt) override;
+  virtual cnn::expr::Expression CalcLogProbability(cnn::expr::Expression & in, const std::vector<Sentence> & ctxt) override;
 
 protected:
   cnn::Parameters* p_sm_W_; // Softmax weights

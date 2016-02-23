@@ -33,8 +33,10 @@ public:
   virtual cnn::expr::Expression CalcLossCache(cnn::expr::Expression & in, const std::vector<Sentence> & ngrams, const std::vector<std::pair<int,int> > & sent_words, bool train) override;
   
   // Calculate the full probability distribution
-  virtual cnn::expr::Expression CalcProbability(cnn::expr::Expression & in) override;
-  virtual cnn::expr::Expression CalcLogProbability(cnn::expr::Expression & in) override;
+  virtual cnn::expr::Expression CalcProbability(cnn::expr::Expression & in, const Sentence & ctxt) override;
+  virtual cnn::expr::Expression CalcProbability(cnn::expr::Expression & in, const std::vector<Sentence> & ctxt) override;
+  virtual cnn::expr::Expression CalcLogProbability(cnn::expr::Expression & in, const Sentence & ctxt) override;
+  virtual cnn::expr::Expression CalcLogProbability(cnn::expr::Expression & in, const std::vector<Sentence> & ctxt) override;
 
   virtual void Cache(const std::vector<Sentence> sents, const std::vector<int> set_ids) override;
 
@@ -45,6 +47,7 @@ protected:
   void LoadDists(int id);
 
   void CalcDists(const Sentence & ngram, CtxtDist & ctxt_dist);
+  void CalcAllDists(const Sentence & ctxt_ngram, CtxtDist & ctxt_dist);
 
   int num_dist_, num_ctxt_;
 
@@ -57,6 +60,8 @@ protected:
   float dropout_; // How much to drop out the dense distributions (at training)
   std::vector<DistPtr> dist_ptrs_;
   int dist_id_;
+
+  
 
   std::vector<CtxtDist> cache_;
   std::vector<std::vector<int> > cache_ids_;

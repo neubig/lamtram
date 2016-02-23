@@ -80,6 +80,15 @@ void SoftmaxMod::CalcDists(const Sentence & ngram, CtxtDist & ctxt_dist) {
     ctxt_offset += dist->get_ctxt_size();
   }
 }
+void SoftmaxMod::CalcAllDists(const Sentence & ctxt_ngram, CtxtDist & ctxt_dist) {
+  vector<pair<pair<int,int>,float> > sparse_dist;
+  int dense_offset = 0, sparse_offset = 0, ctxt_offset = 0;
+  for(auto & dist : dist_ptrs_) {
+    dist->calc_all_word_dists(ctxt_ngram, vocab_->size(), 1.f/vocab_->size(), 1.f, ctxt_dist.second, dense_offset, sparse_dist, sparse_offset);
+    dist->calc_ctxt_feats(ctxt_ngram, &ctxt_dist.first[ctxt_offset]);
+    ctxt_offset += dist->get_ctxt_size();
+  }
+}
 
 void SoftmaxMod::Cache(const vector<Sentence> sents, const vector<int> set_ids) {
   assert(sents.size() == set_ids.size());
@@ -159,10 +168,30 @@ Expression SoftmaxMod::CalcLoss(Expression & in, const vector<Sentence> & ngrams
 }
 
 // Calculate the full probability distribution
-Expression SoftmaxMod::CalcProbability(Expression & in) {
-  THROW_ERROR("SoftmaxMod::CalcLogProbability Not implemented yet");
+Expression SoftmaxMod::CalcProbability(Expression & in, const Sentence & ctxt_ngram) {
+  // Calculate the distributions
+  CtxtDist ctxt_dist; ctxt_dist.first.resize(num_ctxt_); ctxt_dist.second.resize(num_dist_*vocab_->size());
+  CalcAllDists(ctxt_ngram, ctxt_dist);
+  // Create expressions
+  Expression ctxt_expr = input(*in.pg, {(unsigned int)num_ctxt_}, ctxt_dist.first);
+  Expression in_ctxt_expr = concatenate({in, ctxt_expr});
+  Expression score_sms = affine_transform({i_sms_b_, i_sms_W_, in_ctxt_expr});
+  Expression score_smd = affine_transform({i_smd_b_, i_smd_W_, in_ctxt_expr});
+  Expression score = softmax(concatenate({score_sms, score_smd}));
+  // Do mixture of distributions
+  Expression dists = input(*in.pg, {(unsigned int)num_dist_, (unsigned int)vocab_->size()}, ctxt_dist.second);
+  Expression word_prob = pickrange(score, 0, vocab_->size()) + transpose(dists) * pickrange(score, vocab_->size(), vocab_->size()+num_dist_);
+  // cerr << "Picking==" << as_scalar(pick(score, GlobalVars::curr_word).value()) <<  ", interp: " << as_vector(pickrange(score, vocab_->size(), vocab_->size()+num_dist_).value()) << endl;
+  // cerr << "Word " << GlobalVars::curr_word << " and surrounding probs: " << as_vector(pickrange(word_prob, max(0,GlobalVars::curr_word-3), min(GlobalVars::curr_word+4, (int)vocab_->size())).value()) << endl;
+  return word_prob;
 }
-Expression SoftmaxMod::CalcLogProbability(Expression & in) {
-  THROW_ERROR("SoftmaxMod::CalcLogProbability Not implemented yet");
+Expression SoftmaxMod::CalcProbability(Expression & in, const vector<Sentence> & ctxt_ngrams) {
+  THROW_ERROR("SoftmaxMod::CalcProbability Not implemented yet");
+}
+Expression SoftmaxMod::CalcLogProbability(Expression & in, const Sentence & ctxt_ngram) {
+  return log(CalcProbability(in, ctxt_ngram));
+}
+Expression SoftmaxMod::CalcLogProbability(Expression & in, const vector<Sentence> & ctxt_ngrams) {
+  return log(CalcProbability(in, ctxt_ngrams));
 }
 

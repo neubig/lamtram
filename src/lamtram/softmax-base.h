@@ -39,8 +39,10 @@ public:
   }
   
   // Calculate the full probability distribution
-  virtual cnn::expr::Expression CalcProbability(cnn::expr::Expression & in) = 0;
-  virtual cnn::expr::Expression CalcLogProbability(cnn::expr::Expression & in) = 0;
+  virtual cnn::expr::Expression CalcProbability(cnn::expr::Expression & in, const Sentence & ctxt) = 0;
+  virtual cnn::expr::Expression CalcProbability(cnn::expr::Expression & in, const std::vector<Sentence> & ctxt) = 0;
+  virtual cnn::expr::Expression CalcLogProbability(cnn::expr::Expression & in, const Sentence & ctxt) = 0;
+  virtual cnn::expr::Expression CalcLogProbability(cnn::expr::Expression & in, const std::vector<Sentence> & ctxt) = 0;
 
   // Cache data for the entire training corpus if necessary
   //  data is the data, set_ids is which data set the sentences belong to

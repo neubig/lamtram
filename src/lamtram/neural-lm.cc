@@ -100,6 +100,23 @@ inline vector<unsigned> CreateWord(const vector<Sentence> & sent, int t) {
   return ret;
 }
 
+template <>
+Sentence NeuralLM::CreateContext<Sentence>(const Sentence & sent, int t) {
+  Sentence ctxt_ngram(softmax_->GetCtxtLen(), 0);
+  for(int i = 0, j = t-softmax_->GetCtxtLen(); i < softmax_->GetCtxtLen(); i++, j++)
+    if(j >= 0)
+      ctxt_ngram[i] = sent[j];
+  return ctxt_ngram;
+}
+
+template <>
+vector<Sentence> NeuralLM::CreateContext<vector<Sentence> >(const vector<Sentence> & sent, int t) {
+  vector<Sentence> ret(sent.size());
+  for(size_t i = 0; i < sent.size(); i++)
+    ret[i] = CreateContext(sent[i], t);
+  return ret;
+}
+
 // Move forward one step using the language model and return the probabilities
 template <class Sent>
 cnn::expr::Expression NeuralLM::Forward(const Sent & sent, int t, 
@@ -125,10 +142,12 @@ cnn::expr::Expression NeuralLM::Forward(const Sent & sent, int t,
   cnn::expr::Expression i_wr_t = concatenate(i_wrs_t);
   // Run the hidden unit
   cnn::expr::Expression i_h_t = builder_->add_input(i_wr_t);
+  // Create the context
+  Sent ctxt_ngram = CreateContext<Sent>(sent, t);
   // Run the softmax and calculate the error
   cnn::expr::Expression i_sm_t = (log_prob ?
-                  softmax_->CalcLogProbability(i_h_t) :
-                  softmax_->CalcProbability(i_h_t));
+                  softmax_->CalcLogProbability(i_h_t, ctxt_ngram) :
+                  softmax_->CalcProbability(i_h_t, ctxt_ngram));
   // Update the state
   layer_out = builder_->final_s();
   return i_sm_t;

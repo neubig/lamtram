@@ -156,6 +156,9 @@ inline int MaxLen(const vector<Sentence> & sent) {
   return val;
 }
 
+inline int GetWord(const vector<Sentence> & vec, int t) { return vec[0][t]; }
+inline int GetWord(const Sentence & vec, int t) { return vec[t]; }
+
 template <class Sent, class Stat>
 void EnsembleDecoder::CalcSentLL(const Sentence & sent_src, const Sent & sent_trg, Stat & ll) {
   // First initialize states and do encoding as necessary
@@ -168,6 +171,7 @@ void EnsembleDecoder::CalcSentLL(const Sentence & sent_src, const Sent & sent_tr
   vector<Expression> errs, aligns;
   int max_len = MaxLen(sent_trg);
   for(int t : boost::irange(0, max_len)) {
+    GlobalVars::curr_word = GetWord(sent_trg, t);
     // Perform the forward step on all models
     vector<Expression> i_sms;
     for(int j : boost::irange(0, (int)lms_.size()))
@@ -183,6 +187,7 @@ void EnsembleDecoder::CalcSentLL(const Sentence & sent_src, const Sent & sent_tr
       THROW_ERROR("Bad ensembling operation: " << ensemble_operation_ << endl);
     }
     // Pick the error and add to the vector
+    // cerr << "i_logprob @ " << t << " == " << sent_trg[t] << ": " << as_scalar(i_logprob.value()) << endl;
     errs.push_back(i_logprob);
     last_state = next_state;
 

@@ -252,6 +252,9 @@ void DistNgram::calc_word_dists(const Sentence & ngram,
         // cerr << "value_lin: " << value << "/" << (float)ctxt_cnts_[context_it->second].second * base_prob << endl;
         trg_dense[dense_offset++] = value/(float)ctxt_cnts_[context_it->second].second * base_prob;
       }
+      if(*ngram.rbegin() == GlobalVars::curr_word) {
+        // cerr << "trg_dense[" << dense_offset-1 << "] == " << trg_dense[dense_offset-1] << endl;
+      }
     }
     if(j != 0) {
       this_ngram.insert(this_ngram.begin(), ngram[ngram.size()-ctxt_pos_[j-1]-1]);

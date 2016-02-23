@@ -170,7 +170,7 @@ void LamtramTrain::TrainLM() {
         // Shuffle the access order
         std::shuffle(train_ids.begin(), train_ids.end(), *cnn::rndeng);
         loc = 0;
-        epoch++;
+        ++epoch;
       }
       cnn::ComputationGraph cg;
       nlm->NewGraph(cg);
@@ -412,9 +412,9 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
   std::vector<cnn::expr::Expression> empty_hist;
   cnn::real last_ll = -1e99, best_ll = -1e99;
   bool do_dev = dev_src.size() != 0;
-  int loc = 0;
+  int loc = 0, epoch = 0;
   std::shuffle(train_ids.begin(), train_ids.end(), *cnn::rndeng);
-  for(int epoch = 0; epoch < epochs_; ++epoch) {
+  while(epoch < epochs_) {
     // Start the training
     LLStats train_ll(vocab_trg.size()), dev_ll(vocab_trg.size());
     Timer time;
@@ -423,6 +423,7 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
         // Shuffle the access order
         std::shuffle(train_ids.begin(), train_ids.end(), *cnn::rndeng);
         loc = 0;
+        ++epoch;
       }
       cnn::ComputationGraph cg;
       encdec.NewGraph(cg);

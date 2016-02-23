@@ -22,6 +22,9 @@ class DistBase {
 
 public:
 
+  typedef std::vector<std::pair<int,float> > SparseData;
+  typedef std::vector<std::pair<std::pair<int,int>,float> > BatchSparseData;
+
   DistBase(const std::string & sig) : ctxt_len_(0) { }
   virtual ~DistBase() { }
 
@@ -57,8 +60,16 @@ public:
                                float unk_prob,
                                std::vector<float> & trg_dense,
                                int & dense_offset,
-                               std::vector<std::pair<int,float> > & trg_sparse,
+                               SparseData & trg_sparse,
                                int & sparse_offset) const = 0;
+  virtual void calc_all_word_dists(const Sentence & ctxt_ngram,
+                                   int vocab_size,
+                                   float uniform_prob,
+                                   float unk_prob,
+                                   std::vector<float> & trg_dense,
+                                   int & dense_offset,
+                                   BatchSparseData & trg_sparse,
+                                   int & sparse_offset) const;
 
   // Read/write model. If dict is null, use numerical ids, otherwise strings.
   virtual void write(DictPtr dict, std::ostream & str) const = 0;

@@ -22,6 +22,7 @@ LIBCPP = \
     softmax-class.cc \
     softmax-factory.cc \
     dict-utils.cc \
+    dist-base.cc \
     dist-factory.cc \
     dist-ngram.cc \
     dist-one-hot.cc \

@@ -78,6 +78,9 @@ public:
                                std::vector<cnn::expr::Expression> & layer_out,
                                cnn::ComputationGraph & cg,
                                std::vector<cnn::expr::Expression> & align_out);
+
+    template <class Sent>
+    Sent CreateContext(const Sent & sent, int t);
     
     // Index the parameters in a computation graph
     void NewGraph(cnn::ComputationGraph & cg);

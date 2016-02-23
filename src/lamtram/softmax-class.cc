@@ -28,10 +28,16 @@ cnn::expr::Expression SoftmaxClass::CalcLoss(cnn::expr::Expression & in, const s
 }
 
 // Calculate the full probability distribution
-cnn::expr::Expression SoftmaxClass::CalcProbability(cnn::expr::Expression & in) {
+cnn::expr::Expression SoftmaxClass::CalcProbability(cnn::expr::Expression & in, const Sentence & ctxt) {
+  THROW_ERROR("SoftmaxClass::CalcProbability Not implemented yet");
+}
+cnn::expr::Expression SoftmaxClass::CalcProbability(cnn::expr::Expression & in, const vector<Sentence> & ctxt) {
+  THROW_ERROR("SoftmaxClass::CalcProbability Not implemented yet");
+}
+cnn::expr::Expression SoftmaxClass::CalcLogProbability(cnn::expr::Expression & in, const Sentence & ctxt) {
   THROW_ERROR("SoftmaxClass::CalcLogProbability Not implemented yet");
 }
-cnn::expr::Expression SoftmaxClass::CalcLogProbability(cnn::expr::Expression & in) {
+cnn::expr::Expression SoftmaxClass::CalcLogProbability(cnn::expr::Expression & in, const vector<Sentence> & ctxt) {
   THROW_ERROR("SoftmaxClass::CalcLogProbability Not implemented yet");
 }
 
