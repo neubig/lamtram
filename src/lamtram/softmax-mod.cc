@@ -48,7 +48,7 @@ SoftmaxMod::SoftmaxMod(const string & sig, int input_size, const DictPtr & vocab
   for(auto & dist_file : my_dist_files)
     dist_files_.push_back(TokenizeWildcarded(dist_file,wildcards_,"|"));
   // Read the distributions for the first set of training data
-  LoadDists(1);
+  LoadDists(0);
   ctxt_len_ = 0;
   for(auto & dist : dist_ptrs_) {
     num_dist_ += dist->get_dense_size();

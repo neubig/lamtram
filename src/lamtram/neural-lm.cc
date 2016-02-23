@@ -100,6 +100,8 @@ inline vector<unsigned> CreateWord(const vector<Sentence> & sent, int t) {
   return ret;
 }
 
+namespace lamtram {
+
 template <>
 Sentence NeuralLM::CreateContext<Sentence>(const Sentence & sent, int t) {
   Sentence ctxt_ngram(softmax_->GetCtxtLen(), 0);
@@ -115,6 +117,8 @@ vector<Sentence> NeuralLM::CreateContext<vector<Sentence> >(const vector<Sentenc
   for(size_t i = 0; i < sent.size(); i++)
     ret[i] = CreateContext(sent[i], t);
   return ret;
+}
+
 }
 
 // Move forward one step using the language model and return the probabilities
