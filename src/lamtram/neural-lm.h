@@ -52,8 +52,8 @@ public:
     //   cg: The computation graph.
     //   ll: The log likelihood statistics will be used here.
     cnn::expr::Expression BuildSentGraph(
-                                   int sent_id,
                                    const Sentence & sent,
+                                   const Sentence & cache_ids,
                                    const ExternCalculator * extern_calc,
                                    const std::vector<cnn::expr::Expression> & layer_in,
                                    bool train,

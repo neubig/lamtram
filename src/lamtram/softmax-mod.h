@@ -29,8 +29,8 @@ public:
   virtual cnn::expr::Expression CalcLoss(cnn::expr::Expression & in, const std::vector<Sentence> & ngrams, bool train) override;
 
   // Calculate loss using cached info
-  virtual cnn::expr::Expression CalcLossCache(cnn::expr::Expression & in, const Sentence & ngram, std::pair<int,int> sent_word, bool train) override;
-  virtual cnn::expr::Expression CalcLossCache(cnn::expr::Expression & in, const std::vector<Sentence> & ngrams, const std::vector<std::pair<int,int> > & sent_words, bool train) override;
+  virtual cnn::expr::Expression CalcLossCache(cnn::expr::Expression & in, int cache_id, const Sentence & ngram, bool train) override;
+  virtual cnn::expr::Expression CalcLossCache(cnn::expr::Expression & in, const std::vector<int> & cache_ids, const std::vector<Sentence> & ngrams, bool train) override;
   
   // Calculate the full probability distribution
   virtual cnn::expr::Expression CalcProbability(cnn::expr::Expression & in, const Sentence & ctxt) override;
@@ -38,7 +38,7 @@ public:
   virtual cnn::expr::Expression CalcLogProbability(cnn::expr::Expression & in, const Sentence & ctxt) override;
   virtual cnn::expr::Expression CalcLogProbability(cnn::expr::Expression & in, const std::vector<Sentence> & ctxt) override;
 
-  virtual void Cache(const std::vector<Sentence> sents, const std::vector<int> set_ids) override;
+  virtual void Cache(const std::vector<Sentence> & sents, const std::vector<int> & set_ids, std::vector<Sentence> & cache_ids) override;
 
 protected:
 
@@ -64,7 +64,6 @@ protected:
   
 
   std::vector<CtxtDist> cache_;
-  std::vector<std::vector<int> > cache_ids_;
   std::vector<std::string> wildcards_;
   std::vector<std::vector<std::string> > dist_files_;
 

@@ -28,6 +28,7 @@ public:
     template<class ModelType, class OutputType>
     void BilingualTraining(const std::vector<Sentence> & train_src,
                            const std::vector<OutputType> & train_trg,
+                           const std::vector<OutputType> & train_cache,
                            const std::vector<Sentence> & dev_src,
                            const std::vector<OutputType> & dev_trg,
                            const cnn::Dict & vocab_src,

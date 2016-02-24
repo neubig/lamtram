@@ -90,18 +90,18 @@ void SoftmaxMod::CalcAllDists(const Sentence & ctxt_ngram, CtxtDist & ctxt_dist)
   }
 }
 
-void SoftmaxMod::Cache(const vector<Sentence> sents, const vector<int> set_ids) {
+void SoftmaxMod::Cache(const vector<Sentence> & sents, const vector<int> & set_ids, vector<Sentence> & cache_ids) {
   assert(sents.size() == set_ids.size());
   // Create pairs of context floats, distribution floats
   CtxtDist curr_ctxt_dist; curr_ctxt_dist.first.resize(num_ctxt_); curr_ctxt_dist.second.resize(num_dist_);
   std::unordered_map<CtxtDist, int> ctxt_map;
   size_t i, j, k;
   // Fill the cache with values
-  cache_ids_.resize(sents.size());
+  cache_ids.resize(sents.size());
   for(i = 0; i < sents.size(); i++) {
     LoadDists(set_ids[i]+1);
     Sentence ngram(ctxt_len_+1, 0);
-    cache_ids_[i].resize(sents[i].size());
+    cache_ids[i].resize(sents[i].size());
     for(j = 0; j < sents[i].size(); j++) {
       for(k = 0; k < ngram.size()-1; k++)
         ngram[k] = ngram[k+1];
@@ -110,9 +110,9 @@ void SoftmaxMod::Cache(const vector<Sentence> sents, const vector<int> set_ids) 
       // cerr << "ngram: " << ngram << " ||| dist: " << curr_ctxt_dist.second << endl;
       auto it = ctxt_map.find(curr_ctxt_dist);
       if(it != ctxt_map.end()) {
-        cache_ids_[i][j] = it->second;
+        cache_ids[i][j] = it->second;
       } else {
-        cache_ids_[i][j] = ctxt_map.size();
+        cache_ids[i][j] = ctxt_map.size();
         ctxt_map.insert(make_pair(curr_ctxt_dist, ctxt_map.size()));
       }
     }
@@ -132,14 +132,11 @@ Expression SoftmaxMod::CalcLoss(Expression & in, const Sentence & ngram, bool tr
   return CalcLossExpr(in, ctxt_dist, *ngram.rbegin(), train);
 }
 
-Expression SoftmaxMod::CalcLossCache(Expression & in, const Sentence & ngram, pair<int,int> sent_word, bool train) {
-  assert(cache_ids_.size() > sent_word.first);
-  assert(cache_ids_[sent_word.first].size() > sent_word.second);
-  assert(cache_.size() > cache_ids_[sent_word.first][sent_word.second]);
-  return CalcLossExpr(in, cache_[cache_ids_[sent_word.first][sent_word.second]], *ngram.rbegin(), train);
+Expression SoftmaxMod::CalcLossCache(Expression & in, int cache_id, const Sentence & ngram, bool train) {
+  return CalcLossExpr(in, cache_[cache_id], *ngram.rbegin(), train);
 }
 
-Expression SoftmaxMod::CalcLossCache(Expression & in, const vector<Sentence> & ngram, const vector<pair<int,int> > & sent_words, bool train) {
+Expression SoftmaxMod::CalcLossCache(Expression & in, const vector<int> & cache_ids, const vector<Sentence> & ngrams, bool train) {
   THROW_ERROR("SoftmaxMod::CalcLossCache Not implemented yet");
 }
 

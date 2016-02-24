@@ -129,7 +129,7 @@ void LamtramTrain::TrainLM() {
   // if(!trg_sent) vocab_trg = cnn::Dict("");
 
   // Read the training files
-  vector<Sentence> train_trg, dev_trg;
+  vector<Sentence> train_trg, dev_trg, train_cache;
   vector<int> train_trg_ids;
   for(size_t i = 0; i < train_files_trg_.size(); i++) {
     LoadFile(train_files_trg_[i], true, *vocab_trg, train_trg);
@@ -145,7 +145,7 @@ void LamtramTrain::TrainLM() {
   TrainerPtr trainer = GetTrainer(vm_["trainer"].as<string>(), vm_["learning_rate"].as<float>(), *model);
 
   // If necessary, cache the softmax
-  nlm->GetSoftmax().Cache(train_trg, train_trg_ids);
+  nlm->GetSoftmax().Cache(train_trg, train_trg_ids, train_cache);
   
   // TODO: Learning rate
   cnn::real learning_rate = vm_["learning_rate"].as<float>();
@@ -174,7 +174,7 @@ void LamtramTrain::TrainLM() {
       }
       cnn::ComputationGraph cg;
       nlm->NewGraph(cg);
-      nlm->BuildSentGraph(train_ids[loc], train_trg[train_ids[loc]], NULL, empty_hist, true, cg, train_ll);
+      nlm->BuildSentGraph(train_trg[train_ids[loc]], train_cache[train_ids[loc]], NULL, empty_hist, true, cg, train_ll);
       // cg.PrintGraphviz();
       train_ll.lik_ -= as_scalar(cg.forward());
       cg.backward();
@@ -192,7 +192,7 @@ void LamtramTrain::TrainLM() {
       for(auto & sent : dev_trg) {
         cnn::ComputationGraph cg;
         nlm->NewGraph(cg);
-        nlm->BuildSentGraph(-1, sent, NULL, empty_hist, false, cg, dev_ll);
+        nlm->BuildSentGraph(sent, Sentence(), NULL, empty_hist, false, cg, dev_ll);
         dev_ll.lik_ -= as_scalar(cg.forward());
       }
       float elapsed = time.Elapsed();
@@ -242,7 +242,7 @@ void LamtramTrain::TrainEncDec() {
   // if(!trg_sent) vocab_trg = cnn::Dict("");
 
   // Read the training files
-  vector<Sentence> train_trg, dev_trg, train_src, dev_src;
+  vector<Sentence> train_trg, dev_trg, train_src, dev_src, train_cache_ids;
   vector<int> train_trg_ids, train_src_ids;
   for(size_t i = 0; i < train_files_trg_.size(); i++) {
     LoadFile(train_files_trg_[i], true, *vocab_trg, train_trg);
@@ -272,12 +272,12 @@ void LamtramTrain::TrainEncDec() {
     }
     NeuralLMPtr decoder(new NeuralLM(vocab_trg, context_, 0, vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_trg->GetUnkId(), softmax_sig_, *model));
     // If necessary, cache the softmax
-    decoder->GetSoftmax().Cache(train_trg, train_trg_ids);
+    decoder->GetSoftmax().Cache(train_trg, train_trg_ids, train_cache_ids);
     encdec.reset(new EncoderDecoder(encoders, decoder, *model));
   }
 
-  BilingualTraining(train_src, train_trg, dev_src, dev_trg,
-            *vocab_src, *vocab_trg, *model, *encdec);
+  BilingualTraining(train_src, train_trg, train_cache_ids, dev_src, dev_trg,
+                    *vocab_src, *vocab_trg, *model, *encdec);
 }
 
 void LamtramTrain::TrainEncAtt() {
@@ -295,7 +295,7 @@ void LamtramTrain::TrainEncAtt() {
   }
 
   // Read the training file
-  vector<Sentence> train_trg, dev_trg, train_src, dev_src;
+  vector<Sentence> train_trg, dev_trg, train_src, dev_src, train_cache_ids;
   vector<int> train_trg_ids, train_src_ids;
   for(size_t i = 0; i < train_files_trg_.size(); i++) {
     LoadFile(train_files_trg_[i], true, *vocab_trg, train_trg);
@@ -325,12 +325,12 @@ void LamtramTrain::TrainEncAtt() {
     ExternAttentionalPtr extatt(new ExternAttentional(encoders, vm_["attention_nodes"].as<int>(), bspec.nodes, *model));
     NeuralLMPtr decoder(new NeuralLM(vocab_trg, context_, bspec.nodes * encoders.size(), vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_trg->GetUnkId(), softmax_sig_, *model));
     // If necessary, cache the softmax
-    decoder->GetSoftmax().Cache(train_trg, train_trg_ids);
+    decoder->GetSoftmax().Cache(train_trg, train_trg_ids, train_cache_ids);
     encatt.reset(new EncoderAttentional(extatt, decoder, *model));
   }
 
-  BilingualTraining(train_src, train_trg, dev_src, dev_trg,
-            *vocab_src, *vocab_trg, *model, *encatt);
+  BilingualTraining(train_src, train_trg, train_cache_ids, dev_src, dev_trg,
+                    *vocab_src, *vocab_trg, *model, *encatt);
 }
 
 void LamtramTrain::TrainEncCls() {
@@ -381,13 +381,15 @@ void LamtramTrain::TrainEncCls() {
     enccls.reset(new EncoderClassifier(encoders, classifier, *model));
   }
 
-  BilingualTraining(train_src, train_trg, dev_src, dev_trg,
-            *vocab_src, *vocab_trg, *model, *enccls);
+  vector<int> train_cache_ids(train_trg.size());
+  BilingualTraining(train_src, train_trg, train_cache_ids, dev_src, dev_trg,
+                    *vocab_src, *vocab_trg, *model, *enccls);
 }
 
 template<class ModelType, class OutputType>
 void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
                     const vector<OutputType> & train_trg,
+                    const vector<OutputType> & train_cache,
                     const vector<Sentence> & dev_src,
                     const vector<OutputType> & dev_trg,
                     const cnn::Dict & vocab_src,
@@ -427,7 +429,7 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
       }
       cnn::ComputationGraph cg;
       encdec.NewGraph(cg);
-      encdec.BuildSentGraph(train_ids[loc], train_src[train_ids[loc]], train_trg[train_ids[loc]], true, cg, train_ll);
+      encdec.BuildSentGraph(train_src[train_ids[loc]], train_trg[train_ids[loc]], train_cache[train_ids[loc]], true, cg, train_ll);
       // cg.PrintGraphviz();
       train_ll.lik_ -= as_scalar(cg.forward());
       cg.backward();
@@ -442,10 +444,11 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
     // Measure development perplexity
     if(do_dev) {
       time = Timer();
+      OutputType empty_cache;
       for(int i : boost::irange(0, (int)dev_src.size())) {
         cnn::ComputationGraph cg;
         encdec.NewGraph(cg);
-        encdec.BuildSentGraph(-1, dev_src[i], dev_trg[i], false, cg, dev_ll);
+        encdec.BuildSentGraph(dev_src[i], dev_trg[i], empty_cache, false, cg, dev_ll);
         dev_ll.lik_ -= as_scalar(cg.forward());
       }
       float elapsed = time.Elapsed();

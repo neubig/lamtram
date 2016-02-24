@@ -32,8 +32,8 @@ NeuralLM::NeuralLM(const DictPtr & vocab, int ngram_context, int extern_context,
 }
 
 cnn::expr::Expression NeuralLM::BuildSentGraph(
-                      int sent_id,
                       const Sentence & sent,
+                      const Sentence & cache_ids,
                       const ExternCalculator * extern_calc,
                       const std::vector<cnn::expr::Expression> & layer_in,
                       bool train,
@@ -51,7 +51,6 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
   // Next, do the computation
   vector<cnn::expr::Expression> errs, aligns;
   Sentence ngram(softmax_->GetCtxtLen()+1, 0);
-  pair<int,int> sent_pos(sent_id, 0);
   for(auto t : boost::irange(0, slen+1)) {
     // Concatenate wordrep and external context into a vector for the hidden unit
     vector<cnn::expr::Expression> i_wrs_t;
@@ -69,9 +68,8 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
     // Run the softmax and calculate the error
     for(i = 0; i < ngram.size()-1; i++) ngram[i] = ngram[i+1];
     ngram[i] = sent[t];
-    sent_pos.second = t;
-    cnn::expr::Expression i_err = (sent_id >= 0 ?
-      softmax_->CalcLossCache(i_h_t, ngram, sent_pos, train) :
+    cnn::expr::Expression i_err = (cache_ids.size() ?
+      softmax_->CalcLossCache(i_h_t, cache_ids[t], ngram, train) :
       softmax_->CalcLoss(i_h_t, ngram, train));
     errs.push_back(i_err);
     // If this word is unknown, then add to the unknown count

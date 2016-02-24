@@ -31,10 +31,10 @@ public:
   virtual cnn::expr::Expression CalcLoss(cnn::expr::Expression & in, const std::vector<Sentence> & ngrams, bool train) = 0;
 
   // Calculate loss using cached info
-  virtual cnn::expr::Expression CalcLossCache(cnn::expr::Expression & in, const Sentence & ngram, std::pair<int,int> sent_word, bool train) {
+  virtual cnn::expr::Expression CalcLossCache(cnn::expr::Expression & in, int cache_id, const Sentence & ngram, bool train) {
     return CalcLoss(in, ngram, train);
   }
-  virtual cnn::expr::Expression CalcLossCache(cnn::expr::Expression & in, const std::vector<Sentence> & ngrams, const std::vector<std::pair<int,int> > & sent_words, bool train) {
+  virtual cnn::expr::Expression CalcLossCache(cnn::expr::Expression & in, const std::vector<int> & cache_ids, const std::vector<Sentence> & ngrams, bool train) {
     return CalcLoss(in, ngrams, train);
   }
   
@@ -46,7 +46,7 @@ public:
 
   // Cache data for the entire training corpus if necessary
   //  data is the data, set_ids is which data set the sentences belong to
-  virtual void Cache(const std::vector<Sentence> sents, const std::vector<int> set_ids) { }
+  virtual void Cache(const std::vector<Sentence> & sents, const std::vector<int> & set_ids, std::vector<Sentence> & cache_ids) { }
 
   virtual const std::string & GetSig() const { return sig_; }
   virtual int GetInputSize() const { return input_size_; }

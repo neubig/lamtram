@@ -144,15 +144,15 @@ void EncoderAttentional::NewGraph(cnn::ComputationGraph & cg) {
 }
 
 cnn::expr::Expression EncoderAttentional::BuildSentGraph(
-                    int sent_id,
                     const Sentence & sent_src, const Sentence & sent_trg,
+                    const Sentence & sent_cache,
                     bool train,
                     cnn::ComputationGraph & cg, LLStats & ll) {
     if(&cg != curr_graph_)
         THROW_ERROR("Initialized computation graph and passed comptuation graph don't match."); 
     extern_calc_->InitializeSentence(sent_src, train, cg);
     vector<cnn::expr::Expression> decoder_in;
-    return decoder_->BuildSentGraph(sent_id, sent_trg, extern_calc_.get(), decoder_in, train, cg, ll);
+    return decoder_->BuildSentGraph(sent_trg, sent_cache, extern_calc_.get(), decoder_in, train, cg, ll);
 }
 
 
