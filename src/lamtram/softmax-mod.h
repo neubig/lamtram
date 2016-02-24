@@ -4,7 +4,7 @@
 #include <lamtram/softmax-base.h>
 #include <lamtram/dist-base.h>
 
-namespace cnn { class Parameters; }
+namespace cnn { class Parameter; }
 
 namespace lamtram {
 
@@ -51,8 +51,8 @@ protected:
 
   int num_dist_, num_ctxt_;
 
-  cnn::Parameters *p_sms_W_, *p_smd_W_; // Softmax weights
-  cnn::Parameters *p_sms_b_, *p_smd_b_; // Softmax bias
+  cnn::Parameter p_sms_W_, p_smd_W_; // Softmax weights
+  cnn::Parameter p_sms_b_, p_smd_b_; // Softmax bias
 
   cnn::expr::Expression i_sms_W_, i_smd_W_;
   cnn::expr::Expression i_sms_b_, i_smd_b_;

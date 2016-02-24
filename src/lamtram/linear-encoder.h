@@ -11,8 +11,7 @@
 namespace cnn {
 class Model;
 struct ComputationGraph;
-struct LookupParameters;
-struct Parameters;
+struct LookupParameter;
 struct RNNBuilder;
 }
 
@@ -42,8 +41,8 @@ public:
     // Get the last hidden layers of the encoder
     std::vector<cnn::expr::Expression> GetFinalHiddenLayers() const;
 
-    // Clone the parameters of another linear encoder
-    void CopyParameters(const LinearEncoder & enc);
+    // // Clone the parameters of another linear encoder
+    // void CopyParameters(const LinearEncoder & enc);
 
     // Accessors
     int GetVocabSize() const { return vocab_size_; }
@@ -65,7 +64,7 @@ protected:
     bool reverse_;
 
     // Pointers to the parameters
-    cnn::LookupParameters* p_wr_W_; // Wordrep weights
+    cnn::LookupParameter p_wr_W_; // Wordrep weights
 
     // The RNN builder
     BuilderPtr builder_;

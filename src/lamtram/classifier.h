@@ -42,8 +42,8 @@ protected:
     int label_size_;
     std::string layer_str_;
 
-    std::vector<cnn::Parameters*> p_W_; // Layer weights
-    std::vector<cnn::Parameters*> p_b_; // Layer bias
+    std::vector<cnn::Parameter> p_W_; // Layer weights
+    std::vector<cnn::Parameter> p_b_; // Layer bias
 
     std::vector<cnn::expr::Expression> i_W_; // Layer weights
     std::vector<cnn::expr::Expression> i_b_; // Layer bias

@@ -13,8 +13,7 @@
 namespace cnn {
 class Model;
 struct ComputationGraph;
-struct LookupParameters;
-struct Parameters;
+struct LookupParameter;
 struct RNNBuilder;
 }
 
@@ -113,7 +112,7 @@ protected:
     BuilderSpec hidden_spec_;
 
     // Pointers to the parameters
-    cnn::LookupParameters* p_wr_W_; // Wordrep weights
+    cnn::LookupParameter p_wr_W_; // Wordrep weights
 
     // Pointer to the softmax
     SoftmaxPtr softmax_;

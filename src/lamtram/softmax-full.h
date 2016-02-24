@@ -3,7 +3,7 @@
 #include <cnn/expr.h>
 #include <lamtram/softmax-base.h>
 
-namespace cnn { class Parameters; }
+namespace cnn { class Parameter; }
 
 namespace lamtram {
 
@@ -31,8 +31,8 @@ public:
   virtual cnn::expr::Expression CalcLogProbability(cnn::expr::Expression & in, const std::vector<Sentence> & ctxt) override;
 
 protected:
-  cnn::Parameters* p_sm_W_; // Softmax weights
-  cnn::Parameters* p_sm_b_; // Softmax bias
+  cnn::Parameter p_sm_W_; // Softmax weights
+  cnn::Parameter p_sm_b_; // Softmax bias
 
   cnn::expr::Expression i_sm_W_;
   cnn::expr::Expression i_sm_b_;

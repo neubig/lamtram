@@ -11,8 +11,7 @@
 namespace cnn {
 class Model;
 struct ComputationGraph;
-struct LookupParameters;
-struct Parameters;
+struct Parameter;
 struct RNNBuilder;
 }
 
@@ -71,8 +70,8 @@ protected:
     NeuralLMPtr decoder_;
 
     // Parameters
-    cnn::Parameters* p_enc2dec_W_; // Encoder to decoder weights
-    cnn::Parameters* p_enc2dec_b_; // Encoder to decoder bias
+    cnn::Parameter p_enc2dec_W_; // Encoder to decoder weights
+    cnn::Parameter p_enc2dec_b_; // Encoder to decoder bias
     
     // Indicies in the current computation graph for each parameter
     cnn::expr::Expression i_enc2dec_W_;

@@ -506,15 +506,15 @@ void LamtramTrain::LoadLabels(const std::string filename, cnn::Dict & vocab, std
 LamtramTrain::TrainerPtr LamtramTrain::GetTrainer(const std::string & trainer_id, const cnn::real learning_rate, cnn::Model & model) {
   TrainerPtr trainer;
   if(trainer_id == "sgd") {
-    trainer.reset(new cnn::SimpleSGDTrainer(&model, 1e-6, learning_rate));
+    trainer.reset(new cnn::SimpleSGDTrainer(&model, learning_rate));
   } else if(trainer_id == "momentum") {
-    trainer.reset(new cnn::MomentumSGDTrainer(&model, 1e-6, learning_rate));
+    trainer.reset(new cnn::MomentumSGDTrainer(&model, learning_rate));
   } else if(trainer_id == "adagrad") {
-    trainer.reset(new cnn::AdagradTrainer(&model, 1e-6, learning_rate));
+    trainer.reset(new cnn::AdagradTrainer(&model, learning_rate));
   } else if(trainer_id == "adadelta") {
-    trainer.reset(new cnn::AdadeltaTrainer(&model, 1e-6, learning_rate));
+    trainer.reset(new cnn::AdadeltaTrainer(&model, learning_rate));
   } else if(trainer_id == "adam") {
-    trainer.reset(new cnn::AdamTrainer(&model, 1e-6, learning_rate));
+    trainer.reset(new cnn::AdamTrainer(&model, learning_rate));
   } else {
     THROW_ERROR("Illegal trainer variety: " << trainer_id);
   }

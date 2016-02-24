@@ -12,8 +12,7 @@
 namespace cnn {
 class Model;
 struct ComputationGraph;
-struct LookupParameters;
-struct Parameters;
+struct Parameter;
 struct RNNBuilder;
 }
 
@@ -54,9 +53,9 @@ protected:
     int hidden_size_, state_size_;
 
     // Parameters
-    cnn::Parameters* p_ehid_h_W_;
-    cnn::Parameters* p_ehid_state_W_;
-    cnn::Parameters* p_e_ehid_W_;
+    cnn::Parameter p_ehid_h_W_;
+    cnn::Parameter p_ehid_state_W_;
+    cnn::Parameter p_e_ehid_W_;
 
     // Interned parameters
     cnn::expr::Expression i_ehid_h_W_;

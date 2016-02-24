@@ -50,13 +50,13 @@ void LinearEncoder::NewGraph(cnn::ComputationGraph & cg) {
     curr_graph_ = &cg;
 }
 
-void LinearEncoder::CopyParameters(const LinearEncoder & enc) {
-    assert(vocab_size_ == enc.vocab_size_);
-    assert(wordrep_size_ == enc.wordrep_size_);
-    assert(reverse_ == enc.reverse_);
-    p_wr_W_->copy(*enc.p_wr_W_);
-    builder_->copy(*enc.builder_);
-}
+// void LinearEncoder::CopyParameters(const LinearEncoder & enc) {
+//     assert(vocab_size_ == enc.vocab_size_);
+//     assert(wordrep_size_ == enc.wordrep_size_);
+//     assert(reverse_ == enc.reverse_);
+//     p_wr_W_.copy(enc.p_wr_W_);
+//     builder_.copy(enc.builder_);
+// }
 
 LinearEncoder* LinearEncoder::Read(std::istream & in, cnn::Model & model) {
     int vocab_size, wordrep_size, unk_id;

@@ -12,8 +12,7 @@
 namespace cnn {
 class Model;
 struct ComputationGraph;
-struct LookupParameters;
-struct Parameters;
+struct Parameter;
 struct RNNBuilder;
 }
 
@@ -68,8 +67,8 @@ protected:
     ClassifierPtr classifier_;
 
     // Parameters
-    cnn::Parameters* p_enc2cls_W_; // Encoder to classifier weights
-    cnn::Parameters* p_enc2cls_b_; // Encoder to classifier bias
+    cnn::Parameter p_enc2cls_W_; // Encoder to classifier weights
+    cnn::Parameter p_enc2cls_b_; // Encoder to classifier bias
     
     // Indicies in the current computation graph for each parameter
     cnn::expr::Expression i_enc2cls_W_;
