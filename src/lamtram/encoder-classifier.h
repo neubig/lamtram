@@ -30,11 +30,13 @@ public:
     ~EncoderClassifier() { }
 
     // Encode the input sentence as a vector to be input to the classifier
+    template <class SentData>
     cnn::expr::Expression GetEncodedState(
-                      const Sentence & sent_src, bool train, cnn::ComputationGraph & cg) const;
+                      const SentData & sent_src, bool train, cnn::ComputationGraph & cg) const;
 
     // Build the computation graph for the sentence including loss
-    cnn::expr::Expression BuildSentGraph(const Sentence & sent_src, int trg, int cache,
+    template <class SentData, class OutData>
+    cnn::expr::Expression BuildSentGraph(const SentData & sent_src, const OutData & trg, const OutData & cache,
                                          bool train,
                                          cnn::ComputationGraph & cg, LLStats & ll) const;
 

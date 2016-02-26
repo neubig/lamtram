@@ -106,13 +106,33 @@ int LamtramTrain::main(int argc, char** argv) {
   softmax_sig_ = vm_["softmax"].as<string>();
 
   // Perform appropriate training
-  if(model_type == "nlm")       TrainLM();
+  if(model_type == "nlm")           TrainLM();
   else if(model_type == "encdec")   TrainEncDec();
   else if(model_type == "encatt")   TrainEncAtt();
   else if(model_type == "enccls")   TrainEncCls();
   else                THROW_ERROR("Bad model type " << model_type);
 
   return 0;
+}
+
+template <class OutputType>
+struct DoubleLength
+{
+  DoubleLength(const vector<Sentence> & v, const vector<OutputType> & w) : vec(v), wec(w) { }
+  bool operator() (int i1, int i2);
+  const vector<Sentence> & vec;
+  const vector<OutputType> & wec;
+};
+
+template <>
+bool DoubleLength<Sentence>::operator() (int i1, int i2) {
+  if(vec[i2].size() != vec[i1].size()) return (vec[i2].size() < vec[i1].size());
+  return (wec[i2].size() < wec[i1].size());
+}
+
+template <>
+bool DoubleLength<int>::operator() (int i1, int i2) {
+  return (vec[i2].size() < vec[i1].size());
 }
 
 struct SingleLength
@@ -125,6 +145,51 @@ struct SingleLength
   const vector<Sentence> & vec;
 };
 
+inline size_t CalcSize(const Sentence & src, const Sentence & trg) {
+  return src.size()+trg.size();
+}
+inline size_t CalcSize(const Sentence & src, int trg) {
+  return src.size()+1;
+}
+
+template <class OutputType>
+inline void CreateMinibatches(const std::vector<Sentence> & train_src,
+                              const std::vector<OutputType> & train_trg,
+                              const std::vector<OutputType> & train_cache,
+                              int max_size,
+                              std::vector<std::vector<Sentence> > & train_src_minibatch,
+                              std::vector<std::vector<OutputType> > & train_trg_minibatch,
+                              std::vector<std::vector<OutputType> > & train_cache_minibatch) {
+  std::vector<int> train_ids(train_trg.size());
+  std::iota(train_ids.begin(), train_ids.end(), 0);
+  sort(train_ids.begin(), train_ids.end(), DoubleLength<OutputType>(train_src, train_trg));
+  std::vector<Sentence> train_src_next;
+  std::vector<OutputType> train_trg_next, train_cache_next;
+  size_t size = 0, max_len = 0;
+  for(size_t i = 0; i < train_ids.size(); i++) {
+    max_len = max(max_len, CalcSize(train_src[train_ids[i]], train_trg[train_ids[i]]));
+    train_src_next.push_back(train_src[train_ids[i]]);
+    train_trg_next.push_back(train_trg[train_ids[i]]);
+    if(train_cache.size())
+      train_cache_next.push_back(train_cache[train_ids[i]]);
+    if((train_trg_next.size()+1) * max_len > max_size) {
+      train_src_minibatch.push_back(train_src_next);
+      train_src_next.clear();
+      train_trg_minibatch.push_back(train_trg_next);
+      train_trg_next.clear();
+      if(train_cache.size()) {
+        train_cache_minibatch.push_back(train_cache_next);
+        train_cache_next.clear();
+      }
+      max_size = 0;
+    }
+  }
+  if(train_trg_next.size()) {
+    train_src_minibatch.push_back(train_src_next);
+    train_trg_minibatch.push_back(train_trg_next);
+  }
+  if(train_cache_next.size()) train_cache_minibatch.push_back(train_cache_next);
+}
 
 inline void CreateMinibatches(const std::vector<Sentence> & train_trg,
                               const std::vector<Sentence> & train_cache,
@@ -151,6 +216,8 @@ inline void CreateMinibatches(const std::vector<Sentence> & train_trg,
       }
     }
   }
+  if(train_trg_next.size())   train_trg_minibatch.push_back(train_trg_next);
+  if(train_cache_next.size()) train_cache_minibatch.push_back(train_cache_next);
 }
 
 void LamtramTrain::TrainLM() {
@@ -187,9 +254,10 @@ void LamtramTrain::TrainLM() {
   nlm->GetSoftmax().Cache(train_trg, train_trg_ids, train_cache);
 
   // Create minibatches
-  vector<vector<Sentence> > train_trg_minibatch, train_cache_minibatch;
+  vector<vector<Sentence> > train_trg_minibatch, train_cache_minibatch, dev_trg_minibatch, dev_cache_minibatch;
   vector<Sentence> empty_minibatch;
   CreateMinibatches(train_trg, train_cache, vm_["minibatch_size"].as<int>(), train_trg_minibatch, train_cache_minibatch);
+  CreateMinibatches(dev_trg, empty_minibatch, vm_["minibatch_size"].as<int>(), dev_trg_minibatch, dev_cache_minibatch);
   
   // TODO: Learning rate
   cnn::real learning_rate = vm_["learning_rate"].as<float>();
@@ -237,10 +305,10 @@ void LamtramTrain::TrainLM() {
     // Measure development perplexity
     if(do_dev) {
       time = Timer();
-      for(auto & sent : dev_trg) {
+      for(auto & sent : dev_trg_minibatch) {
         cnn::ComputationGraph cg;
         nlm->NewGraph(cg);
-        nlm->BuildSentGraph(sent, Sentence(), NULL, empty_hist, false, cg, dev_ll);
+        nlm->BuildSentGraph(sent, empty_minibatch, NULL, empty_hist, false, cg, dev_ll);
         dev_ll.lik_ -= as_scalar(cg.forward());
       }
       float elapsed = time.Elapsed();
@@ -436,18 +504,26 @@ void LamtramTrain::TrainEncCls() {
 
 template<class ModelType, class OutputType>
 void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
-                    const vector<OutputType> & train_trg,
-                    const vector<OutputType> & train_cache,
-                    const vector<Sentence> & dev_src,
-                    const vector<OutputType> & dev_trg,
-                    const cnn::Dict & vocab_src,
-                    const cnn::Dict & vocab_trg,
-                    cnn::Model & model,
-                    ModelType & encdec) {
+                                     const vector<OutputType> & train_trg,
+                                     const vector<OutputType> & train_cache,
+                                     const vector<Sentence> & dev_src,
+                                     const vector<OutputType> & dev_trg,
+                                     const cnn::Dict & vocab_src,
+                                     const cnn::Dict & vocab_trg,
+                                     cnn::Model & model,
+                                     ModelType & encdec) {
 
   // Sanity checks
   assert(train_src.size() == train_trg.size());
   assert(dev_src.size() == dev_trg.size());
+
+  // Create minibatches
+  vector<vector<Sentence> > train_src_minibatch, dev_src_minibatch;
+  vector<vector<OutputType> > train_trg_minibatch, train_cache_minibatch, dev_trg_minibatch, dev_cache_minibatch;
+  vector<Sentence> empty_minibatch;
+  std::vector<OutputType> empty_cache;
+  CreateMinibatches(train_src, train_trg, train_cache, vm_["minibatch_size"].as<int>(), train_src_minibatch, train_trg_minibatch, train_cache_minibatch);
+  CreateMinibatches(dev_src, dev_trg, empty_cache, vm_["minibatch_size"].as<int>(), dev_src_minibatch, dev_trg_minibatch, dev_cache_minibatch);
 
   TrainerPtr trainer = GetTrainer(vm_["trainer"].as<string>(), vm_["learning_rate"].as<float>(), model);
   
@@ -456,19 +532,19 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
   cnn::real learning_scale = 1.0;
 
   // Create a sentence list and random generator
-  std::vector<int> train_ids(train_src.size());
+  std::vector<int> train_ids(train_src_minibatch.size());
   std::iota(train_ids.begin(), train_ids.end(), 0);
   // Perform the training
   std::vector<cnn::expr::Expression> empty_hist;
   cnn::real last_ll = -1e99, best_ll = -1e99;
   bool do_dev = dev_src.size() != 0;
-  int loc = 0, epoch = 0;
+  int loc = 0, epoch = 0, sent_loc = 0, last_print = 0;
   std::shuffle(train_ids.begin(), train_ids.end(), *cnn::rndeng);
   while(epoch < epochs_) {
     // Start the training
     LLStats train_ll(vocab_trg.size()), dev_ll(vocab_trg.size());
     Timer time;
-    for(auto id_pos : boost::irange(0, eval_every_)) {
+    for(int curr_sent_loc = 0; curr_sent_loc < eval_every_; ) {
       if(loc == (int)train_ids.size()) {
         // Shuffle the access order
         std::shuffle(train_ids.begin(), train_ids.end(), *cnn::rndeng);
@@ -477,13 +553,15 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
       }
       cnn::ComputationGraph cg;
       encdec.NewGraph(cg);
-      encdec.BuildSentGraph(train_src[train_ids[loc]], train_trg[train_ids[loc]], train_cache[train_ids[loc]], true, cg, train_ll);
+      // encdec.BuildSentGraph(train_src[train_ids[loc]], train_trg[train_ids[loc]], train_cache[train_ids[loc]], true, cg, train_ll);
+      encdec.BuildSentGraph(train_src_minibatch[train_ids[loc]], train_trg_minibatch[train_ids[loc]], (train_cache_minibatch.size() ? train_cache_minibatch[train_ids[loc]] : empty_cache), true, cg, train_ll);
       // cg.PrintGraphviz();
       train_ll.lik_ -= as_scalar(cg.forward());
       cg.backward();
       trainer->update(learning_scale);
       ++loc;
-      if(loc % 100 == 0 || id_pos == eval_every_-1 || epochs_ == epoch) {
+      if(sent_loc / 100 != last_print || curr_sent_loc >= eval_every_ || epochs_ == epoch) {
+        last_print = sent_loc / 100;
         float elapsed = time.Elapsed();
         cerr << "Epoch " << epoch+1 << " sent " << loc << ": ppl=" << train_ll.CalcPPL() << ", unk=" << train_ll.unk_ << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << train_ll.words_/elapsed << " w/s)" << endl;
         if(epochs_ == epoch) break;
@@ -492,11 +570,12 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
     // Measure development perplexity
     if(do_dev) {
       time = Timer();
-      OutputType empty_cache;
-      for(int i : boost::irange(0, (int)dev_src.size())) {
+      std::vector<OutputType> empty_cache;
+      for(int i : boost::irange(0, (int)dev_src_minibatch.size())) {
         cnn::ComputationGraph cg;
         encdec.NewGraph(cg);
-        encdec.BuildSentGraph(dev_src[i], dev_trg[i], empty_cache, false, cg, dev_ll);
+        // encdec.BuildSentGraph(dev_src[i], dev_trg[i], empty_cache, false, cg, dev_ll);
+        encdec.BuildSentGraph(dev_src_minibatch[i], dev_trg_minibatch[i], empty_cache, false, cg, dev_ll);
         dev_ll.lik_ -= as_scalar(cg.forward());
       }
       float elapsed = time.Elapsed();

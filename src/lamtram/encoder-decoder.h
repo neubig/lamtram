@@ -29,12 +29,15 @@ public:
     ~EncoderDecoder() { }
 
     // Build the computation graph for the sentence including loss
-    cnn::expr::Expression BuildSentGraph(const Sentence & sent_src, const Sentence & sent_trg,
-                                         const Sentence & cache_trg,
+    template <class SentData>
+    cnn::expr::Expression BuildSentGraph(const SentData & sent_src, const SentData & sent_trg,
+                                         const SentData & cache_trg,
                                          bool train,
                                          cnn::ComputationGraph & cg, LLStats & ll);
+
+    template <class SentData>
     std::vector<cnn::expr::Expression> GetEncodedState(
-                                        const Sentence & sent_src, bool train, cnn::ComputationGraph & cg);
+                                        const SentData & sent_src, bool train, cnn::ComputationGraph & cg);
 
     // Reading/writing functions
     static EncoderDecoder* Read(const DictPtr & vocab_src, const DictPtr & vocab_trg, std::istream & in, cnn::Model & model);

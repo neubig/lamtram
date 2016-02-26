@@ -34,8 +34,9 @@ void EncoderDecoder::NewGraph(cnn::ComputationGraph & cg) {
     curr_graph_ = &cg;
 }
 
+template <class SentData>
 std::vector<cnn::expr::Expression> EncoderDecoder::GetEncodedState(
-                                    const Sentence & sent_src, bool train, cnn::ComputationGraph & cg) {
+                                    const SentData & sent_src, bool train, cnn::ComputationGraph & cg) {
     // Perform encoding with each encoder
     vector<cnn::expr::Expression> inputs;
     for(auto & enc : encoders_) {
@@ -58,8 +59,16 @@ std::vector<cnn::expr::Expression> EncoderDecoder::GetEncodedState(
     return decoder_in;
 }
 
-cnn::expr::Expression EncoderDecoder::BuildSentGraph(const Sentence & sent_src, const Sentence & sent_trg,
-                                                     const Sentence & cache_trg,
+template
+std::vector<cnn::expr::Expression> EncoderDecoder::GetEncodedState<Sentence>(
+                                    const Sentence & sent_src, bool train, cnn::ComputationGraph & cg);
+template
+std::vector<cnn::expr::Expression> EncoderDecoder::GetEncodedState<vector<Sentence> >(
+                                    const vector<Sentence> & sent_src, bool train, cnn::ComputationGraph & cg);
+
+template <class SentData>
+cnn::expr::Expression EncoderDecoder::BuildSentGraph(const SentData & sent_src, const SentData & sent_trg,
+                                                     const SentData & cache_trg,
                                                      bool train,
                                                      cnn::ComputationGraph & cg, LLStats & ll) {
     if(&cg != curr_graph_)
@@ -68,6 +77,16 @@ cnn::expr::Expression EncoderDecoder::BuildSentGraph(const Sentence & sent_src, 
     vector<cnn::expr::Expression> decoder_in = GetEncodedState(sent_src, train, cg);
     return decoder_->BuildSentGraph(sent_trg, cache_trg, NULL, decoder_in, train, cg, ll);
 }
+
+template
+cnn::expr::Expression EncoderDecoder::BuildSentGraph<Sentence>(
+  const Sentence & sent_src, const Sentence & sent_trg, const Sentence & cache_trg,
+  bool train, cnn::ComputationGraph & cg, LLStats & ll);
+
+template
+cnn::expr::Expression EncoderDecoder::BuildSentGraph<vector<Sentence> >(
+  const vector<Sentence> & sent_src, const vector<Sentence> & sent_trg, const vector<Sentence> & cache_trg,
+  bool train, cnn::ComputationGraph & cg, LLStats & ll);
 
 
 EncoderDecoder* EncoderDecoder::Read(const DictPtr & vocab_src, const DictPtr & vocab_trg, std::istream & in, cnn::Model & model) {

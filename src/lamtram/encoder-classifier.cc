@@ -31,8 +31,9 @@ void EncoderClassifier::NewGraph(cnn::ComputationGraph & cg) {
     curr_graph_ = &cg;
 }
 
+template <class SentData>
 cnn::expr::Expression EncoderClassifier::GetEncodedState(
-                        const Sentence & sent_src, bool train, cnn::ComputationGraph & cg) const {
+                        const SentData & sent_src, bool train, cnn::ComputationGraph & cg) const {
     // Perform encoding with each encoder
     vector<cnn::expr::Expression> inputs;
     for(auto & enc : encoders_) {
@@ -48,7 +49,8 @@ cnn::expr::Expression EncoderClassifier::GetEncodedState(
     return tanh(affine_transform({i_enc2cls_b_, i_enc2cls_W_, i_combined}));
 }
 
-cnn::expr::Expression EncoderClassifier::BuildSentGraph(const Sentence & sent_src, int trg, int cache,
+template <class SentData, class OutputType>
+cnn::expr::Expression EncoderClassifier::BuildSentGraph(const SentData & sent_src, const OutputType & trg, const OutputType & cache,
                                                         bool train,
                                                         cnn::ComputationGraph & cg, LLStats & ll) const {
     if(&cg != curr_graph_)
@@ -58,6 +60,13 @@ cnn::expr::Expression EncoderClassifier::BuildSentGraph(const Sentence & sent_sr
     ll.words_++;
     return classifier_->BuildGraph(classifier_in, trg, train, cg);
 }
+
+template
+cnn::expr::Expression EncoderClassifier::BuildSentGraph<Sentence, int>(
+  const Sentence & sent_src, const int & trg, const int & cache, bool train, cnn::ComputationGraph & cg, LLStats & ll) const;
+template
+cnn::expr::Expression EncoderClassifier::BuildSentGraph<vector<Sentence>, vector<int> >(
+  const vector<Sentence> & sent_src, const vector<int> & trg, const vector<int> & cache, bool train, cnn::ComputationGraph & cg, LLStats & ll) const;
 
 template <class SoftmaxOp>
 cnn::expr::Expression EncoderClassifier::Forward(const Sentence & sent_src,

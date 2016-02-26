@@ -17,7 +17,8 @@ public:
     ~Classifier() { }
 
     // Calculate the log likelihood
-    cnn::expr::Expression BuildGraph(const cnn::expr::Expression & input, int label,
+    template <class OutputData>
+    cnn::expr::Expression BuildGraph(const cnn::expr::Expression & input, const OutputData & label,
                                      bool train,
                                      cnn::ComputationGraph & cg) const;
 

@@ -18,6 +18,7 @@ public:
     virtual ~ExternCalculator() { }
 
     virtual void InitializeSentence(const Sentence & sent, bool train, cnn::ComputationGraph & cg) { }
+    virtual void InitializeSentence(const std::vector<Sentence> & sent, bool train, cnn::ComputationGraph & cg) { }
 
     // Create a variable encoding the context
     virtual cnn::expr::Expression CreateContext(

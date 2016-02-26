@@ -96,10 +96,13 @@ void ExternAttentional::InitializeSentence(
 
 }
 
+void ExternAttentional::InitializeSentence(
+            const std::vector<Sentence> & sent_src, bool train, cnn::ComputationGraph & cg) {
+  THROW_ERROR("ExternAttentional::InitializeSentence batch not implemented.");
+}
 
 // Create a variable encoding the context
 cnn::expr::Expression ExternAttentional::CreateContext(
-        // const Sentence & sent, int loc,
         const std::vector<cnn::expr::Expression> & state_in,
         bool train,
         cnn::ComputationGraph & cg,
@@ -143,9 +146,10 @@ void EncoderAttentional::NewGraph(cnn::ComputationGraph & cg) {
     curr_graph_ = &cg;
 }
 
+template <class SentData>
 cnn::expr::Expression EncoderAttentional::BuildSentGraph(
-                    const Sentence & sent_src, const Sentence & sent_trg,
-                    const Sentence & sent_cache,
+                    const SentData & sent_src, const SentData & sent_trg,
+                    const SentData & sent_cache,
                     bool train,
                     cnn::ComputationGraph & cg, LLStats & ll) {
     if(&cg != curr_graph_)
@@ -154,6 +158,15 @@ cnn::expr::Expression EncoderAttentional::BuildSentGraph(
     vector<cnn::expr::Expression> decoder_in;
     return decoder_->BuildSentGraph(sent_trg, sent_cache, extern_calc_.get(), decoder_in, train, cg, ll);
 }
+
+template
+cnn::expr::Expression EncoderAttentional::BuildSentGraph<Sentence>(
+  const Sentence & sent_src, const Sentence & sent_trg, const Sentence & sent_cache,
+  bool train, cnn::ComputationGraph & cg, LLStats & ll);
+template
+cnn::expr::Expression EncoderAttentional::BuildSentGraph<vector<Sentence> >(
+  const vector<Sentence> & sent_src, const vector<Sentence> & sent_trg, const vector<Sentence> & sent_cache,
+  bool train, cnn::ComputationGraph & cg, LLStats & ll);
 
 
 EncoderAttentional* EncoderAttentional::Read(const DictPtr & vocab_src, const DictPtr & vocab_trg, std::istream & in, cnn::Model & model) {
