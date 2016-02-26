@@ -181,7 +181,7 @@ inline void CreateMinibatches(const std::vector<Sentence> & train_src,
         train_cache_minibatch.push_back(train_cache_next);
         train_cache_next.clear();
       }
-      max_size = 0;
+      max_len = 0;
     }
   }
   if(train_trg_next.size()) {
@@ -555,6 +555,8 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
       encdec.NewGraph(cg);
       // encdec.BuildSentGraph(train_src[train_ids[loc]], train_trg[train_ids[loc]], train_cache[train_ids[loc]], true, cg, train_ll);
       encdec.BuildSentGraph(train_src_minibatch[train_ids[loc]], train_trg_minibatch[train_ids[loc]], (train_cache_minibatch.size() ? train_cache_minibatch[train_ids[loc]] : empty_cache), true, cg, train_ll);
+      sent_loc += train_trg_minibatch[train_ids[loc]].size();
+      curr_sent_loc += train_trg_minibatch[train_ids[loc]].size();
       // cg.PrintGraphviz();
       train_ll.lik_ -= as_scalar(cg.forward());
       cg.backward();
@@ -563,7 +565,7 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
       if(sent_loc / 100 != last_print || curr_sent_loc >= eval_every_ || epochs_ == epoch) {
         last_print = sent_loc / 100;
         float elapsed = time.Elapsed();
-        cerr << "Epoch " << epoch+1 << " sent " << loc << ": ppl=" << train_ll.CalcPPL() << ", unk=" << train_ll.unk_ << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << train_ll.words_/elapsed << " w/s)" << endl;
+        cerr << "Epoch " << epoch+1 << " sent " << sent_loc << ": ppl=" << train_ll.CalcPPL() << ", unk=" << train_ll.unk_ << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << train_ll.words_/elapsed << " w/s)" << endl;
         if(epochs_ == epoch) break;
       }
     }

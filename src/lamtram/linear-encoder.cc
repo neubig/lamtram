@@ -40,11 +40,12 @@ cnn::expr::Expression LinearEncoder::BuildSentGraph(const Sentence & sent, bool 
 cnn::expr::Expression LinearEncoder::BuildSentGraph(const vector<Sentence> & sent, bool train, cnn::ComputationGraph & cg) {
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
+  assert(sent.size());
   // Get the max size
   size_t max_len = sent[0].size();
-  for(size_t i = 1; i < sent.size(); i++) max_len = sent[i].size();
+  for(size_t i = 1; i < sent.size(); i++) max_len = max(max_len, sent[i].size());
   // Create the word states
-  word_states_.resize(sent.size());
+  word_states_.resize(max_len);
   builder_->start_new_sequence();
   // First get all the word representations
   cnn::expr::Expression i_wr_t, i_h_t;
@@ -52,11 +53,11 @@ cnn::expr::Expression LinearEncoder::BuildSentGraph(const vector<Sentence> & sen
   for(int t = max_len; t > 0; t--) {
     for(size_t i = 0; i < sent.size(); i++) {
       int pos = (reverse_ ? t-1 : (int)sent[i].size() - t);
-      words[i] = (pos >= 0 && pos < sent[i].size() ? sent[i][pos] : 0);
+      words[i] = (pos >= 0 && pos < sent[i].size()) ? sent[i][pos] : 0;
     }
     i_wr_t = lookup(cg, p_wr_W_, words);
     i_h_t = builder_->add_input(i_wr_t);
-    word_states_[t] = i_h_t;
+    word_states_[word_states_.size()-t] = i_h_t;
   }
   return i_h_t;
 }
