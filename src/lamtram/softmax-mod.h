@@ -43,6 +43,7 @@ public:
 protected:
 
   cnn::expr::Expression CalcLossExpr(cnn::expr::Expression & in, const CtxtDist & ctxt_dist, WordId wid, bool train);
+  cnn::expr::Expression CalcLossExpr(cnn::expr::Expression & in, const CtxtDist & ctxt_dist_batched, const std::vector<unsigned> & wids, bool train);
 
   void LoadDists(int id);
 

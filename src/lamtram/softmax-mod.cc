@@ -132,12 +132,39 @@ Expression SoftmaxMod::CalcLoss(Expression & in, const Sentence & ngram, bool tr
   return CalcLossExpr(in, ctxt_dist, *ngram.rbegin(), train);
 }
 
+// Calculate training loss for multiple words
+Expression SoftmaxMod::CalcLoss(Expression & in, const vector<Sentence> & ngrams, bool train) {
+  CtxtDist ctxt_dist; ctxt_dist.first.resize(num_ctxt_); ctxt_dist.second.resize(num_dist_);
+  CtxtDist ctxt_dist_batch; ctxt_dist_batch.first.resize(num_ctxt_*ngrams.size()); ctxt_dist_batch.second.resize(num_dist_*ngrams.size());
+  auto ctxt_it = ctxt_dist_batch.first.begin(); auto dist_it = ctxt_dist_batch.second.begin();
+  vector<unsigned> words(ngrams.size());
+  for(size_t i = 0; i < ngrams.size(); i++) {
+    CalcDists(ngrams[i], ctxt_dist);
+    for(float c : ctxt_dist.first) *ctxt_it++ = c;
+    for(float d : ctxt_dist.second) *dist_it++ = d;
+    words[i] = *ngrams[i].rbegin();
+  }
+  return CalcLossExpr(in, ctxt_dist_batch, words, train);
+}
+
 Expression SoftmaxMod::CalcLossCache(Expression & in, int cache_id, const Sentence & ngram, bool train) {
   return CalcLossExpr(in, cache_[cache_id], *ngram.rbegin(), train);
 }
 
 Expression SoftmaxMod::CalcLossCache(Expression & in, const vector<int> & cache_ids, const vector<Sentence> & ngrams, bool train) {
-  THROW_ERROR("SoftmaxMod::CalcLossCache Not implemented yet");
+  assert(cache_ids.size() == ngrams.size());
+  // Set up the context
+  CtxtDist batched_cd;
+  batched_cd.first.resize(num_ctxt_*cache_ids.size()); auto ctxt_it = batched_cd.first.begin();
+  batched_cd.second.resize(num_ctxt_*cache_ids.size()); auto dist_it = batched_cd.second.begin();
+  // Set up the ngrams
+  vector<unsigned> words(ngrams.size());
+  for(size_t i = 0; i < cache_ids.size(); i++) {
+    for(float c : cache_[cache_ids[i]].first) *ctxt_it++ = c;
+    for(float d : cache_[cache_ids[i]].second) *dist_it++ = d;
+    words[i] = *ngrams[i].rbegin();
+  }
+  return CalcLossExpr(in, batched_cd, words, train);
 }
 
 Expression SoftmaxMod::CalcLossExpr(Expression & in, const CtxtDist & ctxt_dist, WordId wid, bool train) {
@@ -159,9 +186,23 @@ Expression SoftmaxMod::CalcLossExpr(Expression & in, const CtxtDist & ctxt_dist,
   }
 }
 
-// Calculate training loss for multiple words
-Expression SoftmaxMod::CalcLoss(Expression & in, const vector<Sentence> & ngrams, bool train) {
-  THROW_ERROR("SoftmaxMod::CalcLoss Not implemented yet");
+Expression SoftmaxMod::CalcLossExpr(Expression & in, const CtxtDist & ctxt_dist_batched, const vector<unsigned> & wids, bool train) {
+  // Create expressions
+  Expression ctxt_expr = input(*in.pg, cnn::Dim({(unsigned int)num_ctxt_}, wids.size()), ctxt_dist_batched.first);
+  Expression in_ctxt_expr = concatenate({in, ctxt_expr});
+  Expression score_sms = affine_transform({i_sms_b_, i_sms_W_, in_ctxt_expr});
+  // Do dropout and use only the regular softmax
+  uniform_real_distribution<float> float_distribution(0.0, 1.0);
+  if(train && float_distribution(*cnn::rndeng) < dropout_) {  
+    return pickneglogsoftmax(score_sms, wids);
+  // Do no dropout
+  } else {
+    Expression score_smd = affine_transform({i_smd_b_, i_smd_W_, in_ctxt_expr});
+    Expression score = softmax(concatenate({score_sms, score_smd}));
+    // Do mixture of distributions
+    Expression word_prob = pick(score, wids) + input(*in.pg, cnn::Dim({1, (unsigned int)num_dist_}, wids.size()), ctxt_dist_batched.second) * pickrange(score, vocab_->size(), vocab_->size()+num_dist_);
+    return -log(word_prob);
+  }
 }
 
 // Calculate the full probability distribution
