@@ -58,6 +58,13 @@ public:
                                    const std::vector<cnn::expr::Expression> & layer_in,
                                    bool train,
                                    cnn::ComputationGraph & cg, LLStats & ll);
+    cnn::expr::Expression BuildSentGraph(
+                                   const std::vector<Sentence> & sent,
+                                   const std::vector<Sentence> & cache_ids,
+                                   const ExternCalculator * extern_calc,
+                                   const std::vector<cnn::expr::Expression> & layer_in,
+                                   bool train,
+                                   cnn::ComputationGraph & cg, LLStats & ll);
 
     // Move forward one step using the language model and return the probabilities.
     //  REQUIRES NewGraph to be called before usage

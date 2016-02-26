@@ -81,6 +81,84 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
   return i_nerr;
 }
 
+cnn::expr::Expression NeuralLM::BuildSentGraph(
+                      const vector<Sentence> & sent,
+                      const vector<Sentence> & cache_ids,
+                      const ExternCalculator * extern_calc,
+                      const std::vector<cnn::expr::Expression> & layer_in,
+                      bool train,
+                      cnn::ComputationGraph & cg, LLStats & ll) {
+  if(sent.size() == 1)
+    return BuildSentGraph(sent[0], (cache_ids.size() ? cache_ids[0] : Sentence()), extern_calc, layer_in, train, cg, ll);
+  size_t nt;
+  if(&cg != curr_graph_)
+    THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
+  int slen = sent[0].size() - 1;
+  builder_->start_new_sequence(layer_in);
+  // First get all the word representations
+  vector<unsigned> words(sent.size(), 0);
+  cnn::expr::Expression i_wr_start = lookup(cg, p_wr_W_, words);
+  vector<cnn::expr::Expression> i_wr;
+  Sentence my_cache(sent.size());
+  for(auto t : boost::irange(0, slen)) { 
+    for(size_t i = 0; i < sent.size(); i++)
+      words[i] = (sent[i].size() > t ? sent[i][t] : 0);
+    i_wr.push_back(lookup(cg, p_wr_W_, words));
+  }
+  // Next, do the computation
+  vector<cnn::expr::Expression> errs, aligns;
+  vector<Sentence> ngrams(sent.size(), Sentence(softmax_->GetCtxtLen()+1, 0));
+  vector<float> mask(sent.size(), 1.0);
+  size_t active_words = sent.size();
+  for(auto t : boost::irange(0, slen+1)) {
+    // Concatenate wordrep and external context into a vector for the hidden unit
+    vector<cnn::expr::Expression> i_wrs_t;
+    for(auto hist : boost::irange(t - ngram_context_, t))
+      i_wrs_t.push_back(hist >= 0 ? i_wr[hist] : i_wr_start);
+    if(extern_context_ > 0) {
+      assert(extern_calc != NULL);
+      cnn::expr::Expression extern_in;
+      extern_in = extern_calc->CreateContext(builder_->final_h(), train, cg, aligns);
+      i_wrs_t.push_back(extern_in);
+    }
+    cnn::expr::Expression i_wr_t = concatenate(i_wrs_t);
+    // Run the hidden unit
+    cnn::expr::Expression i_h_t = builder_->add_input(i_wr_t);
+    // Run the softmax and calculate the error
+    for(size_t i = 0; i < sent.size(); i++) {
+      for(nt = 0; nt < ngrams[0].size()-1; nt++)
+        ngrams[i][nt] = ngrams[i][nt+1];
+      // Count words, add mask
+      if(sent[i].size() > t) {
+        ll.words_++;
+        if(sent[i][t] == unk_id_) ll.unk_++;
+        ngrams[i][nt] = sent[i][t];
+      } else if(sent[i].size() == t) {
+        mask[i] = 0.f;
+        active_words--;
+        ngrams[i][nt] = 0;
+      } else {
+        ngrams[i][nt] = 0;
+      }
+    }
+    // Create the cache
+    cnn::expr::Expression i_err;
+    if(cache_ids.size()) {
+      assert(cache_ids.size() == sent.size());
+      for(size_t i = 0; i < sent.size(); i++)
+        my_cache[i] = (cache_ids[i].size() > t ? cache_ids[i][t] : 0);
+      i_err = softmax_->CalcLossCache(i_h_t, my_cache, ngrams, train);
+    } else {
+      i_err = softmax_->CalcLoss(i_h_t, ngrams, train);
+    }
+    if(active_words != sent.size())
+      i_err = i_err * input(cg, cnn::Dim({1}, sent.size()), mask);
+    errs.push_back(i_err);
+  }
+  cnn::expr::Expression i_nerr = sum_batches(sum(errs));
+  return i_nerr;
+}
+
 void NeuralLM::NewGraph(cnn::ComputationGraph & cg) {
   builder_->new_graph(cg);
   builder_->start_new_sequence();
