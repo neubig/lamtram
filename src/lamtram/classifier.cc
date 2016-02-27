@@ -27,6 +27,8 @@ Classifier::Classifier(int input_size, int label_size,
   i_b_.resize(p_b_.size());
 }
 
+namespace lamtram {
+
 template <>
 cnn::expr::Expression Classifier::BuildGraph<int>(const cnn::expr::Expression & input, const int & label,
                           bool train,
@@ -60,6 +62,8 @@ cnn::expr::Expression Classifier::BuildGraph<vector<int> >(const cnn::expr::Expr
   for(i = 0; i < (int)un_label.size(); i++)
     un_label[i] = label[i];
   return pickneglogsoftmax({aff}, un_label);
+}
+
 }
 
 
