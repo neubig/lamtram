@@ -38,6 +38,7 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
                       const std::vector<cnn::expr::Expression> & layer_in,
                       bool train,
                       cnn::ComputationGraph & cg, LLStats & ll) {
+  // DEBUG if(!train) cerr << "LOSS @ " << sent << ": " << endl;
   size_t i;
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
@@ -71,12 +72,15 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
     cnn::expr::Expression i_err = (cache_ids.size() ?
       softmax_->CalcLossCache(i_h_t, cache_ids[t], ngram, train) :
       softmax_->CalcLoss(i_h_t, ngram, train));
+    // DEBUG if(!train) cerr << ' ' << as_scalar(i_err.value());
     errs.push_back(i_err);
     // If this word is unknown, then add to the unknown count
     if(sent[t] == unk_id_)
       ll.unk_++;
     ll.words_++;
   }
+  // DEBUG if(!train) cerr << endl;
+  
   cnn::expr::Expression i_nerr = sum(errs);
   return i_nerr;
 }

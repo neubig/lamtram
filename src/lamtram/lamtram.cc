@@ -128,6 +128,7 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
   // Create the decoder
   EnsembleDecoder decoder(encdecs, encatts, lms);
   decoder.SetWordPen(vm["word_pen"].as<float>());
+  decoder.SetUnkPen(vm["unk_pen"].as<float>());
   decoder.SetEnsembleOperation(vm["ensemble_op"].as<string>());
   decoder.SetBeamSize(vm["beam"].as<int>());
   decoder.SetSizeLimit(vm["size_limit"].as<int>());
@@ -331,7 +332,8 @@ int Lamtram::main(int argc, char** argv) {
     ("sent_range", po::value<string>()->default_value(""), "Optionally specify a comma-delimited range on how many sentences to process")
     ("size_limit", po::value<int>()->default_value(2000), "Limit on the size of sentences")
     ("src_in", po::value<string>()->default_value(""), "File to read the source from, if any")
-    ("word_pen", po::value<float>()->default_value(0.0), "The \"word penalty\", a larger value favors longer sentences, shorter favors shorter")
+    ("word_pen", po::value<float>()->default_value(0.f), "The \"word penalty\", a larger value favors longer sentences, shorter favors shorter")
+    ("unk_pen", po::value<float>()->default_value(1.f), "A penalty for unknown words, larger will create fewer unknown words when decoding")
     ;
   po::variables_map vm;
   po::store(po::parse_command_line(argc, argv, desc), vm);
