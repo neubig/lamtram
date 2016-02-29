@@ -274,7 +274,7 @@ void DistNgram::calc_word_dists(const Sentence & ngram,
         left *= (1-my_prob);
       }
       val += left*uniform_prob;
-      if(val < 0 || val > 1) {
+      if(val < 0 || val > 1.001) {
         cerr << "this_ctxt: " << this_ctxt << endl;
         cerr << "ctxts: " << ctxts << endl;
         cerr << "temp_vec: " << temp_vec << endl;

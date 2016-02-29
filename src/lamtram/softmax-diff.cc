@@ -76,6 +76,7 @@ void SoftmaxDiff::Cache(const vector<Sentence> & sents, const vector<int> & set_
   // Create pairs of context floats, distribution floats
   std::vector<float> curr_ctxt_dist(vocab_size_);
   std::unordered_map<std::vector<float>, int> ctxt_map;
+  std::unordered_map<pair<int,Sentence>, int> ctxt_ngram_map;
   size_t i, j, k;
   // Fill the cache with values
   cache_ids.resize(sents.size());
@@ -84,14 +85,21 @@ void SoftmaxDiff::Cache(const vector<Sentence> & sents, const vector<int> & set_
     Sentence ctxt_ngram(ctxt_len_, 0);
     cache_ids[i].resize(sents[i].size());
     for(j = 0; j < sents[i].size(); j++) {
-      CalcAllDists(ctxt_ngram, curr_ctxt_dist);
-      // cerr << "ngram: " << ngram << " ||| dist: " << curr_ctxt_dist.second << endl;
-      auto it = ctxt_map.find(curr_ctxt_dist);
-      if(it != ctxt_map.end()) {
-        cache_ids[i][j] = it->second;
+      pair<int,Sentence> idngram(set_ids[i],ctxt_ngram);
+      auto itngram = ctxt_ngram_map.find(idngram);
+      if(itngram != ctxt_ngram_map.end()) {
+        cache_ids[i][j] = itngram->second;
       } else {
-        cache_ids[i][j] = ctxt_map.size();
-        ctxt_map.insert(make_pair(curr_ctxt_dist, ctxt_map.size()));
+        CalcAllDists(ctxt_ngram, curr_ctxt_dist);
+        // cerr << "ngram: " << ngram << " ||| dist: " << curr_ctxt_dist.second << endl;
+        auto it = ctxt_map.find(curr_ctxt_dist);
+        if(it != ctxt_map.end()) {
+          cache_ids[i][j] = it->second;
+        } else {
+          cache_ids[i][j] = ctxt_map.size();
+          ctxt_map.insert(make_pair(curr_ctxt_dist, cache_ids[i][j]));
+          ctxt_ngram_map.insert(make_pair(idngram, cache_ids[i][j]));
+        }
       }
       if(ctxt_ngram.size()) {
         for(k = 0; k < ctxt_ngram.size()-1; k++)
