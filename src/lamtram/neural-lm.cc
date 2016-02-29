@@ -172,14 +172,20 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
         words[i] = *ngrams[i].rbegin();
         ctxts[i].resize(ctxts[i].size()-1);
       }
-      cnn::expr::Expression i_prob = softmax_->CalcProbCache(i_h_t, my_cache, ctxts, train);
+      cnn::expr::Expression i_prob = (
+        cache_ids.size() ?
+        softmax_->CalcProbCache(i_h_t, my_cache, ctxts, train) :
+        softmax_->CalcProb(i_h_t, ctxts, train));
       i_err = -log(pick(i_prob, words));
       vector<float> probs = as_vector(i_prob.value());
       for(size_t i = 0; i < ngrams.size(); i++)
         words[i] = categorical_dist(probs.begin()+i*vocab_->size(), probs.begin()+(i+1)*vocab_->size());
     // Otherwise, create the correct
     } else {
-      i_err = softmax_->CalcLossCache(i_h_t, my_cache, ngrams, train);
+      i_err = (
+        cache_ids.size() ?
+        softmax_->CalcLossCache(i_h_t, my_cache, ngrams, train) :
+        softmax_->CalcLoss(i_h_t, ngrams, train));
       for(size_t i = 0; i < sent.size(); i++)
         words[i] = (sent[i].size() > t ? sent[i][t] : 0);
     }

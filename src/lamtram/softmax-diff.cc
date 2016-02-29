@@ -122,6 +122,7 @@ Expression SoftmaxDiff::CalcLoss(Expression & in, const vector<Sentence> & ngram
   vector<unsigned> words(ngrams.size());
   for(size_t i = 0; i < ngrams.size(); i++) {
     Sentence ctxt_ngram(ngrams[i]); ctxt_ngram.resize(ngrams[i].size()-1);
+    // cerr << "CalcLoss @ " << i << ": ctxt_ngram=" << ctxt_ngram << endl;
     CalcAllDists(ctxt_ngram, ctxt_dist);
     memcpy(&ctxt_dist_batch[i*vocab_size_], &ctxt_dist[0], vocab_size_*sizeof(float));
     words[i] = *ngrams[i].rbegin();
@@ -180,8 +181,9 @@ Expression SoftmaxDiff::CalcProb(Expression & in, const Sentence & ctxt_ngram, b
   // Create expressions
   Expression score = affine_transform({i_sm_b_, i_sm_W_, in});
   uniform_real_distribution<float> float_distribution(0.0, 1.0);
-  if(!(train && (finished_words_ < drop_words_ || float_distribution(*cnn::rndeng) < dropout_)))
+  if(!(train && (finished_words_ < drop_words_ || float_distribution(*cnn::rndeng) < dropout_))) {
     score = score + input(*in.pg, {(unsigned int)vocab_size_}, ctxt_dist);
+  }
   finished_words_++;
   return softmax(score);
 }
