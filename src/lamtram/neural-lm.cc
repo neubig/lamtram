@@ -39,6 +39,8 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
                       float samp_prob,
                       bool train,
                       cnn::ComputationGraph & cg, LLStats & ll) {
+  if(samp_prob != 0.f)
+    THROW_ERROR("Single-sentence scheduled sampling not implemented yet");
   // DEBUG if(!train) cerr << "LOSS @ " << sent << ": " << endl;
   size_t i;
   if(&cg != curr_graph_)

@@ -28,7 +28,7 @@ void SoftmaxMod::LoadDists(int id) {
   dist_id_ = id;
 }
 
-SoftmaxMod::SoftmaxMod(const string & sig, int input_size, const DictPtr & vocab, cnn::Model & mod) : SoftmaxBase(sig,input_size,vocab,mod), num_dist_(0), num_ctxt_(0), dist_id_(-1) {
+SoftmaxMod::SoftmaxMod(const string & sig, int input_size, const DictPtr & vocab, cnn::Model & mod) : SoftmaxBase(sig,input_size,vocab,mod), num_dist_(0), num_ctxt_(0), finished_words_(0), drop_words_(0), dist_id_(-1) {
   vector<string> strs = Tokenize(sig, ":");
   if(strs.size() <= 2 || strs[0] != "mod") THROW_ERROR("Bad signature in SoftmaxMod: " << sig);
   vector<string> my_dist_files;
@@ -36,6 +36,8 @@ SoftmaxMod::SoftmaxMod(const string & sig, int input_size, const DictPtr & vocab
   for(size_t i = 1; i < strs.size(); i++) {
     if(strs[i].substr(0, 8) == "dropout=") {
       dropout_ = stof(strs[i].substr(8));
+    } else if(strs[i].substr(0, 10) == "dropwords=") {
+      drop_words_ = stof(strs[i].substr(10));
     } else if(strs[i].substr(0, 5) == "dist=") {
       my_dist_files.push_back(strs[i].substr(5));
     } else if(strs[i].substr(0, 10) == "wildcards=") {
@@ -174,10 +176,12 @@ Expression SoftmaxMod::CalcLossExpr(Expression & in, const CtxtDist & ctxt_dist,
   Expression score_sms = affine_transform({i_sms_b_, i_sms_W_, in_ctxt_expr});
   // Do dropout and use only the regular softmax
   uniform_real_distribution<float> float_distribution(0.0, 1.0);
-  if(train && float_distribution(*cnn::rndeng) < dropout_) {  
+  if(train && (finished_words_ < drop_words_ || float_distribution(*cnn::rndeng) < dropout_)) {  
+    finished_words_++;
     return pickneglogsoftmax(score_sms, wid);
   // Do no dropout
   } else {
+    finished_words_++;
     Expression score_smd = affine_transform({i_smd_b_, i_smd_W_, in_ctxt_expr});
     Expression score = softmax(concatenate({score_sms, score_smd}));
     // Do mixture of distributions
@@ -193,10 +197,12 @@ Expression SoftmaxMod::CalcLossExpr(Expression & in, const CtxtDist & ctxt_dist_
   Expression score_sms = affine_transform({i_sms_b_, i_sms_W_, in_ctxt_expr});
   // Do dropout and use only the regular softmax
   uniform_real_distribution<float> float_distribution(0.0, 1.0);
-  if(train && float_distribution(*cnn::rndeng) < dropout_) {  
+  if(train && (finished_words_ < drop_words_ || float_distribution(*cnn::rndeng) < dropout_)) {  
+    finished_words_ += wids.size();
     return pickneglogsoftmax(score_sms, wids);
   // Do no dropout
   } else {
+    finished_words_ += wids.size();
     Expression score_smd = affine_transform({i_smd_b_, i_smd_W_, in_ctxt_expr});
     Expression score = softmax(concatenate({score_sms, score_smd}));
     // Do mixture of distributions

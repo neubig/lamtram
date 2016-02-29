@@ -56,6 +56,8 @@ protected:
 
   int num_dist_, num_ctxt_;
 
+  int finished_words_, drop_words_;
+
   cnn::Parameter p_sms_W_, p_smd_W_; // Softmax weights
   cnn::Parameter p_sms_b_, p_smd_b_; // Softmax bias
 

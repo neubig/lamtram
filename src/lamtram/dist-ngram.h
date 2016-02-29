@@ -50,7 +50,7 @@ public:
   virtual void calc_ctxt_feats(const Sentence & ctxt, float * feats_out) const override;
 
   // Get the number of distributions we can expect from this model
-  virtual size_t get_dense_size() const override { return ngram_len_; }
+  virtual size_t get_dense_size() const override { return heuristics_ ? 1 : ngram_len_; }
   virtual size_t get_sparse_size() const override { return 0; }
   virtual void calc_word_dists(const Sentence & ngram,
                                float uniform_prob,
@@ -104,6 +104,7 @@ protected:
   std::vector<int> ctxt_pos_;
   SmoothType smoothing_;
   size_t ngram_len_;
+  bool heuristics_;
 
 };
 

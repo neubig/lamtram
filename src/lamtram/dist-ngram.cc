@@ -22,10 +22,11 @@ DistNgram::DistNgram(const std::string & sig) : DistBase(sig) {
   // Split and sanity check signature
   std::vector<std::string> strs;
   boost::split(strs,sig,boost::is_any_of("_"));
-  if(strs[0] != "ngram" || strs.size() < 2)
+  if((strs[0] != "ngram" && strs[0] != "ngramh") || strs.size() < 2)
     THROW_ERROR("Bad signature in DistNgram: " << sig);
+  heuristics_ = (strs[0] == "ngramh");
   // Get the rest of the ctxt
-  if(sig != "ngram") {
+  if(strs.size() > 1) {
     for(size_t i = 2; i < strs.size(); i++)
       ctxt_pos_.push_back(stoi(strs[i]));
     if(ctxt_pos_.size() != 0) {
@@ -49,7 +50,7 @@ DistNgram::DistNgram(const std::string & sig) : DistBase(sig) {
 
 std::string DistNgram::get_sig() const {
   ostringstream oss;
-  oss << "ngram_" << (smoothing_ == SMOOTH_LIN ? "lin" : "mabs");
+  oss << "ngram" << (heuristics_?"h":"") << "_" << (smoothing_ == SMOOTH_LIN ? "lin" : "mabs");
   for(auto i : ctxt_pos_) oss << '_' << i;
   return oss.str();
 }
@@ -114,16 +115,6 @@ inline Sentence get_next_ctxt(Sentence sent) {
   assert(sent.size() > 0);
   sent.erase(sent.begin());
   return sent;
-}
-
-
-template <class T>
-inline std::string print_vec(const std::vector<T> vec) {
-  ostringstream oss;
-  if(vec.size()) oss << vec[0];
-  for(size_t i = 1; i < vec.size(); i++)
-    oss << ' ' << vec[i];
-  return oss.str();
 }
 
 void DistNgram::finalize_stats() {
@@ -233,6 +224,12 @@ void DistNgram::calc_word_dists(const Sentence & ngram,
                                 int & dense_offset,
                                 std::vector<std::pair<int,float> > & trg_sparse,
                                 int & sparse_offset) const {
+  // If heuristics, write to a temporary vector then adjust
+  vector<float> temp_vec(heuristics_?ctxt_pos_.size()+1:0);
+  int temp_offset = 0;
+  vector<float> & write_vec = (heuristics_?temp_vec:trg_dense);
+  int & write_offset = (heuristics_?temp_offset:dense_offset);
+  // Calculate the probability
   float base_prob = (*ngram.rbegin() != UNK_ID ? 1.0 : unk_prob);
   Sentence this_ngram(1, *ngram.rbegin()), this_ctxt;
   for(int j = ctxt_pos_.size(); j >= 0; j--) {
@@ -241,24 +238,45 @@ void DistNgram::calc_word_dists(const Sentence & ngram,
     if(ngram_it == mapping_.end()) {
       float my_prob = (context_it != mapping_.end() ? 0.0 : uniform_prob * base_prob);
       // cerr << "my_prob: " << my_prob << endl;
-      trg_dense[dense_offset++] = my_prob;
+      write_vec[write_offset++] = my_prob;
     } else {
       assert(context_it != mapping_.end());
       int value = (j == 0 ? ngram_it->second : ctxt_cnts_[ngram_it->second].first);
       if(smoothing_ == SMOOTH_MABS || smoothing_ == SMOOTH_MKN) {
         // cerr << "value_absmkn: " << (value-discounts_[this_ctxt.size()][min(value,3)]) << "/" << disc_ctxt_cnts_[context_it->second] * base_prob << endl;
-        trg_dense[dense_offset++] = (value-discounts_[this_ctxt.size()][min(value,3)])/disc_ctxt_cnts_[context_it->second] * base_prob;
+        write_vec[write_offset++] = (value-discounts_[this_ctxt.size()][min(value,3)])/disc_ctxt_cnts_[context_it->second] * base_prob;
       } else {
         // cerr << "value_lin: " << value << "/" << (float)ctxt_cnts_[context_it->second].second * base_prob << endl;
-        trg_dense[dense_offset++] = value/(float)ctxt_cnts_[context_it->second].second * base_prob;
+        write_vec[write_offset++] = value/(float)ctxt_cnts_[context_it->second].second * base_prob;
       }
       if(*ngram.rbegin() == GlobalVars::curr_word) {
-        // cerr << "trg_dense[" << dense_offset-1 << "] == " << trg_dense[dense_offset-1] << endl;
+        // cerr << "write_vec[" << write_offset-1 << "] == " << write_vec[write_offset-1] << endl;
       }
     }
     if(j != 0) {
       this_ngram.insert(this_ngram.begin(), ngram[ngram.size()-ctxt_pos_[j-1]-1]);
       this_ctxt.insert(this_ctxt.begin(), ngram[ngram.size()-ctxt_pos_[j-1]-1]);
+    }
+  }
+  // Convert into heuristics if necessary
+  if(heuristics_) {
+    if(smoothing_ == SMOOTH_MABS || smoothing_ == SMOOTH_MKN) {    
+      vector<float> ctxts((ctxt_pos_.size()+1)*4);
+      calc_ctxt_feats(this_ctxt, &ctxts[0]);
+      float val = 0.f;
+      float left = 1.0;
+      for(int i = temp_vec.size() - 1; i >= 0; i--) {
+        if(ctxts[i*4] == 1.0) continue;
+        // Discounted divided by total == amount for this dist
+        float my_prob = exp(ctxts[i*4+3]-ctxts[i*4+1]);
+        if(my_prob > 1) THROW_ERROR("Discount exceeding 1: " << my_prob);
+        val += my_prob * temp_vec[i];
+        left *= (1-my_prob);
+      }
+      val += left*uniform_prob;
+      trg_dense[dense_offset++] = val;
+    } else {
+      THROW_ERROR("Heuristics are only implemented for discounting");
     }
   }
 }
