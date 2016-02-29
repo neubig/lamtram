@@ -19,6 +19,7 @@ LIBCPP = \
     input-file-stream.cc \
     softmax-full.cc \
     softmax-mod.cc \
+    softmax-diff.cc \
     softmax-class.cc \
     softmax-factory.cc \
     dict-utils.cc \
