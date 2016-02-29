@@ -97,6 +97,7 @@ public:
     // Build the computation graph for the sentence including loss
     template <class SentData>
     cnn::expr::Expression BuildSentGraph(const SentData & sent_src, const SentData & sent_trg, const SentData & sent_cache,
+                                         float samp_percent,
                                          bool train,
                                          cnn::ComputationGraph & cg, LLStats & ll);
 

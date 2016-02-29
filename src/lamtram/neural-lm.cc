@@ -36,6 +36,7 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
                       const Sentence & cache_ids,
                       const ExternCalculator * extern_calc,
                       const std::vector<cnn::expr::Expression> & layer_in,
+                      float samp_prob,
                       bool train,
                       cnn::ComputationGraph & cg, LLStats & ll) {
   // DEBUG if(!train) cerr << "LOSS @ " << sent << ": " << endl;
@@ -85,15 +86,28 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
   return i_nerr;
 }
 
+inline size_t categorical_dist(std::vector<float>::const_iterator beg, std::vector<float>::const_iterator end) {
+  float sum = 0.f;
+  std::accumulate(beg,end,sum);
+  std::uniform_real_distribution<float> dist(sum);
+  sum = dist(*cnn::rndeng);
+  for(auto it = beg; it != end; it++) {
+    sum -= *it;
+    if(sum < 0) return it-beg;
+  }
+  THROW_ERROR("Overflowed sample");
+}
+
 cnn::expr::Expression NeuralLM::BuildSentGraph(
                       const vector<Sentence> & sent,
                       const vector<Sentence> & cache_ids,
                       const ExternCalculator * extern_calc,
                       const std::vector<cnn::expr::Expression> & layer_in,
+                      float samp_prob,
                       bool train,
                       cnn::ComputationGraph & cg, LLStats & ll) {
   if(sent.size() == 1)
-    return BuildSentGraph(sent[0], (cache_ids.size() ? cache_ids[0] : Sentence()), extern_calc, layer_in, train, cg, ll);
+    return BuildSentGraph(sent[0], (cache_ids.size() ? cache_ids[0] : Sentence()), extern_calc, layer_in, samp_prob, train, cg, ll);
   size_t nt;
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
@@ -104,11 +118,7 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
   cnn::expr::Expression i_wr_start = lookup(cg, p_wr_W_, words);
   vector<cnn::expr::Expression> i_wr;
   Sentence my_cache(sent.size());
-  for(auto t : boost::irange(0, slen)) { 
-    for(size_t i = 0; i < sent.size(); i++)
-      words[i] = (sent[i].size() > t ? sent[i][t] : 0);
-    i_wr.push_back(lookup(cg, p_wr_W_, words));
-  }
+  std::bernoulli_distribution samp_dist(samp_prob);
   // Next, do the computation
   vector<cnn::expr::Expression> errs, aligns;
   vector<Sentence> ngrams(sent.size(), Sentence(softmax_->GetCtxtLen()+1, 0));
@@ -151,10 +161,26 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
       assert(cache_ids.size() == sent.size());
       for(size_t i = 0; i < sent.size(); i++)
         my_cache[i] = (cache_ids[i].size() > t ? cache_ids[i][t] : 0);
-      i_err = softmax_->CalcLossCache(i_h_t, my_cache, ngrams, train);
+    } 
+    // Perform sampling if necessary
+    if(samp_dist(*cnn::rndeng)) {
+      vector<Sentence> ctxts(ngrams);
+      for(size_t i = 0; i < ngrams.size(); i++) {
+        words[i] = *ngrams[i].rbegin();
+        ctxts[i].resize(ctxts[i].size()-1);
+      }
+      cnn::expr::Expression i_prob = softmax_->CalcProbCache(i_h_t, my_cache, ctxts, train);
+      i_err = -log(pick(i_prob, words));
+      vector<float> probs = as_vector(i_prob.value());
+      for(size_t i = 0; i < ngrams.size(); i++)
+        words[i] = categorical_dist(probs.begin()+i*vocab_->size(), probs.begin()+(i+1)*vocab_->size());
+    // Otherwise, create the correct
     } else {
-      i_err = softmax_->CalcLoss(i_h_t, ngrams, train);
+      i_err = softmax_->CalcLossCache(i_h_t, my_cache, ngrams, train);
+      for(size_t i = 0; i < sent.size(); i++)
+        words[i] = (sent[i].size() > t ? sent[i][t] : 0);
     }
+    i_wr.push_back(lookup(cg, p_wr_W_, words));
     if(active_words != sent.size())
       i_err = i_err * input(cg, cnn::Dim({1}, sent.size()), mask);
     errs.push_back(i_err);
@@ -230,8 +256,8 @@ cnn::expr::Expression NeuralLM::Forward(const Sent & sent, int t,
   Sent ctxt_ngram = CreateContext<Sent>(sent, t);
   // Run the softmax and calculate the error
   cnn::expr::Expression i_sm_t = (log_prob ?
-                  softmax_->CalcLogProbability(i_h_t, ctxt_ngram) :
-                  softmax_->CalcProbability(i_h_t, ctxt_ngram));
+                  softmax_->CalcLogProb(i_h_t, ctxt_ngram, false) :
+                  softmax_->CalcProb(i_h_t, ctxt_ngram, false));
   // Update the state
   layer_out = builder_->final_s();
   return i_sm_t;

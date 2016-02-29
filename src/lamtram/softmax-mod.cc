@@ -206,7 +206,8 @@ Expression SoftmaxMod::CalcLossExpr(Expression & in, const CtxtDist & ctxt_dist_
 }
 
 // Calculate the full probability distribution
-Expression SoftmaxMod::CalcProbability(Expression & in, const Sentence & ctxt_ngram) {
+Expression SoftmaxMod::CalcProb(Expression & in, const Sentence & ctxt_ngram, bool train) {
+  THROW_ERROR("SoftmaxMod::CalcProb here");
   // Calculate the distributions
   CtxtDist ctxt_dist; ctxt_dist.first.resize(num_ctxt_); ctxt_dist.second.resize(num_dist_*vocab_->size());
   CalcAllDists(ctxt_ngram, ctxt_dist);
@@ -223,13 +224,25 @@ Expression SoftmaxMod::CalcProbability(Expression & in, const Sentence & ctxt_ng
   // cerr << "Word " << GlobalVars::curr_word << " and surrounding probs: " << as_vector(pickrange(word_prob, max(0,GlobalVars::curr_word-3), min(GlobalVars::curr_word+4, (int)vocab_->size())).value()) << endl;
   return word_prob;
 }
-Expression SoftmaxMod::CalcProbability(Expression & in, const vector<Sentence> & ctxt_ngrams) {
-  THROW_ERROR("SoftmaxMod::CalcProbability Not implemented yet");
+Expression SoftmaxMod::CalcProb(Expression & in, const vector<Sentence> & ctxt_ngrams, bool train) {
+  THROW_ERROR("SoftmaxMod::CalcProb Not implemented yet");
 }
-Expression SoftmaxMod::CalcLogProbability(Expression & in, const Sentence & ctxt_ngram) {
-  return log(CalcProbability(in, ctxt_ngram));
+Expression SoftmaxMod::CalcLogProb(Expression & in, const Sentence & ctxt_ngram, bool train) {
+  return log(CalcProb(in, ctxt_ngram, train));
 }
-Expression SoftmaxMod::CalcLogProbability(Expression & in, const vector<Sentence> & ctxt_ngrams) {
-  return log(CalcProbability(in, ctxt_ngrams));
+Expression SoftmaxMod::CalcLogProb(Expression & in, const vector<Sentence> & ctxt_ngrams, bool train) {
+  return log(CalcProb(in, ctxt_ngrams, train));
 }
 
+Expression SoftmaxMod::CalcProbCache(Expression & in, int cache_id,                  const Sentence & ctxt_ngram, bool train) {
+  THROW_ERROR("SoftmaxMod::CalcProbCache Not implemented yet");
+}
+Expression SoftmaxMod::CalcProbCache(Expression & in, const Sentence & cache_ids, const vector<Sentence> & ctxt_ngrams, bool train) {
+  THROW_ERROR("SoftmaxMod::CalcProbCache Not implemented yet");
+}
+Expression SoftmaxMod::CalcLogProbCache(Expression & in, int cache_id,                   const Sentence & ctxt_ngram, bool train) {
+  THROW_ERROR("SoftmaxMod::CalcProbCache Not implemented yet");
+}
+Expression SoftmaxMod::CalcLogProbCache(Expression & in, const Sentence & cache_ids,  const vector<Sentence> & ctxt_ngrams, bool train) {
+  THROW_ERROR("SoftmaxMod::CalcProbCache Not implemented yet");
+}

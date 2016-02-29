@@ -41,6 +41,8 @@ int LamtramTrain::main(int argc, char** argv) {
     ("trainer", po::value<string>()->default_value("sgd"), "Training algorithm (sgd/momentum/adagrad/adadelta)")
     ("softmax", po::value<string>()->default_value("full"), "The type of softmax to use (full/hier/mod)")
     ("seed", po::value<int>()->default_value(0), "Random seed (default 0 -> changes every time)")
+    // See: Scheduled Sampling for Sequence Prediction with Recurrent Neural Networks
+    ("scheduled_samp", po::value<float>()->default_value(0.f), "If set to 1 or more, perform scheduled sampling where the selected value is the number of iterations after which the sampling value reaches 0.5")
     ("learning_rate", po::value<float>()->default_value(0.1), "Learning rate")
     ("encoder_types", po::value<string>()->default_value("for"), "The type of encoder, multiple separated by a pipe (for=forward, rev=reverse)")
     ("context", po::value<int>()->default_value(2), "Amount of context information to use")
@@ -104,6 +106,7 @@ int LamtramTrain::main(int argc, char** argv) {
   model_out_file_ = vm_["model_out"].as<string>();
   eval_every_ = vm_["eval_every"].as<int>();
   softmax_sig_ = vm_["softmax"].as<string>();
+  scheduled_samp_ = vm_["scheduled_samp"].as<float>();
 
   // Perform appropriate training
   if(model_type == "nlm")           TrainLM();
@@ -271,6 +274,7 @@ void LamtramTrain::TrainLM() {
   cnn::real last_ll = -1e99, best_ll = -1e99;
   bool do_dev = dev_trg.size() != 0;
   int loc = 0, sent_loc = 0, last_print = 0;
+  float epoch_frac = 0.f, samp_prob = 0.f;
   int epoch = 0;
   std::shuffle(train_ids.begin(), train_ids.end(), *cnn::rndeng);
   while(epoch < epochs_) {
@@ -285,11 +289,17 @@ void LamtramTrain::TrainLM() {
         sent_loc = 0;
         ++epoch;
       }
+      if(scheduled_samp_) {
+        float val = (epoch_frac-scheduled_samp_)/scheduled_samp_;
+        samp_prob = 1/(1+exp(val));
+      }
+      cerr << "epoch_frac=" << epoch_frac << ", samp_prob=" << samp_prob << endl;
       cnn::ComputationGraph cg;
       nlm->NewGraph(cg);
-      nlm->BuildSentGraph(train_trg_minibatch[train_ids[loc]], (train_cache_minibatch.size() ? train_cache_minibatch[train_ids[loc]] : empty_minibatch), NULL, empty_hist, true, cg, train_ll);
+      nlm->BuildSentGraph(train_trg_minibatch[train_ids[loc]], (train_cache_minibatch.size() ? train_cache_minibatch[train_ids[loc]] : empty_minibatch), NULL, empty_hist, samp_prob, true, cg, train_ll);
       sent_loc += train_trg_minibatch[train_ids[loc]].size();
       curr_sent_loc += train_trg_minibatch[train_ids[loc]].size();
+      epoch_frac += 1.f/train_ids.size();
       // cg.PrintGraphviz();
       train_ll.lik_ -= as_scalar(cg.forward());
       cg.backward();
@@ -308,7 +318,7 @@ void LamtramTrain::TrainLM() {
       for(auto & sent : dev_trg_minibatch) {
         cnn::ComputationGraph cg;
         nlm->NewGraph(cg);
-        nlm->BuildSentGraph(sent, empty_minibatch, NULL, empty_hist, false, cg, dev_ll);
+        nlm->BuildSentGraph(sent, empty_minibatch, NULL, empty_hist, 0.f, false, cg, dev_ll);
         dev_ll.lik_ -= as_scalar(cg.forward());
       }
       float elapsed = time.Elapsed();
@@ -539,6 +549,7 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
   cnn::real last_ll = -1e99, best_ll = -1e99;
   bool do_dev = dev_src.size() != 0;
   int loc = 0, epoch = 0, sent_loc = 0, last_print = 0;
+  float epoch_frac = 0.f, samp_prob = 0.f;
   std::shuffle(train_ids.begin(), train_ids.end(), *cnn::rndeng);
   while(epoch < epochs_) {
     // Start the training
@@ -555,9 +566,14 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
       cnn::ComputationGraph cg;
       encdec.NewGraph(cg);
       // encdec.BuildSentGraph(train_src[train_ids[loc]], train_trg[train_ids[loc]], train_cache[train_ids[loc]], true, cg, train_ll);
-      encdec.BuildSentGraph(train_src_minibatch[train_ids[loc]], train_trg_minibatch[train_ids[loc]], (train_cache_minibatch.size() ? train_cache_minibatch[train_ids[loc]] : empty_cache), true, cg, train_ll);
+      if(scheduled_samp_) {
+        float val = (epoch_frac-scheduled_samp_)/scheduled_samp_;
+        samp_prob = 1/(1+exp(val));
+      }
+      encdec.BuildSentGraph(train_src_minibatch[train_ids[loc]], train_trg_minibatch[train_ids[loc]], (train_cache_minibatch.size() ? train_cache_minibatch[train_ids[loc]] : empty_cache), samp_prob, true, cg, train_ll);
       sent_loc += train_trg_minibatch[train_ids[loc]].size();
       curr_sent_loc += train_trg_minibatch[train_ids[loc]].size();
+      epoch_frac += 1.f/train_ids.size();
       // cg.PrintGraphviz();
       train_ll.lik_ -= as_scalar(cg.forward());
       cg.backward();
@@ -578,7 +594,7 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
         cnn::ComputationGraph cg;
         encdec.NewGraph(cg);
         // encdec.BuildSentGraph(dev_src[i], dev_trg[i], empty_cache, false, cg, dev_ll);
-        encdec.BuildSentGraph(dev_src_minibatch[i], dev_trg_minibatch[i], empty_cache, false, cg, dev_ll);
+        encdec.BuildSentGraph(dev_src_minibatch[i], dev_trg_minibatch[i], empty_cache, 0.f, false, cg, dev_ll);
         dev_ll.lik_ -= as_scalar(cg.forward());
       }
       float elapsed = time.Elapsed();

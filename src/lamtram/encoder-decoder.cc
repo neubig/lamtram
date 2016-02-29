@@ -69,23 +69,26 @@ std::vector<cnn::expr::Expression> EncoderDecoder::GetEncodedState<vector<Senten
 template <class SentData>
 cnn::expr::Expression EncoderDecoder::BuildSentGraph(const SentData & sent_src, const SentData & sent_trg,
                            const SentData & cache_trg,
+                           float samp_percent,
                            bool train,
                            cnn::ComputationGraph & cg, LLStats & ll) {
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match."); 
   // Perform encoding with each encoder
   vector<cnn::expr::Expression> decoder_in = GetEncodedState(sent_src, train, cg);
-  return decoder_->BuildSentGraph(sent_trg, cache_trg, NULL, decoder_in, train, cg, ll);
+  return decoder_->BuildSentGraph(sent_trg, cache_trg, NULL, decoder_in, samp_percent, train, cg, ll);
 }
 
 template
 cnn::expr::Expression EncoderDecoder::BuildSentGraph<Sentence>(
   const Sentence & sent_src, const Sentence & sent_trg, const Sentence & cache_trg,
+  float samp_percent,
   bool train, cnn::ComputationGraph & cg, LLStats & ll);
 
 template
 cnn::expr::Expression EncoderDecoder::BuildSentGraph<vector<Sentence> >(
   const vector<Sentence> & sent_src, const vector<Sentence> & sent_trg, const vector<Sentence> & cache_trg,
+  float samp_percent,
   bool train, cnn::ComputationGraph & cg, LLStats & ll);
 
 

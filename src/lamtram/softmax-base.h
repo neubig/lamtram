@@ -39,10 +39,15 @@ public:
   }
   
   // Calculate the full probability distribution
-  virtual cnn::expr::Expression CalcProbability(cnn::expr::Expression & in, const Sentence & ctxt) = 0;
-  virtual cnn::expr::Expression CalcProbability(cnn::expr::Expression & in, const std::vector<Sentence> & ctxt) = 0;
-  virtual cnn::expr::Expression CalcLogProbability(cnn::expr::Expression & in, const Sentence & ctxt) = 0;
-  virtual cnn::expr::Expression CalcLogProbability(cnn::expr::Expression & in, const std::vector<Sentence> & ctxt) = 0;
+  virtual cnn::expr::Expression CalcProb(cnn::expr::Expression & in, const Sentence & ctxt, bool train) = 0;
+  virtual cnn::expr::Expression CalcProb(cnn::expr::Expression & in, const std::vector<Sentence> & ctxt, bool train) = 0;
+  virtual cnn::expr::Expression CalcLogProb(cnn::expr::Expression & in, const Sentence & ctxt, bool train) = 0;
+  virtual cnn::expr::Expression CalcLogProb(cnn::expr::Expression & in, const std::vector<Sentence> & ctxt, bool train) = 0;
+
+  virtual cnn::expr::Expression CalcProbCache(cnn::expr::Expression & in, int cache_id,                       const Sentence & ctxt, bool train) { return CalcProb(in,ctxt,train); }
+  virtual cnn::expr::Expression CalcProbCache(cnn::expr::Expression & in, const Sentence & cache_ids, const std::vector<Sentence> & ctxt, bool train) { return CalcProb(in,ctxt,train); }
+  virtual cnn::expr::Expression CalcLogProbCache(cnn::expr::Expression & in, int cache_id,                       const Sentence & ctxt, bool train) { return CalcLogProb(in,ctxt,train); }
+  virtual cnn::expr::Expression CalcLogProbCache(cnn::expr::Expression & in, const Sentence & cache_ids, const std::vector<Sentence> & ctxt, bool train) { return CalcLogProb(in,ctxt,train); }
 
   // Cache data for the entire training corpus if necessary
   //  data is the data, set_ids is which data set the sentences belong to

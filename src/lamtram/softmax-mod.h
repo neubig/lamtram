@@ -33,10 +33,14 @@ public:
   virtual cnn::expr::Expression CalcLossCache(cnn::expr::Expression & in, const std::vector<int> & cache_ids, const std::vector<Sentence> & ngrams, bool train) override;
   
   // Calculate the full probability distribution
-  virtual cnn::expr::Expression CalcProbability(cnn::expr::Expression & in, const Sentence & ctxt) override;
-  virtual cnn::expr::Expression CalcProbability(cnn::expr::Expression & in, const std::vector<Sentence> & ctxt) override;
-  virtual cnn::expr::Expression CalcLogProbability(cnn::expr::Expression & in, const Sentence & ctxt) override;
-  virtual cnn::expr::Expression CalcLogProbability(cnn::expr::Expression & in, const std::vector<Sentence> & ctxt) override;
+  virtual cnn::expr::Expression CalcProb(cnn::expr::Expression & in, const Sentence & ctxt, bool train) override;
+  virtual cnn::expr::Expression CalcProb(cnn::expr::Expression & in, const std::vector<Sentence> & ctxt, bool train) override;
+  virtual cnn::expr::Expression CalcLogProb(cnn::expr::Expression & in, const Sentence & ctxt, bool train) override;
+  virtual cnn::expr::Expression CalcLogProb(cnn::expr::Expression & in, const std::vector<Sentence> & ctxt, bool train) override;
+  virtual cnn::expr::Expression CalcProbCache(cnn::expr::Expression & in, int cache_id,               const Sentence & ctxt, bool train) override;
+  virtual cnn::expr::Expression CalcProbCache(cnn::expr::Expression & in, const Sentence & cache_ids, const std::vector<Sentence> & ctxt, bool train) override;
+  virtual cnn::expr::Expression CalcLogProbCache(cnn::expr::Expression & in, int cache_id,               const Sentence & ctxt, bool train) override;
+  virtual cnn::expr::Expression CalcLogProbCache(cnn::expr::Expression & in, const Sentence & cache_ids, const std::vector<Sentence> & ctxt, bool train) override;
 
   virtual void Cache(const std::vector<Sentence> & sents, const std::vector<int> & set_ids, std::vector<Sentence> & cache_ids) override;
 

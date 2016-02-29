@@ -37,6 +37,7 @@ public:
     // Build the computation graph for the sentence including loss
     template <class SentData, class OutData>
     cnn::expr::Expression BuildSentGraph(const SentData & sent_src, const OutData & trg, const OutData & cache,
+                                         float samp_percent,
                                          bool train,
                                          cnn::ComputationGraph & cg, LLStats & ll) const;
 

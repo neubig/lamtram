@@ -56,6 +56,7 @@ public:
                                    const Sentence & cache_ids,
                                    const ExternCalculator * extern_calc,
                                    const std::vector<cnn::expr::Expression> & layer_in,
+                                   float samp_percent,
                                    bool train,
                                    cnn::ComputationGraph & cg, LLStats & ll);
     cnn::expr::Expression BuildSentGraph(
@@ -63,6 +64,7 @@ public:
                                    const std::vector<Sentence> & cache_ids,
                                    const ExternCalculator * extern_calc,
                                    const std::vector<cnn::expr::Expression> & layer_in,
+                                   float samp_percent,
                                    bool train,
                                    cnn::ComputationGraph & cg, LLStats & ll);
 

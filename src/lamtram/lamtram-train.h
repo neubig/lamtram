@@ -51,6 +51,7 @@ protected:
     // Variable settings
     cnn::real rate_thresh_;
     int epochs_, context_, eval_every_;
+    float scheduled_samp_;
     std::string model_in_file_, model_out_file_;
     std::vector<std::string> train_files_trg_, train_files_src_;
     std::string dev_file_trg_, dev_file_src_;
