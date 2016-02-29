@@ -95,7 +95,8 @@ inline size_t categorical_dist(std::vector<float>::const_iterator beg, std::vect
     sum -= *it;
     if(sum < 0) return it-beg;
   }
-  THROW_ERROR("Overflowed sample");
+  cerr << "WARNING: overflowed sample, returning zero" << endl;
+  return 0;
 }
 
 cnn::expr::Expression NeuralLM::BuildSentGraph(
