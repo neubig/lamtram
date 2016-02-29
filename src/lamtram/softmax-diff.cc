@@ -27,13 +27,18 @@ void SoftmaxDiff::LoadDists(int id) {
 }
 
 SoftmaxDiff::SoftmaxDiff(const string & sig, int input_size, const DictPtr & vocab, cnn::Model & mod)
-                        : SoftmaxBase(sig,input_size,vocab,mod), vocab_size_(vocab->size()), dist_id_(-1) {
+                        : SoftmaxBase(sig,input_size,vocab,mod), vocab_size_(vocab->size()), 
+                          finished_words_(0), drop_words_(0), dropout_(0.f), dist_id_(-1) {
   vector<string> strs = Tokenize(sig, ":");
-  if(strs.size() <= 2 || strs[0] != "mod") THROW_ERROR("Bad signature in SoftmaxDiff: " << sig);
+  if(strs.size() <= 2 || strs[0] != "diff") THROW_ERROR("Bad signature in SoftmaxDiff: " << sig);
   string dist_file;
   // Read the arguments
   for(size_t i = 1; i < strs.size(); i++) {
-    if(strs[i].substr(0, 5) == "dist=") {
+    if(strs[i].substr(0, 8) == "dropout=") {
+      dropout_ = stof(strs[i].substr(8));
+    } else if(strs[i].substr(0, 10) == "dropwords=") {
+      drop_words_ = stof(strs[i].substr(10));
+    } else if(strs[i].substr(0, 5) == "dist=") {
       if(dist_file != "") THROW_ERROR("Can only have one distribution");
       dist_file = strs[i].substr(5);
     } else if(strs[i].substr(0, 10) == "wildcards=") {
@@ -47,6 +52,7 @@ SoftmaxDiff::SoftmaxDiff(const string & sig, int input_size, const DictPtr & voc
   dist_files_ = TokenizeWildcarded(dist_file,wildcards_,"|");
   // Read the distributions for the first set of training data
   LoadDists(0);
+  ctxt_len_ = dist_ptr_->get_ctxt_len();
   // Initialize the parameters
   p_sm_W_ = mod.add_parameters({(unsigned int)vocab_size_, (unsigned int)input_size});
   p_sm_b_ = mod.add_parameters({(unsigned int)vocab_size_});  
@@ -87,9 +93,11 @@ void SoftmaxDiff::Cache(const vector<Sentence> & sents, const vector<int> & set_
         cache_ids[i][j] = ctxt_map.size();
         ctxt_map.insert(make_pair(curr_ctxt_dist, ctxt_map.size()));
       }
-      for(k = 0; k < ctxt_ngram.size()-1; k++)
-        ctxt_ngram[k] = ctxt_ngram[k+1];
-      ctxt_ngram[k] = sents[i][j];
+      if(ctxt_ngram.size()) {
+        for(k = 0; k < ctxt_ngram.size()-1; k++)
+          ctxt_ngram[k] = ctxt_ngram[k+1];
+        ctxt_ngram[k] = sents[i][j];
+      }
     }
   }
   cache_.resize(ctxt_map.size());
@@ -113,7 +121,8 @@ Expression SoftmaxDiff::CalcLoss(Expression & in, const vector<Sentence> & ngram
   std::vector<float> ctxt_dist_batch(vocab_size_*ngrams.size());
   vector<unsigned> words(ngrams.size());
   for(size_t i = 0; i < ngrams.size(); i++) {
-    CalcAllDists(ngrams[i], ctxt_dist);
+    Sentence ctxt_ngram(ngrams[i]); ctxt_ngram.resize(ngrams[i].size()-1);
+    CalcAllDists(ctxt_ngram, ctxt_dist);
     memcpy(&ctxt_dist_batch[i*vocab_size_], &ctxt_dist[0], vocab_size_*sizeof(float));
     words[i] = *ngrams[i].rbegin();
   }
@@ -139,12 +148,27 @@ Expression SoftmaxDiff::CalcLossCache(Expression & in, const vector<int> & cache
 
 Expression SoftmaxDiff::CalcLossExpr(Expression & in, const std::vector<float> & ctxt_dist, WordId wid, bool train) {
   // Create expressions
-  Expression score = input(*in.pg, {(unsigned int)vocab_size_}, ctxt_dist) + affine_transform({i_sm_b_, i_sm_W_, in});
+  Expression score = affine_transform({i_sm_b_, i_sm_W_, in});
+  uniform_real_distribution<float> float_distribution(0.0, 1.0);
+  if(!(train && (finished_words_ < drop_words_ || float_distribution(*cnn::rndeng) < dropout_))) {
+    // cerr << "score before=" << as_scalar(pick(score, wid).value());
+    // cerr << "ctxt_dist[" << wid << "] == " << ctxt_dist[wid] << endl;
+    score = score + input(*in.pg, {(unsigned int)vocab_size_}, ctxt_dist);
+    // cerr << " after=" << as_scalar(pick(score, wid).value()) << endl;
+  }
+  finished_words_++;
   return pickneglogsoftmax(score, wid);
 }
 
 Expression SoftmaxDiff::CalcLossExpr(Expression & in, const std::vector<float> & ctxt_dist_batched, const vector<unsigned> & wids, bool train) {
-  Expression score = input(*in.pg, cnn::Dim({(unsigned int)vocab_size_}, wids.size()), ctxt_dist_batched) + affine_transform({i_sm_b_, i_sm_W_, in});
+  Expression score = affine_transform({i_sm_b_, i_sm_W_, in});
+  uniform_real_distribution<float> float_distribution(0.0, 1.0);
+  if(!(train && (finished_words_ < drop_words_ || float_distribution(*cnn::rndeng) < dropout_))) {
+    // cerr << "score before=" << as_vector(pick(score, wids).value());
+    score = score + input(*in.pg, cnn::Dim({(unsigned int)vocab_size_}, wids.size()), ctxt_dist_batched);
+    // cerr << " after=" << as_vector(pick(score, wids).value()) << endl;
+  }
+  finished_words_ += wids.size();
   return pickneglogsoftmax(score, wids);
 }
 
@@ -154,7 +178,11 @@ Expression SoftmaxDiff::CalcProb(Expression & in, const Sentence & ctxt_ngram, b
   std::vector<float> ctxt_dist(vocab_size_);
   CalcAllDists(ctxt_ngram, ctxt_dist);
   // Create expressions
-  Expression score = input(*in.pg, {(unsigned int)vocab_size_}, ctxt_dist) + affine_transform({i_sm_b_, i_sm_W_, in});
+  Expression score = affine_transform({i_sm_b_, i_sm_W_, in});
+  uniform_real_distribution<float> float_distribution(0.0, 1.0);
+  if(!(train && (finished_words_ < drop_words_ || float_distribution(*cnn::rndeng) < dropout_)))
+    score = score + input(*in.pg, {(unsigned int)vocab_size_}, ctxt_dist);
+  finished_words_++;
   return softmax(score);
 }
 Expression SoftmaxDiff::CalcProb(Expression & in, const vector<Sentence> & ctxt_ngrams, bool train) {

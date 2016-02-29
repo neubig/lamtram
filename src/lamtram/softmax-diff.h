@@ -53,10 +53,13 @@ protected:
 
   int vocab_size_;
 
+  int finished_words_, drop_words_;
+
   cnn::Parameter p_sm_W_, p_sm_b_; // Softmax weights
 
   cnn::expr::Expression i_sm_W_, i_sm_b_;
 
+  float dropout_; // How much to drop out the dense distributions (at training)
   DistPtr dist_ptr_;
   int dist_id_;
 

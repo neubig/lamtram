@@ -270,10 +270,17 @@ void DistNgram::calc_word_dists(const Sentence & ngram,
         // Discounted divided by total == amount for this dist
         float my_prob = exp(ctxts[i*4+3]-ctxts[i*4+1]);
         if(my_prob > 1) THROW_ERROR("Discount exceeding 1: " << my_prob);
-        val += my_prob * temp_vec[i];
+        val += left * my_prob * temp_vec[i];
         left *= (1-my_prob);
       }
       val += left*uniform_prob;
+      if(val < 0 || val > 1) {
+        cerr << "this_ctxt: " << this_ctxt << endl;
+        cerr << "ctxts: " << ctxts << endl;
+        cerr << "temp_vec: " << temp_vec << endl;
+        cerr << "val=" << val << ", left=" << left << endl;
+        THROW_ERROR("Illegal probability value");
+      }
       trg_dense[dense_offset++] = val;
     } else {
       THROW_ERROR("Heuristics are only implemented for discounting");
