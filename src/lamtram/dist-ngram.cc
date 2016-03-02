@@ -240,11 +240,16 @@ void DistNgram::calc_word_dists(const Sentence & ngram,
       // cerr << "my_prob: " << my_prob << endl;
       write_vec[write_offset++] = my_prob;
     } else {
-      assert(context_it != mapping_.end());
+      if(context_it != mapping_.end())
+        THROW_ERROR("ngram ("<<this_ngram<<") exists but ctxt (" << this_ctxt << ") doesn't");
       int value = (j == 0 ? ngram_it->second : ctxt_cnts_[ngram_it->second].first);
       if(smoothing_ == SMOOTH_MABS || smoothing_ == SMOOTH_MKN) {
-        // cerr << "value_absmkn: " << (value-discounts_[this_ctxt.size()][min(value,3)]) << "/" << disc_ctxt_cnts_[context_it->second] * base_prob << endl;
         write_vec[write_offset++] = (value-discounts_[this_ctxt.size()][min(value,3)])/disc_ctxt_cnts_[context_it->second] * base_prob;
+        if(write_vec[write_offset-1] > 1.001) {
+          cerr << "this_ctxt: " << this_ctxt << endl;
+          cerr << "value_absmkn: (" << value << "-" << discounts_[this_ctxt.size()][min(value,3)] << ")/" << disc_ctxt_cnts_[context_it->second] << " * " << base_prob << endl;
+          THROW_ERROR("Bad probability");
+        }
       } else {
         // cerr << "value_lin: " << value << "/" << (float)ctxt_cnts_[context_it->second].second * base_prob << endl;
         write_vec[write_offset++] = value/(float)ctxt_cnts_[context_it->second].second * base_prob;
@@ -321,9 +326,9 @@ inline void getline_expected(std::istream & in, const std::string & expected) {
   if(line != expected) THROW_ERROR("Did not get expected line at DistNgram: " << line << " != " << expected);
 }
 void DistNgram::read(DictPtr dict, std::istream & in) {
-  vector<string> strs;
+  vector<string> strs, words;
   string line, strid;
-  int size, size2;
+  int size, size2, pos1;
   int cnt1, cnt2, cnt3;
   float cnt4;
   getline_expected(in, DIST_NGRAM_VERSION);
@@ -351,8 +356,13 @@ void DistNgram::read(DictPtr dict, std::istream & in) {
       getline_or_die(in, line);
       boost::split(strs, line, boost::is_any_of("\t"));
       if(strs.size() != 2) THROW_ERROR("Expecting two columns: " << line << endl);
-      Sentence ngram = ParseWords(*dict, strs[0], false);
-      for(WordId wid : ngram) if(wid == -1) THROW_ERROR("Out-of-vocabulary word found in one hot model: " << line);
+      boost::split(words, strs[0], boost::is_any_of(" "));
+      Sentence ngram = ParseWords(*dict, words, false);
+      bool ok = true;
+      for(pos1 = 0; pos1 < (int)words.size() && (ngram[pos1] != 1 || words[pos1] == "<unk>"); pos1++);
+      if(pos1 != words.size()) continue;
+      if(mapping_.find(ngram) != mapping_.end())
+        THROW_ERROR("Found duplicate entry for ngram " << ngram << " at: " << line << endl);
       if(ngram.size() == ngram_len_) {
         mapping_[ngram] = stoi(strs[1]);
       } else {

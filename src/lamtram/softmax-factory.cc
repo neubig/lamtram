@@ -22,6 +22,6 @@ SoftmaxPtr SoftmaxFactory::CreateSoftmax(const std::string & sig, int input_size
   } else if(sig.substr(0,4) == "diff") {
     return SoftmaxPtr(new SoftmaxDiff(sig, input_size, vocab, mod));
   } else {
-    THROW_ERROR("Bad softmax signature" << sig);
+    THROW_ERROR("Bad softmax signature: " << sig);
   }
 }

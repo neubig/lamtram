@@ -158,7 +158,7 @@ Expression SoftmaxMod::CalcLossCache(Expression & in, const vector<int> & cache_
   // Set up the context
   CtxtDist batched_cd;
   batched_cd.first.resize(num_ctxt_*cache_ids.size()); auto ctxt_it = batched_cd.first.begin();
-  batched_cd.second.resize(num_ctxt_*cache_ids.size()); auto dist_it = batched_cd.second.begin();
+  batched_cd.second.resize(num_dist_*cache_ids.size()); auto dist_it = batched_cd.second.begin();
   // Set up the ngrams
   vector<unsigned> words(ngrams.size());
   for(size_t i = 0; i < cache_ids.size(); i++) {
@@ -213,7 +213,6 @@ Expression SoftmaxMod::CalcLossExpr(Expression & in, const CtxtDist & ctxt_dist_
 
 // Calculate the full probability distribution
 Expression SoftmaxMod::CalcProb(Expression & in, const Sentence & ctxt_ngram, bool train) {
-  THROW_ERROR("SoftmaxMod::CalcProb here");
   // Calculate the distributions
   CtxtDist ctxt_dist; ctxt_dist.first.resize(num_ctxt_); ctxt_dist.second.resize(num_dist_*vocab_->size());
   CalcAllDists(ctxt_ngram, ctxt_dist);
@@ -221,11 +220,19 @@ Expression SoftmaxMod::CalcProb(Expression & in, const Sentence & ctxt_ngram, bo
   Expression ctxt_expr = input(*in.pg, {(unsigned int)num_ctxt_}, ctxt_dist.first);
   Expression in_ctxt_expr = concatenate({in, ctxt_expr});
   Expression score_sms = affine_transform({i_sms_b_, i_sms_W_, in_ctxt_expr});
-  Expression score_smd = affine_transform({i_smd_b_, i_smd_W_, in_ctxt_expr});
-  Expression score = softmax(concatenate({score_sms, score_smd}));
-  // Do mixture of distributions
-  Expression dists = input(*in.pg, {(unsigned int)num_dist_, (unsigned int)vocab_->size()}, ctxt_dist.second);
-  Expression word_prob = pickrange(score, 0, vocab_->size()) + transpose(dists) * pickrange(score, vocab_->size(), vocab_->size()+num_dist_);
+  Expression word_prob;
+  uniform_real_distribution<float> float_distribution(0.0, 1.0);
+  if(train && (finished_words_ < drop_words_ || float_distribution(*cnn::rndeng) < dropout_)) {  
+    finished_words_++;
+    word_prob = softmax(score_sms);
+  } else {
+    finished_words_++;
+    Expression score_smd = affine_transform({i_smd_b_, i_smd_W_, in_ctxt_expr});
+    Expression score = softmax(concatenate({score_sms, score_smd}));
+    // Do mixture of distributions
+    Expression dists = input(*in.pg, {(unsigned int)num_dist_, (unsigned int)vocab_->size()}, ctxt_dist.second);
+    word_prob = pickrange(score, 0, vocab_->size()) + transpose(dists) * pickrange(score, vocab_->size(), vocab_->size()+num_dist_);
+  }
   // cerr << "Picking==" << as_scalar(pick(score, GlobalVars::curr_word).value()) <<  ", interp: " << as_vector(pickrange(score, vocab_->size(), vocab_->size()+num_dist_).value()) << endl;
   // cerr << "Word " << GlobalVars::curr_word << " and surrounding probs: " << as_vector(pickrange(word_prob, max(0,GlobalVars::curr_word-3), min(GlobalVars::curr_word+4, (int)vocab_->size())).value()) << endl;
   return word_prob;
