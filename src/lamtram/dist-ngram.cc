@@ -6,6 +6,7 @@
 #include <lamtram/macros.h>
 #include <lamtram/dist-ngram.h>
 #include <lamtram/dict-utils.h>
+#include <lamtram/string-util.h>
 #include <lamtram/counts.h>
 
 #define EOS_ID 0
@@ -240,10 +241,12 @@ void DistNgram::calc_word_dists(const Sentence & ngram,
       // cerr << "my_prob: " << my_prob << endl;
       write_vec[write_offset++] = my_prob;
     } else {
-      if(context_it != mapping_.end())
+      if(context_it == mapping_.end())
         THROW_ERROR("ngram ("<<this_ngram<<") exists but ctxt (" << this_ctxt << ") doesn't");
       int value = (j == 0 ? ngram_it->second : ctxt_cnts_[ngram_it->second].first);
       if(smoothing_ == SMOOTH_MABS || smoothing_ == SMOOTH_MKN) {
+        assert(discounts_.size() > this_ctxt.size());
+        assert(disc_ctxt_cnts_.size() > context_it->second);
         write_vec[write_offset++] = (value-discounts_[this_ctxt.size()][min(value,3)])/disc_ctxt_cnts_[context_it->second] * base_prob;
         if(write_vec[write_offset-1] > 1.001) {
           cerr << "this_ctxt: " << this_ctxt << endl;
@@ -356,7 +359,7 @@ void DistNgram::read(DictPtr dict, std::istream & in) {
       getline_or_die(in, line);
       boost::split(strs, line, boost::is_any_of("\t"));
       if(strs.size() != 2) THROW_ERROR("Expecting two columns: " << line << endl);
-      boost::split(words, strs[0], boost::is_any_of(" "));
+      words = Tokenize(strs[0], " ");
       Sentence ngram = ParseWords(*dict, words, false);
       bool ok = true;
       for(pos1 = 0; pos1 < (int)words.size() && (ngram[pos1] != 1 || words[pos1] == "<unk>"); pos1++);
