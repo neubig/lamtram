@@ -54,6 +54,7 @@ int LamtramTrain::main(int argc, char** argv) {
     ("encoder_types", po::value<string>()->default_value("for"), "The type of encoder, multiple separated by a pipe (for=forward, rev=reverse)")
     ("context", po::value<int>()->default_value(2), "Amount of context information to use")
     ("minibatch_size", po::value<int>()->default_value(1), "Number of words per mini-batch")
+    ("max_len", po::value<int>()->default_value(200), "Limit on the max length of sentences")
     ("wordrep", po::value<int>()->default_value(100), "Size of the word representations")
     ("layers", po::value<string>()->default_value("lstm:100:1"), "Descriptor for hidden layers, type:num_units:num_layers")
     ("cls_layers", po::value<string>()->default_value(""), "Descriptor for classifier layers, nodes1:nodes2:...")
@@ -673,6 +674,7 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
 
   TrainerPtr trainer = GetTrainer(vm_["trainer"].as<string>(), vm_["learning_rate"].as<float>(), model);
   int num_samples = vm_["num_samples"].as<int>();
+  int max_len = vm_["max_len"].as<int>();
   
   // Learning rate
   cnn::real learning_rate = vm_["learning_rate"].as<float>();
@@ -705,7 +707,7 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
       encdec.NewGraph(cg);
       // Sample sentences
       std::vector<Sentence> trg_samples;
-      cnn::expr::Expression trg_log_probs = encdec.SampleTrgSentences(train_src[train_ids[loc]], num_samples, cg, trg_samples);
+      cnn::expr::Expression trg_log_probs = encdec.SampleTrgSentences(train_src[train_ids[loc]], num_samples, max_len, true, cg, trg_samples);
       // Normalize the target probabilities
       vector<float> eval_scores(trg_samples.size());
       for(size_t i = 0; i < num_samples; i++)
@@ -734,7 +736,7 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
           encdec.NewGraph(cg);
           // Sample sentences
           std::vector<Sentence> trg_samples;
-          Expression trg_log_probs = encdec.SampleTrgSentences(dev_src[i], num_samples, cg, trg_samples);
+          Expression trg_log_probs = encdec.SampleTrgSentences(dev_src[i], num_samples, max_len, true, cg, trg_samples);
           // Normalize the target probabilities
           vector<float> eval_scores(trg_samples.size());
           for(size_t i = 0; i < trg_samples.size(); i++)

@@ -68,6 +68,16 @@ public:
                                    bool train,
                                    cnn::ComputationGraph & cg, LLStats & ll);
 
+    // Acquire samples from this sentence and return their log probabilities as a vector
+    cnn::expr::Expression SampleTrgSentences(
+                                   const ExternCalculator * extern_calc,
+                                   const std::vector<cnn::expr::Expression> & layer_in,
+                                   int num_samples,
+                                   int max_len,
+                                   bool train,
+                                   cnn::ComputationGraph & cg,
+                                   std::vector<Sentence> & samples);
+
     // Move forward one step using the language model and return the probabilities.
     //  REQUIRES NewGraph to be called before usage
     //   sent: The sentence to be used.

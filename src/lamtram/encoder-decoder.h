@@ -39,6 +39,8 @@ public:
     // Sample sentences and return an expression of the vector of probabilities
     cnn::expr::Expression SampleTrgSentences(const Sentence & sent_src,
                                              int num_samples,
+                                             int max_len,
+                                             bool train,
                                              cnn::ComputationGraph & cg,
                                              std::vector<Sentence> & samples);
 

@@ -198,6 +198,73 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
   return i_nerr;
 }
 
+// Acquire samples from this sentence and return their log probabilities as a vector
+Expression NeuralLM::SampleTrgSentences(
+                        const ExternCalculator * extern_calc,
+                        const std::vector<cnn::expr::Expression> & layer_in,
+                        int num_samples,
+                        int max_len,
+                        bool train,
+                        cnn::ComputationGraph & cg,
+                        std::vector<Sentence> & samples) {
+  size_t nt;
+  if(&cg != curr_graph_)
+    THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
+  builder_->start_new_sequence(layer_in);
+  // First get all the word representations
+  vector<unsigned> words(num_samples, 0);
+  cnn::expr::Expression i_wr_start = lookup(cg, p_wr_W_, words);
+  vector<cnn::expr::Expression> i_wr;
+  // Next, do the computation
+  vector<cnn::expr::Expression> log_probs, aligns;
+  vector<Sentence> ctxts(num_samples, Sentence(softmax_->GetCtxtLen(), 0));
+  samples.clear(); samples.resize(num_samples);
+  vector<float> mask(num_samples, 1.0);
+  size_t active_words = num_samples;
+  for(int t = 0; t < max_len && active_words > 0; t++) {
+    // Concatenate wordrep and external context into a vector for the hidden unit
+    vector<cnn::expr::Expression> i_wrs_t;
+    for(auto hist : boost::irange(t - ngram_context_, t))
+      i_wrs_t.push_back(hist >= 0 ? i_wr[hist] : i_wr_start);
+    if(extern_context_ > 0) {
+      assert(extern_calc != NULL);
+      cnn::expr::Expression extern_in;
+      extern_in = extern_calc->CreateContext(builder_->final_h(), train, cg, aligns);
+      i_wrs_t.push_back(extern_in);
+    }
+    cnn::expr::Expression i_wr_t = concatenate(i_wrs_t);
+    // Run the hidden unit
+    cnn::expr::Expression i_h_t = builder_->add_input(i_wr_t);
+    // Create the cache
+    cnn::expr::Expression i_err;
+    // Perform sampling if necessary
+    cnn::expr::Expression i_log_prob = softmax_->CalcLogProb(i_h_t, ctxts, train);
+    cnn::expr::Expression i_prob = exp(i_log_prob);
+    vector<float> probs = as_vector(i_prob.value());
+    for(size_t i = 0; i < ctxts.size(); i++)
+      words[i] = categorical_dist(probs.begin()+i*vocab_->size(), probs.begin()+(i+1)*vocab_->size());
+    i_wr.push_back(lookup(cg, p_wr_W_, words));
+    if(active_words != num_samples)
+      i_log_prob = i_log_prob * input(cg, cnn::Dim({1}, num_samples), mask);
+    log_probs.push_back(i_log_prob);
+    // Update the n-grams
+    for(size_t i = 0; i < num_samples; i++) {
+      for(nt = 0; nt < ctxts[0].size()-1; nt++)
+        ctxts[i][nt] = ctxts[i][nt+1];
+      // Count words, add mask
+      if(mask[i]) {
+        ctxts[i][nt] = words[i];
+        samples[i].push_back(words[i]);
+        if(words[i] == 0) {
+          mask[i] = 0.f;
+          active_words--;
+        }
+      }
+    }
+  }
+  return sum(log_probs);
+}
+
 void NeuralLM::NewGraph(cnn::ComputationGraph & cg) {
   builder_->new_graph(cg);
   builder_->start_new_sequence();

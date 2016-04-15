@@ -79,6 +79,20 @@ cnn::expr::Expression EncoderDecoder::BuildSentGraph(const SentData & sent_src, 
   return decoder_->BuildSentGraph(sent_trg, cache_trg, NULL, decoder_in, samp_percent, train, cg, ll);
 }
 
+cnn::expr::Expression EncoderDecoder::SampleTrgSentences(const Sentence & sent_src,
+                                                         int num_samples,
+                                                         int max_len,
+                                                         bool train,
+                                                         cnn::ComputationGraph & cg,
+                                                         vector<Sentence> & samples) {
+  if(&cg != curr_graph_)
+    THROW_ERROR("Initialized computation graph and passed comptuation graph don't match."); 
+  // Perform encoding with each encoder
+  vector<cnn::expr::Expression> decoder_in = GetEncodedState(sent_src, train, cg);
+  return decoder_->SampleTrgSentences(NULL, decoder_in, num_samples, max_len, train, cg, samples);
+}
+
+
 template
 cnn::expr::Expression EncoderDecoder::BuildSentGraph<Sentence>(
   const Sentence & sent_src, const Sentence & sent_trg, const Sentence & cache_trg,
@@ -112,11 +126,3 @@ void EncoderDecoder::Write(std::ostream & out) {
   for(auto & enc : encoders_) enc->Write(out);
   decoder_->Write(out);
 }
-
-cnn::expr::Expression EncoderDecoder::SampleTrgSentences(const Sentence & sent_src,
-                                                         int num_samples,
-                                                         cnn::ComputationGraph & cg,
-                                                         vector<Sentence> & samples) {
-  THROW_ERROR("EncoderDecoder::SampleTrgSentences not implemented yet.");
-}
-
