@@ -36,6 +36,12 @@ public:
                                          bool train,
                                          cnn::ComputationGraph & cg, LLStats & ll);
 
+    // Sample sentences and return an expression of the vector of probabilities
+    cnn::expr::Expression SampleTrgSentences(const Sentence & sent_src,
+                                             int num_samples,
+                                             cnn::ComputationGraph & cg,
+                                             std::vector<Sentence> & samples);
+
     template <class SentData>
     std::vector<cnn::expr::Expression> GetEncodedState(
                                         const SentData & sent_src, bool train, cnn::ComputationGraph & cg);

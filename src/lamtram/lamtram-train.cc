@@ -8,6 +8,9 @@
 #include <lamtram/timer.h>
 #include <lamtram/model-utils.h>
 #include <lamtram/string-util.h>
+#include <lamtram/loss-stats.h>
+#include <lamtram/eval-measure.h>
+#include <lamtram/eval-measure-loader.h>
 #include <cnn/cnn.h>
 #include <cnn/dict.h>
 #include <cnn/random.h>
@@ -22,6 +25,7 @@
 
 using namespace std;
 using namespace lamtram;
+using namespace cnn::expr;
 namespace po = boost::program_options;
 
 int LamtramTrain::main(int argc, char** argv) {
@@ -44,6 +48,9 @@ int LamtramTrain::main(int argc, char** argv) {
     // See: Scheduled Sampling for Sequence Prediction with Recurrent Neural Networks
     ("scheduled_samp", po::value<float>()->default_value(0.f), "If set to 1 or more, perform scheduled sampling where the selected value is the number of iterations after which the sampling value reaches 0.5")
     ("learning_rate", po::value<float>()->default_value(0.1), "Learning rate")
+    ("learning_criterion", po::value<string>()->default_value("ml"), "The criterion to use for learning (ml/minrisk)")
+    ("num_samples", po::value<int>()->default_value(10), "The number of samples to perform for minimum risk training")
+    ("eval_meas", po::value<string>()->default_value("bleu|smooth=1"), "The evaluation measure to use for minimum risk training (default: BLEU+1)")
     ("encoder_types", po::value<string>()->default_value("for"), "The type of encoder, multiple separated by a pipe (for=forward, rev=reverse)")
     ("context", po::value<int>()->default_value(2), "Amount of context information to use")
     ("minibatch_size", po::value<int>()->default_value(1), "Number of words per mini-batch")
@@ -358,6 +365,7 @@ void LamtramTrain::TrainEncDec() {
   DictPtr vocab_trg, vocab_src;
   std::shared_ptr<cnn::Model> model;
   std::shared_ptr<EncoderDecoder> encdec;
+  NeuralLMPtr decoder;
   if(model_in_file_.size()) {
     encdec.reset(ModelUtils::LoadBilingualModel<EncoderDecoder>(model_in_file_, model, vocab_src, vocab_trg));
   } else {
@@ -396,14 +404,24 @@ void LamtramTrain::TrainEncDec() {
       else { THROW_ERROR("Illegal encoder type: " << spec); }
       encoders.push_back(enc);
     }
-    NeuralLMPtr decoder(new NeuralLM(vocab_trg, context_, 0, vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_trg->GetUnkId(), softmax_sig_, *model));
-    // If necessary, cache the softmax
-    decoder->GetSoftmax().Cache(train_trg, train_trg_ids, train_cache_ids);
+    decoder.reset(new NeuralLM(vocab_trg, context_, 0, vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_trg->GetUnkId(), softmax_sig_, *model));
     encdec.reset(new EncoderDecoder(encoders, decoder, *model));
   }
 
-  BilingualTraining(train_src, train_trg, train_cache_ids, dev_src, dev_trg,
-                    *vocab_src, *vocab_trg, *model, *encdec);
+  string crit = vm_["learning_criterion"].as<string>();
+  if(crit == "ml") {
+    // If necessary, cache the softmax
+    decoder->GetSoftmax().Cache(train_trg, train_trg_ids, train_cache_ids);
+    BilingualTraining(train_src, train_trg, train_cache_ids, dev_src, dev_trg,
+                      *vocab_src, *vocab_trg, *model, *encdec);
+  } else if(crit == "minrisk") {
+    // Get the evaluator
+    std::shared_ptr<EvalMeasure> eval(EvalMeasureLoader::CreateMeasureFromString(vm_["eval_meas"].as<string>()));
+    MinRiskTraining(train_src, train_trg, dev_src, dev_trg,
+                    *vocab_src, *vocab_trg, *eval, *model, *encdec);
+  } else {
+    THROW_ERROR("Illegal learning criterion: " << crit);
+  }
 }
 
 void LamtramTrain::TrainEncAtt() {
@@ -412,6 +430,7 @@ void LamtramTrain::TrainEncAtt() {
   DictPtr vocab_trg, vocab_src;
   std::shared_ptr<cnn::Model> model;
   std::shared_ptr<EncoderAttentional> encatt;
+  NeuralLMPtr decoder;
   if(model_in_file_.size()) {
     encatt.reset(ModelUtils::LoadBilingualModel<EncoderAttentional>(model_in_file_, model, vocab_src, vocab_trg));
   } else {
@@ -449,14 +468,24 @@ void LamtramTrain::TrainEncAtt() {
     }
     BuilderSpec bspec(vm_["layers"].as<string>());
     ExternAttentionalPtr extatt(new ExternAttentional(encoders, vm_["attention_nodes"].as<int>(), bspec.nodes, *model));
-    NeuralLMPtr decoder(new NeuralLM(vocab_trg, context_, bspec.nodes * encoders.size(), vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_trg->GetUnkId(), softmax_sig_, *model));
-    // If necessary, cache the softmax
-    decoder->GetSoftmax().Cache(train_trg, train_trg_ids, train_cache_ids);
+    decoder.reset(new NeuralLM(vocab_trg, context_, bspec.nodes * encoders.size(), vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_trg->GetUnkId(), softmax_sig_, *model));
     encatt.reset(new EncoderAttentional(extatt, decoder, *model));
   }
 
-  BilingualTraining(train_src, train_trg, train_cache_ids, dev_src, dev_trg,
-                    *vocab_src, *vocab_trg, *model, *encatt);
+  string crit = vm_["learning_criterion"].as<string>();
+  if(crit == "ml") {
+    // If necessary, cache the softmax
+    decoder->GetSoftmax().Cache(train_trg, train_trg_ids, train_cache_ids);
+    BilingualTraining(train_src, train_trg, train_cache_ids, dev_src, dev_trg,
+                      *vocab_src, *vocab_trg, *model, *encatt);
+  } else if(crit == "minrisk") {
+    // Get the evaluator
+    std::shared_ptr<EvalMeasure> eval(EvalMeasureLoader::CreateMeasureFromString(vm_["eval_meas"].as<string>()));
+    MinRiskTraining(train_src, train_trg, dev_src, dev_trg,
+                    *vocab_src, *vocab_trg, *eval, *model, *encatt);
+  } else {
+    THROW_ERROR("Illegal learning criterion: " << crit);
+  }
 }
 
 void LamtramTrain::TrainEncCls() {
@@ -620,6 +649,122 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
       encdec.Write(out);
       ModelUtils::WriteModelText(out, model);
       best_ll = my_ll;
+    }
+    // If the rate is less than the threshold
+    if(learning_scale * learning_rate < rate_thresh_)
+      break;
+  }
+}
+
+template<class ModelType>
+void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
+                                   const vector<Sentence> & train_trg,
+                                   const vector<Sentence> & dev_src,
+                                   const vector<Sentence> & dev_trg,
+                                   const cnn::Dict & vocab_src,
+                                   const cnn::Dict & vocab_trg,
+                                   const EvalMeasure & eval,
+                                   cnn::Model & model,
+                                   ModelType & encdec) {
+
+  // Sanity checks
+  assert(train_src.size() == train_trg.size());
+  assert(dev_src.size() == dev_trg.size());
+
+  TrainerPtr trainer = GetTrainer(vm_["trainer"].as<string>(), vm_["learning_rate"].as<float>(), model);
+  int num_samples = vm_["num_samples"].as<int>();
+  
+  // Learning rate
+  cnn::real learning_rate = vm_["learning_rate"].as<float>();
+  cnn::real learning_scale = 1.0;
+
+  // Create a sentence list and random generator
+  std::vector<int> train_ids(train_src.size());
+  std::iota(train_ids.begin(), train_ids.end(), 0);
+  // Perform the training
+  std::vector<cnn::expr::Expression> empty_hist;
+  cnn::real last_loss = -1e99, best_loss = -1e99;
+  bool do_dev = dev_src.size() != 0;
+  int loc = 0, epoch = 0, sent_loc = 0, last_print = 0;
+  float epoch_frac = 0.f, samp_prob = 0.f;
+  std::shuffle(train_ids.begin(), train_ids.end(), *cnn::rndeng);
+  while(epoch < epochs_) {
+    // Start the training
+    LossStats train_loss, dev_loss;
+    Timer time;
+    for(int curr_sent_loc = 0; curr_sent_loc < eval_every_; ) {
+      if(loc == (int)train_ids.size()) {
+        // Shuffle the access order
+        std::shuffle(train_ids.begin(), train_ids.end(), *cnn::rndeng);
+        loc = 0;
+        sent_loc = 0;
+        ++epoch;
+      }
+      // Create the graph
+      cnn::ComputationGraph cg;
+      encdec.NewGraph(cg);
+      // Sample sentences
+      std::vector<Sentence> trg_samples;
+      cnn::expr::Expression trg_log_probs = encdec.SampleTrgSentences(train_src[train_ids[loc]], num_samples, cg, trg_samples);
+      // Normalize the target probabilities
+      vector<float> eval_scores(trg_samples.size());
+      for(size_t i = 0; i < num_samples; i++)
+          eval_scores[i] = eval.CalculateStats(train_trg[train_ids[loc]], trg_samples[i])->ConvertToScore();
+      cnn::expr::Expression exp_loss = input(cg, cnn::Dim({1, (unsigned int)num_samples}), eval_scores) * softmax(trg_log_probs);
+      // Increment
+      sent_loc++; curr_sent_loc++;
+      epoch_frac += 1.f/train_src.size(); 
+      // cg.PrintGraphviz();
+      train_loss.loss_ += as_scalar(cg.forward());
+      cg.backward();
+      trainer->update(learning_scale);
+      ++loc;
+      if(sent_loc / 100 != last_print || curr_sent_loc >= eval_every_ || epochs_ == epoch) {
+        last_print = sent_loc / 100;
+        float elapsed = time.Elapsed();
+        cerr << "Epoch " << epoch+1 << " sent " << sent_loc << ": ppl=" << train_loss.CalcSentLoss() << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << train_loss.sents_/elapsed << " sent/s)" << endl;
+        if(epochs_ == epoch) break;
+      }
+    }
+    // Measure development perplexity
+    if(do_dev) {
+      time = Timer();
+      for(int i : boost::irange(0, (int)dev_src.size())) {
+          cnn::ComputationGraph cg;
+          encdec.NewGraph(cg);
+          // Sample sentences
+          std::vector<Sentence> trg_samples;
+          Expression trg_log_probs = encdec.SampleTrgSentences(dev_src[i], num_samples, cg, trg_samples);
+          // Normalize the target probabilities
+          vector<float> eval_scores(trg_samples.size());
+          for(size_t i = 0; i < trg_samples.size(); i++)
+              eval_scores[i] = eval.CalculateStats(dev_trg[i], trg_samples[i])->ConvertToScore();
+          Expression exp_loss = input(cg, cnn::Dim({1, (unsigned int)num_samples}), eval_scores) * softmax(trg_log_probs);
+          dev_loss.loss_ -= as_scalar(cg.forward());
+      }
+      float elapsed = time.Elapsed();
+      cerr << "Epoch " << epoch+1 << " dev: ppl=" << dev_loss.CalcSentLoss() << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << dev_loss.sents_/elapsed << " sent/s)" << endl;
+    }
+    // Adjust the learning rate
+    trainer->update_epoch();
+    // trainer->status(); cerr << endl;
+    // Check the learning rate
+    if(last_loss != last_loss)
+      THROW_ERROR("Loss is not a number, dying...");
+    cnn::real my_loss = do_dev ? dev_loss.loss_ : train_loss.loss_;
+    if(my_loss < last_loss)
+      learning_scale /= 2.0;
+    last_loss = my_loss;
+    // Open the output stream
+    if(best_loss < my_loss) {
+      ofstream out(model_out_file_.c_str());
+      if(!out) THROW_ERROR("Could not open output file: " << model_out_file_);
+      // Write the model (TODO: move this to a separate file?)
+      WriteDict(vocab_src, out);
+      WriteDict(vocab_trg, out);
+      encdec.Write(out);
+      ModelUtils::WriteModelText(out, model);
+      best_loss = my_loss;
     }
     // If the rate is less than the threshold
     if(learning_scale * learning_rate < rate_thresh_)

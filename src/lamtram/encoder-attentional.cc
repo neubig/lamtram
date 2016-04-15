@@ -223,3 +223,10 @@ void EncoderAttentional::Write(std::ostream & out) {
   extern_calc_->Write(out);
   decoder_->Write(out);
 }
+cnn::expr::Expression EncoderAttentional::SampleTrgSentences(const Sentence & sent_src,
+                                                         int num_samples,
+                                                         cnn::ComputationGraph & cg,
+                                                         vector<Sentence> & samples) {
+  THROW_ERROR("EncoderAttentional::SampleTrgSentences not implemented yet.");
+}
+

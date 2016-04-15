@@ -112,3 +112,11 @@ void EncoderDecoder::Write(std::ostream & out) {
   for(auto & enc : encoders_) enc->Write(out);
   decoder_->Write(out);
 }
+
+cnn::expr::Expression EncoderDecoder::SampleTrgSentences(const Sentence & sent_src,
+                                                         int num_samples,
+                                                         cnn::ComputationGraph & cg,
+                                                         vector<Sentence> & samples) {
+  THROW_ERROR("EncoderDecoder::SampleTrgSentences not implemented yet.");
+}
+

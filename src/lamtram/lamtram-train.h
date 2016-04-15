@@ -13,6 +13,8 @@ class Dict;
 
 namespace lamtram {
 
+class EvalMeasure;
+
 
 class LamtramTrain {
 
@@ -25,6 +27,7 @@ public:
     void TrainEncAtt();
     void TrainEncCls();
 
+    // Bilingual maximum likelihood training
     template<class ModelType, class OutputType>
     void BilingualTraining(const std::vector<Sentence> & train_src,
                            const std::vector<OutputType> & train_trg,
@@ -35,6 +38,18 @@ public:
                            const cnn::Dict & vocab_trg,
                            cnn::Model & mod,
                            ModelType & encdec);
+
+    // Minimum risk training
+    template<class ModelType>
+    void MinRiskTraining(const std::vector<Sentence> & train_src,
+                         const std::vector<Sentence> & train_trg,
+                         const std::vector<Sentence> & dev_src,
+                         const std::vector<Sentence> & dev_trg,
+                         const cnn::Dict & vocab_src,
+                         const cnn::Dict & vocab_trg,
+                         const EvalMeasure & eval,
+                         cnn::Model & model,
+                         ModelType & encdec);
 
     // Get the trainer to use
     typedef std::shared_ptr<cnn::Trainer> TrainerPtr;

@@ -233,8 +233,17 @@ Expression SoftmaxMod::CalcProb(Expression & in, const Sentence & ctxt_ngram, bo
     Expression dists = input(*in.pg, {(unsigned int)num_dist_, (unsigned int)vocab_->size()}, ctxt_dist.second);
     word_prob = pickrange(score, 0, vocab_->size()) + transpose(dists) * pickrange(score, vocab_->size(), vocab_->size()+num_dist_);
   }
-  // cerr << "Picking==" << as_scalar(pick(score, GlobalVars::curr_word).value()) <<  ", interp: " << as_vector(pickrange(score, vocab_->size(), vocab_->size()+num_dist_).value()) << endl;
   // cerr << "Word " << GlobalVars::curr_word << " and surrounding probs: " << as_vector(pickrange(word_prob, max(0,GlobalVars::curr_word-3), min(GlobalVars::curr_word+4, (int)vocab_->size())).value()) << endl;
+  // DEBUG
+  std::vector<float> prob_vec = as_vector(word_prob.value());
+  float prob_val = 0;
+  for(float f : prob_vec)
+    prob_val += f;
+  cerr << "prob_val = " << prob_val << endl;
+  if(prob_val < 0 || prob_val > 1.001) {
+    THROW_ERROR("Out of range probability: " << prob_val);
+  }
+
   return word_prob;
 }
 Expression SoftmaxMod::CalcProb(Expression & in, const vector<Sentence> & ctxt_ngrams, bool train) {
