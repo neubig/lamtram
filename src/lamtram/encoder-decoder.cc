@@ -80,6 +80,7 @@ cnn::expr::Expression EncoderDecoder::BuildSentGraph(const SentData & sent_src, 
 }
 
 cnn::expr::Expression EncoderDecoder::SampleTrgSentences(const Sentence & sent_src,
+                                                         const Sentence * sent_trg,   
                                                          int num_samples,
                                                          int max_len,
                                                          bool train,
@@ -89,7 +90,7 @@ cnn::expr::Expression EncoderDecoder::SampleTrgSentences(const Sentence & sent_s
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match."); 
   // Perform encoding with each encoder
   vector<cnn::expr::Expression> decoder_in = GetEncodedState(sent_src, train, cg);
-  return decoder_->SampleTrgSentences(NULL, decoder_in, num_samples, max_len, train, cg, samples);
+  return decoder_->SampleTrgSentences(NULL, decoder_in, sent_trg, num_samples, max_len, train, cg, samples);
 }
 
 

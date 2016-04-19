@@ -195,17 +195,18 @@ cnn::expr::Expression EncoderAttentional::BuildSentGraph(
 }
 
 cnn::expr::Expression EncoderAttentional::SampleTrgSentences(const Sentence & sent_src,
-                                                         int num_samples,
-                                                         int max_len,
-                                                         bool train,
-                                                         cnn::ComputationGraph & cg,
-                                                         vector<Sentence> & samples) {
+                                                             const Sentence * sent_trg,
+                                                             int num_samples,
+                                                             int max_len,
+                                                             bool train,
+                                                             cnn::ComputationGraph & cg,
+                                                             vector<Sentence> & samples) {
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match."); 
   // Perform encoding with each encoder
   extern_calc_->InitializeSentence(sent_src, train, cg);
   vector<cnn::expr::Expression> decoder_in;
-  return decoder_->SampleTrgSentences(extern_calc_.get(), decoder_in, num_samples, max_len, train, cg, samples);
+  return decoder_->SampleTrgSentences(extern_calc_.get(), decoder_in, sent_trg, num_samples, max_len, train, cg, samples);
 }
 
 template

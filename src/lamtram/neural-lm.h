@@ -72,6 +72,7 @@ public:
     cnn::expr::Expression SampleTrgSentences(
                                    const ExternCalculator * extern_calc,
                                    const std::vector<cnn::expr::Expression> & layer_in,
+                                   const Sentence * answer,                                   
                                    int num_samples,
                                    int max_len,
                                    bool train,

@@ -49,8 +49,11 @@ int LamtramTrain::main(int argc, char** argv) {
     ("scheduled_samp", po::value<float>()->default_value(0.f), "If set to 1 or more, perform scheduled sampling where the selected value is the number of iterations after which the sampling value reaches 0.5")
     ("learning_rate", po::value<float>()->default_value(0.1), "Learning rate")
     ("learning_criterion", po::value<string>()->default_value("ml"), "The criterion to use for learning (ml/minrisk)")
-    ("num_samples", po::value<int>()->default_value(10), "The number of samples to perform for minimum risk training")
-    ("eval_meas", po::value<string>()->default_value("bleu|smooth=1"), "The evaluation measure to use for minimum risk training (default: BLEU+1)")
+    ("minrisk_num_samples", po::value<int>()->default_value(10), "The number of samples to perform for minimum risk training")
+    ("minrisk_scaling", po::value<float>()->default_value(1.0), "The scaling factor for min risk training")
+    ("minrisk_include_ref", po::value<bool>()->default_value(true), "Whether to include the reference in every sample for min risk training")
+    ("minrisk_dedup", po::value<bool>()->default_value(true), "Whether to deduplicate samples for min risk training")
+    ("eval_meas", po::value<string>()->default_value("bleu:smooth=1"), "The evaluation measure to use for minimum risk training (default: BLEU+1)")
     ("encoder_types", po::value<string>()->default_value("for"), "The type of encoder, multiple separated by a pipe (for=forward, rev=reverse)")
     ("context", po::value<int>()->default_value(2), "Amount of context information to use")
     ("minibatch_size", po::value<int>()->default_value(1), "Number of words per mini-batch")
@@ -252,7 +255,7 @@ void LamtramTrain::TrainLM() {
     LoadFile(train_files_trg_[i], true, *vocab_trg, train_trg);
     train_trg_ids.resize(train_trg.size(), i);
   }
-  vocab_trg->Freeze(); vocab_trg->SetUnk("<unk>");
+  if(!vocab_trg->is_frozen()) { vocab_trg->Freeze(); vocab_trg->SetUnk("<unk>"); }
   if(dev_file_trg_.size()) LoadFile(dev_file_trg_, true, *vocab_trg, dev_trg);
   if(eval_every_ == -1) eval_every_ = train_trg.size();
 
@@ -383,13 +386,13 @@ void LamtramTrain::TrainEncDec() {
     LoadFile(train_files_trg_[i], true, *vocab_trg, train_trg);
     train_trg_ids.resize(train_trg.size(), i);
   }
-  vocab_trg->Freeze(); vocab_trg->SetUnk("<unk>");
+  if(!vocab_trg->is_frozen()) { vocab_trg->Freeze(); vocab_trg->SetUnk("<unk>"); }
   if(dev_file_trg_.size()) LoadFile(dev_file_trg_, true, *vocab_trg, dev_trg);
   for(size_t i = 0; i < train_files_src_.size(); i++) {
     LoadFile(train_files_src_[i], false, *vocab_src, train_src);
     train_src_ids.resize(train_src.size(), i);
   }
-  vocab_src->Freeze(); vocab_src->SetUnk("<unk>");
+  if(!vocab_src->is_frozen()) { vocab_src->Freeze(); vocab_src->SetUnk("<unk>"); }
   if(dev_file_src_.size()) LoadFile(dev_file_src_, false, *vocab_src, dev_src);
   if(eval_every_ == -1) eval_every_ = train_trg.size();
 
@@ -447,13 +450,13 @@ void LamtramTrain::TrainEncAtt() {
     LoadFile(train_files_trg_[i], true, *vocab_trg, train_trg);
     train_trg_ids.resize(train_trg.size(), i);
   }
-  vocab_trg->Freeze(); vocab_trg->SetUnk("<unk>");
+  if(!vocab_trg->is_frozen()) { vocab_trg->Freeze(); vocab_trg->SetUnk("<unk>"); }
   if(dev_file_trg_.size()) LoadFile(dev_file_trg_, true, *vocab_trg, dev_trg);
   for(size_t i = 0; i < train_files_src_.size(); i++) {
     LoadFile(train_files_src_[i], false, *vocab_src, train_src);
     train_src_ids.resize(train_src.size(), i);
   }
-  vocab_src->Freeze(); vocab_src->SetUnk("<unk>");
+  if(!vocab_src->is_frozen()) { vocab_src->Freeze(); vocab_src->SetUnk("<unk>"); }
   if(dev_file_src_.size()) LoadFile(dev_file_src_, false, *vocab_src, dev_src);
   if(eval_every_ == -1) eval_every_ = train_trg.size();
 
@@ -518,7 +521,7 @@ void LamtramTrain::TrainEncCls() {
     LoadFile(train_files_src_[i], false, *vocab_src, train_src);
     train_src_ids.resize(train_src.size(), i);
   }
-  vocab_src->Freeze(); vocab_src->SetUnk("<unk>");
+  if(!vocab_src->is_frozen()) { vocab_src->Freeze(); vocab_src->SetUnk("<unk>"); }
   if(dev_file_src_.size()) LoadFile(dev_file_src_, false, *vocab_src, dev_src);
   if(eval_every_ == -1) eval_every_ = train_trg.size();
 
@@ -657,6 +660,40 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
   }
 }
 
+inline cnn::expr::Expression CalcRisk(const Sentence & ref,
+                                      const vector<Sentence> & trg_samples,
+                                      cnn::expr::Expression trg_log_probs,
+                                      const EvalMeasure & eval,
+                                      float scaling,
+                                      bool dedup,
+                                      cnn::ComputationGraph & cg) {
+    // If scaling the distribution do it
+    if(scaling != 1.f)
+        trg_log_probs = trg_log_probs * scaling;
+    vector<float> trg_log_probs_vec = as_vector(trg_log_probs.value());
+    vector<float> eval_scores(trg_samples.size(), 0.f);
+    set<Sentence> sent_dup;
+    vector<float> mask(trg_samples.size(), 0.f);
+    for(size_t i = 0; i < trg_samples.size(); i++) {
+        auto it = sent_dup.find(trg_samples[i]);
+        if(it != sent_dup.end()) { 
+            mask[i] = FLT_MAX;
+        } else {
+            eval_scores[i] = eval.CalculateStats(ref, trg_samples[i])->ConvertToScore();
+            sent_dup.insert(trg_samples[i]);
+        }
+        // cerr << "i=" << i << ", tlp=" << trg_log_probs_vec[i] << ", eval=" << eval_scores[i] << ", len=" << trg_samples[i].size() << endl;
+    }
+    // cerr << "---------------------" << endl;
+    if(sent_dup.size() != trg_samples.size())
+        trg_log_probs = trg_log_probs + input(cg, cnn::Dim({(unsigned int)trg_samples.size()}), mask);
+    // Calculate expected and return loss
+    return -input(cg, cnn::Dim({1, (unsigned int)trg_samples.size()}), eval_scores) * softmax(trg_log_probs);
+}
+
+// Performs minimimum risk training according to the following paper:
+//  Minimum Risk Training for Neural Machine Translation
+//  Shen et al. (http://arxiv.org/abs/1512.02433)
 template<class ModelType>
 void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
                                    const vector<Sentence> & train_trg,
@@ -673,8 +710,11 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
   assert(dev_src.size() == dev_trg.size());
 
   TrainerPtr trainer = GetTrainer(vm_["trainer"].as<string>(), vm_["learning_rate"].as<float>(), model);
-  int num_samples = vm_["num_samples"].as<int>();
   int max_len = vm_["max_len"].as<int>();
+  int num_samples = vm_["minrisk_num_samples"].as<int>();
+  float scaling = vm_["minrisk_scaling"].as<float>();
+  bool include_ref = vm_["minrisk_include_ref"].as<bool>();
+  bool dedup = vm_["minrisk_dedup"].as<bool>();
   
   // Learning rate
   cnn::real learning_rate = vm_["learning_rate"].as<float>();
@@ -685,10 +725,10 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
   std::iota(train_ids.begin(), train_ids.end(), 0);
   // Perform the training
   std::vector<cnn::expr::Expression> empty_hist;
-  cnn::real last_loss = -1e99, best_loss = -1e99;
+  cnn::real last_loss = 1e99, best_loss = 1e99;
   bool do_dev = dev_src.size() != 0;
   int loc = 0, epoch = 0, sent_loc = 0, last_print = 0;
-  float epoch_frac = 0.f, samp_prob = 0.f;
+  float epoch_frac = 0.f;
   std::shuffle(train_ids.begin(), train_ids.end(), *cnn::rndeng);
   while(epoch < epochs_) {
     // Start the training
@@ -707,24 +747,23 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
       encdec.NewGraph(cg);
       // Sample sentences
       std::vector<Sentence> trg_samples;
-      cnn::expr::Expression trg_log_probs = encdec.SampleTrgSentences(train_src[train_ids[loc]], num_samples, max_len, true, cg, trg_samples);
-      // Normalize the target probabilities
-      vector<float> eval_scores(trg_samples.size());
-      for(size_t i = 0; i < num_samples; i++)
-          eval_scores[i] = eval.CalculateStats(train_trg[train_ids[loc]], trg_samples[i])->ConvertToScore();
-      cnn::expr::Expression exp_loss = input(cg, cnn::Dim({1, (unsigned int)num_samples}), eval_scores) * softmax(trg_log_probs);
+      cnn::expr::Expression trg_log_probs = encdec.SampleTrgSentences(train_src[train_ids[loc]], 
+                                                                      (include_ref ? &train_trg[train_ids[loc]] : NULL),
+                                                                      num_samples, max_len, true, cg, trg_samples);
+      cnn::expr::Expression trg_loss = CalcRisk(train_trg[train_ids[loc]], trg_samples, trg_log_probs, eval, scaling, dedup, cg);
       // Increment
       sent_loc++; curr_sent_loc++;
       epoch_frac += 1.f/train_src.size(); 
-      // cg.PrintGraphviz();
       train_loss.loss_ += as_scalar(cg.forward());
+      train_loss.sents_++;
+      // cg.PrintGraphviz();
       cg.backward();
       trainer->update(learning_scale);
       ++loc;
       if(sent_loc / 100 != last_print || curr_sent_loc >= eval_every_ || epochs_ == epoch) {
         last_print = sent_loc / 100;
         float elapsed = time.Elapsed();
-        cerr << "Epoch " << epoch+1 << " sent " << sent_loc << ": ppl=" << train_loss.CalcSentLoss() << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << train_loss.sents_/elapsed << " sent/s)" << endl;
+        cerr << "Epoch " << epoch+1 << " sent " << sent_loc << ": score=" << -train_loss.CalcSentLoss() << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << train_loss.sents_/elapsed << " sent/s)" << endl;
         if(epochs_ == epoch) break;
       }
     }
@@ -736,16 +775,15 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
           encdec.NewGraph(cg);
           // Sample sentences
           std::vector<Sentence> trg_samples;
-          Expression trg_log_probs = encdec.SampleTrgSentences(dev_src[i], num_samples, max_len, true, cg, trg_samples);
-          // Normalize the target probabilities
-          vector<float> eval_scores(trg_samples.size());
-          for(size_t i = 0; i < trg_samples.size(); i++)
-              eval_scores[i] = eval.CalculateStats(dev_trg[i], trg_samples[i])->ConvertToScore();
-          Expression exp_loss = input(cg, cnn::Dim({1, (unsigned int)num_samples}), eval_scores) * softmax(trg_log_probs);
-          dev_loss.loss_ -= as_scalar(cg.forward());
+          Expression trg_log_probs = encdec.SampleTrgSentences(dev_src[i], 
+                                                               (include_ref ? &dev_trg[i] : NULL),
+                                                               num_samples, max_len, true, cg, trg_samples);
+          cnn::expr::Expression exp_loss = CalcRisk(dev_trg[i], trg_samples, trg_log_probs, eval, scaling, dedup, cg);
+          dev_loss.loss_ += as_scalar(cg.forward());
+          dev_loss.sents_++;
       }
       float elapsed = time.Elapsed();
-      cerr << "Epoch " << epoch+1 << " dev: ppl=" << dev_loss.CalcSentLoss() << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << dev_loss.sents_/elapsed << " sent/s)" << endl;
+      cerr << "Epoch " << epoch+1 << " dev: score=" << -dev_loss.CalcSentLoss() << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << dev_loss.sents_/elapsed << " sent/s)" << endl;
     }
     // Adjust the learning rate
     trainer->update_epoch();
@@ -754,11 +792,11 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
     if(last_loss != last_loss)
       THROW_ERROR("Loss is not a number, dying...");
     cnn::real my_loss = do_dev ? dev_loss.loss_ : train_loss.loss_;
-    if(my_loss < last_loss)
+    if(my_loss > last_loss)
       learning_scale /= 2.0;
     last_loss = my_loss;
     // Open the output stream
-    if(best_loss < my_loss) {
+    if(best_loss > my_loss) {
       ofstream out(model_out_file_.c_str());
       if(!out) THROW_ERROR("Could not open output file: " << model_out_file_);
       // Write the model (TODO: move this to a separate file?)
@@ -797,7 +835,6 @@ void LamtramTrain::LoadLabels(const std::string filename, cnn::Dict & vocab, std
     labs.push_back(vocab.Convert(line));
   iftrain.close();
 }
-
 
 LamtramTrain::TrainerPtr LamtramTrain::GetTrainer(const std::string & trainer_id, const cnn::real learning_rate, cnn::Model & model) {
   TrainerPtr trainer;

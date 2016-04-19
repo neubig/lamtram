@@ -202,6 +202,7 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
 Expression NeuralLM::SampleTrgSentences(
                         const ExternCalculator * extern_calc,
                         const std::vector<cnn::expr::Expression> & layer_in,
+                        const Sentence * answer,
                         int num_samples,
                         int max_len,
                         bool train,
@@ -241,19 +242,30 @@ Expression NeuralLM::SampleTrgSentences(
     cnn::expr::Expression i_log_prob = softmax_->CalcLogProb(i_h_t, ctxts, train);
     cnn::expr::Expression i_prob = exp(i_log_prob);
     vector<float> probs = as_vector(i_prob.value());
-    for(size_t i = 0; i < ctxts.size(); i++)
-      words[i] = categorical_dist(probs.begin()+i*vocab_->size(), probs.begin()+(i+1)*vocab_->size());
+    if(mask[0]) {
+      if(answer != NULL && t < (int)answer->size())
+        words[0] = (*answer)[t];
+      else
+        words[0] = categorical_dist(probs.begin(), probs.begin()+vocab_->size());
+    }
+    for(size_t i = 1; i < ctxts.size(); i++)
+      if(mask[i])
+        words[i] = categorical_dist(probs.begin()+i*vocab_->size(), probs.begin()+(i+1)*vocab_->size());
+    // Get the word representations
     i_wr.push_back(lookup(cg, p_wr_W_, words));
+    cnn::expr::Expression i_log_pick = pick(i_log_prob, words);
     if(active_words != num_samples)
-      i_log_prob = i_log_prob * input(cg, cnn::Dim({1}, num_samples), mask);
-    log_probs.push_back(i_log_prob);
+      i_log_pick = i_log_pick * input(cg, cnn::Dim({1}, num_samples), mask);
+    log_probs.push_back(i_log_pick);
     // Update the n-grams
     for(size_t i = 0; i < num_samples; i++) {
-      for(nt = 0; nt < ctxts[0].size()-1; nt++)
-        ctxts[i][nt] = ctxts[i][nt+1];
       // Count words, add mask
       if(mask[i]) {
-        ctxts[i][nt] = words[i];
+        if(ctxts[0].size() > 0) {    
+          for(nt = 0; nt < ctxts[0].size()-1; nt++)
+            ctxts[i][nt] = ctxts[i][nt+1];
+          ctxts[i][nt] = words[i];
+        }
         samples[i].push_back(words[i]);
         if(words[i] == 0) {
           mask[i] = 0.f;
@@ -262,7 +274,7 @@ Expression NeuralLM::SampleTrgSentences(
       }
     }
   }
-  return sum(log_probs);
+  return reshape(sum(log_probs), cnn::Dim({(unsigned int)num_samples}));
 }
 
 void NeuralLM::NewGraph(cnn::ComputationGraph & cg) {
