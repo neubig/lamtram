@@ -41,6 +41,8 @@ public:
 
   virtual void Cache(const std::vector<Sentence> & sents, const std::vector<int> & set_ids, std::vector<Sentence> & cache_ids) override;
 
+  virtual void UpdateFold(int fold_id) override { LoadDists(fold_id); }
+
 protected:
 
   cnn::expr::Expression CalcLossExpr(cnn::expr::Expression & in, const std::vector<float> & ctxt_dist, WordId wid, bool train);

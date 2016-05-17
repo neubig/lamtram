@@ -13,7 +13,7 @@
 #include <lamtram/eval-measure-loader.h>
 #include <cnn/cnn.h>
 #include <cnn/dict.h>
-#include <cnn/random.h>
+#include <cnn/globals.h>
 #include <cnn/training.h>
 #include <cnn/tensor.h>
 #include <boost/program_options.hpp>
@@ -421,7 +421,7 @@ void LamtramTrain::TrainEncDec() {
   } else if(crit == "minrisk") {
     // Get the evaluator
     std::shared_ptr<EvalMeasure> eval(EvalMeasureLoader::CreateMeasureFromString(vm_["eval_meas"].as<string>()));
-    MinRiskTraining(train_src, train_trg, dev_src, dev_trg,
+    MinRiskTraining(train_src, train_trg, train_trg_ids, dev_src, dev_trg,
                     *vocab_src, *vocab_trg, *eval, *model, *encdec);
   } else {
     THROW_ERROR("Illegal learning criterion: " << crit);
@@ -485,7 +485,7 @@ void LamtramTrain::TrainEncAtt() {
   } else if(crit == "minrisk") {
     // Get the evaluator
     std::shared_ptr<EvalMeasure> eval(EvalMeasureLoader::CreateMeasureFromString(vm_["eval_meas"].as<string>()));
-    MinRiskTraining(train_src, train_trg, dev_src, dev_trg,
+    MinRiskTraining(train_src, train_trg, train_trg_ids, dev_src, dev_trg,
                     *vocab_src, *vocab_trg, *eval, *model, *encatt);
   } else {
     THROW_ERROR("Illegal learning criterion: " << crit);
@@ -697,6 +697,7 @@ inline cnn::expr::Expression CalcRisk(const Sentence & ref,
 template<class ModelType>
 void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
                                    const vector<Sentence> & train_trg,
+                                   const vector<int> & train_fold_ids,
                                    const vector<Sentence> & dev_src,
                                    const vector<Sentence> & dev_trg,
                                    const cnn::Dict & vocab_src,
@@ -715,6 +716,16 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
   float scaling = vm_["minrisk_scaling"].as<float>();
   bool include_ref = vm_["minrisk_include_ref"].as<bool>();
   bool dedup = vm_["minrisk_dedup"].as<bool>();
+
+  // Find the span of the folds
+  vector<pair<int,int> > fold_id_spans;
+  for(size_t i = 0; i < train_fold_ids.size(); i++) {
+    if(train_fold_ids[i] >= fold_id_spans.size()) {
+      fold_id_spans.resize(train_fold_ids[i]+1, make_pair(i,i+1));
+    } else {
+      fold_id_spans[train_fold_ids[i]].second = i+1;
+    }
+  }
   
   // Learning rate
   cnn::real learning_rate = vm_["learning_rate"].as<float>();
@@ -727,9 +738,8 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
   std::vector<cnn::expr::Expression> empty_hist;
   cnn::real last_loss = 1e99, best_loss = 1e99;
   bool do_dev = dev_src.size() != 0;
-  int loc = 0, epoch = 0, sent_loc = 0, last_print = 0;
+  int loc = train_ids.size(), epoch = -1, sent_loc = 0, last_print = 0;
   float epoch_frac = 0.f;
-  std::shuffle(train_ids.begin(), train_ids.end(), *cnn::rndeng);
   while(epoch < epochs_) {
     // Start the training
     LossStats train_loss, dev_loss;
@@ -737,13 +747,15 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
     for(int curr_sent_loc = 0; curr_sent_loc < eval_every_; ) {
       if(loc == (int)train_ids.size()) {
         // Shuffle the access order
-        std::shuffle(train_ids.begin(), train_ids.end(), *cnn::rndeng);
+        for(const pair<int,int> & fold_span : fold_id_spans)
+          std::shuffle(train_ids.begin()+fold_span.first, train_ids.begin()+fold_span.second, *cnn::rndeng);
         loc = 0;
         sent_loc = 0;
         ++epoch;
       }
       // Create the graph
       cnn::ComputationGraph cg;
+      encdec.GetDecoderPtr()->GetSoftmax().UpdateFold(train_fold_ids[train_ids[loc]]);
       encdec.NewGraph(cg);
       // Sample sentences
       std::vector<Sentence> trg_samples;

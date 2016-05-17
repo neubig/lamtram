@@ -43,6 +43,7 @@ public:
     template<class ModelType>
     void MinRiskTraining(const std::vector<Sentence> & train_src,
                          const std::vector<Sentence> & train_trg,
+                         const std::vector<int> & train_fold_ids,                         
                          const std::vector<Sentence> & dev_src,
                          const std::vector<Sentence> & dev_trg,
                          const cnn::Dict & vocab_src,
