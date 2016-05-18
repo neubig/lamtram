@@ -55,6 +55,7 @@ protected:
 
   void CalcDists(const Sentence & ngram, CtxtDist & ctxt_dist);
   void CalcAllDists(const Sentence & ctxt_ngram, CtxtDist & ctxt_dist);
+  void CalcAllDists(const std::vector<Sentence> & ctxt_ngram, CtxtDist & ctxt_dist);
 
   int num_dist_, num_ctxt_;
 

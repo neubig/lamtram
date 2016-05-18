@@ -82,6 +82,7 @@ void SoftmaxMod::CalcDists(const Sentence & ngram, CtxtDist & ctxt_dist) {
     ctxt_offset += dist->get_ctxt_size();
   }
 }
+
 void SoftmaxMod::CalcAllDists(const Sentence & ctxt_ngram, CtxtDist & ctxt_dist) {
   vector<pair<pair<int,int>,float> > sparse_dist;
   int dense_offset = 0, sparse_offset = 0, ctxt_offset = 0;
@@ -89,6 +90,18 @@ void SoftmaxMod::CalcAllDists(const Sentence & ctxt_ngram, CtxtDist & ctxt_dist)
     dist->calc_all_word_dists(ctxt_ngram, vocab_->size(), 1.f/vocab_->size(), 1.f, ctxt_dist.second, dense_offset, sparse_dist, sparse_offset);
     dist->calc_ctxt_feats(ctxt_ngram, &ctxt_dist.first[ctxt_offset]);
     ctxt_offset += dist->get_ctxt_size();
+  }
+}
+
+void SoftmaxMod::CalcAllDists(const std::vector<Sentence> & ctxt_ngrams, CtxtDist & ctxt_dist) {
+  vector<pair<pair<int,int>,float> > sparse_dist;
+  int dense_offset = 0, sparse_offset = 0, ctxt_offset = 0;
+  for(auto & ctxt_ngram : ctxt_ngrams) {
+    for(auto & dist : dist_ptrs_) {
+      dist->calc_all_word_dists(ctxt_ngram, vocab_->size(), 1.f/vocab_->size(), 1.f, ctxt_dist.second, dense_offset, sparse_dist, sparse_offset);
+      dist->calc_ctxt_feats(ctxt_ngram, &ctxt_dist.first[ctxt_offset]);
+      ctxt_offset += dist->get_ctxt_size();
+    }
   }
 }
 
@@ -234,21 +247,34 @@ Expression SoftmaxMod::CalcProb(Expression & in, const Sentence & ctxt_ngram, bo
     word_prob = pickrange(score, 0, vocab_->size()) + transpose(dists) * pickrange(score, vocab_->size(), vocab_->size()+num_dist_);
   }
   // cerr << "Word " << GlobalVars::curr_word << " and surrounding probs: " << as_vector(pickrange(word_prob, max(0,GlobalVars::curr_word-3), min(GlobalVars::curr_word+4, (int)vocab_->size())).value()) << endl;
-  // DEBUG
-  std::vector<float> prob_vec = as_vector(word_prob.value());
-  float prob_val = 0;
-  for(float f : prob_vec)
-    prob_val += f;
-  cerr << "prob_val = " << prob_val << endl;
-  if(prob_val < 0 || prob_val > 1.001) {
-    THROW_ERROR("Out of range probability: " << prob_val);
-  }
-
   return word_prob;
 }
+
 Expression SoftmaxMod::CalcProb(Expression & in, const vector<Sentence> & ctxt_ngrams, bool train) {
-  THROW_ERROR("SoftmaxMod::CalcProb Not implemented yet");
+  // Calculate the distributions
+  CtxtDist ctxt_dist; ctxt_dist.first.resize(num_ctxt_ * ctxt_ngrams.size()); ctxt_dist.second.resize(num_dist_*vocab_->size() * ctxt_ngrams.size());
+  CalcAllDists(ctxt_ngrams, ctxt_dist);
+  // Create expressions
+  Expression ctxt_expr = input(*in.pg, cnn::Dim({(unsigned int)num_ctxt_}, ctxt_ngrams.size()), ctxt_dist.first);
+  Expression in_ctxt_expr = concatenate({in, ctxt_expr});
+  Expression score_sms = affine_transform({i_sms_b_, i_sms_W_, in_ctxt_expr});
+  Expression word_prob;
+  uniform_real_distribution<float> float_distribution(0.0, 1.0);
+  if(train && (finished_words_ < drop_words_ || float_distribution(*cnn::rndeng) < dropout_)) {  
+    finished_words_++;
+    word_prob = softmax(score_sms);
+  } else {
+    finished_words_++;
+    Expression score_smd = affine_transform({i_smd_b_, i_smd_W_, in_ctxt_expr});
+    Expression score = softmax(concatenate({score_sms, score_smd}));
+    // Do mixture of distributions
+    Expression dists = input(*in.pg, cnn::Dim({(unsigned int)num_dist_, (unsigned int)vocab_->size()}, ctxt_ngrams.size()), ctxt_dist.second);
+    word_prob = pickrange(score, 0, vocab_->size()) + transpose(dists) * pickrange(score, vocab_->size(), vocab_->size()+num_dist_);
+  }
+  // cerr << "Word " << GlobalVars::curr_word << " and surrounding probs: " << as_vector(pickrange(word_prob, max(0,GlobalVars::curr_word-3), min(GlobalVars::curr_word+4, (int)vocab_->size())).value()) << endl;
+  return word_prob;
 }
+
 Expression SoftmaxMod::CalcLogProb(Expression & in, const Sentence & ctxt_ngram, bool train) {
   return log(CalcProb(in, ctxt_ngram, train));
 }
