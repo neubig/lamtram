@@ -90,8 +90,9 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
 
 inline size_t categorical_dist(std::vector<float>::const_iterator beg, std::vector<float>::const_iterator end) {
   float sum = 0.f;
-  std::accumulate(beg,end,sum);
-  std::uniform_real_distribution<float> dist(sum);
+  for(auto it = beg; it != end; it++)
+    sum += *it;
+  std::uniform_real_distribution<float> dist(0.f,sum);
   sum = dist(*cnn::rndeng);
   for(auto it = beg; it != end; it++) {
     sum -= *it;
@@ -239,8 +240,7 @@ Expression NeuralLM::SampleTrgSentences(
     // Create the cache
     cnn::expr::Expression i_err;
     // Perform sampling if necessary
-    cnn::expr::Expression i_log_prob = softmax_->CalcLogProb(i_h_t, ctxts, train);
-    cnn::expr::Expression i_prob = exp(i_log_prob);
+    cnn::expr::Expression i_prob = softmax_->CalcProb(i_h_t, ctxts, train);
     vector<float> probs = as_vector(i_prob.value());
     if(mask[0]) {
       if(answer != NULL && t < (int)answer->size())
@@ -253,7 +253,7 @@ Expression NeuralLM::SampleTrgSentences(
         words[i] = categorical_dist(probs.begin()+i*vocab_->size(), probs.begin()+(i+1)*vocab_->size());
     // Get the word representations
     i_wr.push_back(lookup(cg, p_wr_W_, words));
-    cnn::expr::Expression i_log_pick = pick(i_log_prob, words);
+    cnn::expr::Expression i_log_pick = log(pick(i_prob, words));
     if(active_words != num_samples)
       i_log_pick = i_log_pick * input(cg, cnn::Dim({1}, num_samples), mask);
     log_probs.push_back(i_log_pick);
