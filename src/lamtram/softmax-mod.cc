@@ -101,7 +101,6 @@ void SoftmaxMod::CalcAllDists(const std::vector<Sentence> & ctxt_ngrams, CtxtDis
     for(auto & dist : dist_ptrs_) {
       int tmp_dense_offset = dense_offset;
       dist->calc_all_word_dists(ctxt_ngram, vocab_->size(), 1.f/vocab_->size(), 1.f, ctxt_dist.second, dense_offset, sparse_dist, sparse_offset);
-      cerr << "dense_offset:"; for(int i = 0; i < 20; i++) cerr << ' ' << ctxt_dist.second[tmp_dense_offset + i]; cerr << endl;
       dist->calc_ctxt_feats(ctxt_ngram, &ctxt_dist.first[ctxt_offset]);
       ctxt_offset += dist->get_ctxt_size();
     }
