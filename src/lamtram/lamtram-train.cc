@@ -13,7 +13,7 @@
 #include <lamtram/eval-measure-loader.h>
 #include <cnn/cnn.h>
 #include <cnn/dict.h>
-#include <cnn/globals.h>
+#include <cnn/random.h>
 #include <cnn/training.h>
 #include <cnn/tensor.h>
 #include <boost/program_options.hpp>
@@ -755,7 +755,7 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
       }
       // Create the graph
       cnn::ComputationGraph cg;
-      encdec.GetDecoderPtr()->GetSoftmax().UpdateFold(train_fold_ids[train_ids[loc]]);
+      encdec.GetDecoderPtr()->GetSoftmax().UpdateFold(train_fold_ids[train_ids[loc]]+1);
       encdec.NewGraph(cg);
       // Sample sentences
       std::vector<Sentence> trg_samples;
