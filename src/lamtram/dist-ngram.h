@@ -55,10 +55,18 @@ public:
   virtual void calc_word_dists(const Sentence & ngram,
                                float uniform_prob,
                                float unk_prob,
-                               std::vector<float > & trg_dense,
+                               std::vector<float> & trg_dense,
                                int & dense_offset,
-                               std::vector<std::pair<int,float> > & trg_sparse,
+                               SparseData & trg_sparse,
                                int & sparse_offset) const override;
+  virtual void calc_all_word_dists(const Sentence & ctxt_ngram,
+                                   int vocab_size,
+                                   float uniform_prob,
+                                   float unk_prob,
+                                   std::vector<float> & trg_dense,
+                                   int & dense_offset,
+                                   BatchSparseData & trg_sparse,
+                                   int & sparse_offset) const override;
 
   // Read/write model. If dict is null, use numerical ids, otherwise strings.
   virtual void write(DictPtr dict, std::ostream & str) const override;
