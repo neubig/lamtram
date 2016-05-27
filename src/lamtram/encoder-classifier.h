@@ -62,6 +62,12 @@ public:
     const Classifier & GetClassifier() const { return *classifier_; }
     const ClassifierPtr & GetClassifierPtr() const { return classifier_; }
 
+    // Setters
+    void SetDropout(float dropout) {
+      for(auto & enc : encoders_) enc->SetDropout(dropout);
+      classifier_->SetDropout(dropout);
+    }
+
 protected:
 
     // Vectors

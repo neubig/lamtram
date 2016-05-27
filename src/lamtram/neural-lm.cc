@@ -391,4 +391,5 @@ void NeuralLM::Write(std::ostream & out) {
 }
 
 int NeuralLM::GetVocabSize() const { return vocab_->size(); }
+void NeuralLM::SetDropout(float dropout) { builder_->set_dropout(dropout); }
 

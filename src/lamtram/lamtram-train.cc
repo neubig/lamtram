@@ -49,6 +49,7 @@ int LamtramTrain::main(int argc, char** argv) {
     ("scheduled_samp", po::value<float>()->default_value(0.f), "If set to 1 or more, perform scheduled sampling where the selected value is the number of iterations after which the sampling value reaches 0.5")
     ("learning_rate", po::value<float>()->default_value(0.1), "Learning rate")
     ("learning_criterion", po::value<string>()->default_value("ml"), "The criterion to use for learning (ml/minrisk)")
+    ("dropout", po::value<float>()->default_value(0.0), "Dropout rate during training")
     ("minrisk_num_samples", po::value<int>()->default_value(10), "The number of samples to perform for minimum risk training")
     ("minrisk_scaling", po::value<float>()->default_value(1.0), "The scaling factor for min risk training")
     ("minrisk_include_ref", po::value<bool>()->default_value(true), "Whether to include the reference in every sample for min risk training")
@@ -118,6 +119,7 @@ int LamtramTrain::main(int argc, char** argv) {
   eval_every_ = vm_["eval_every"].as<int>();
   softmax_sig_ = vm_["softmax"].as<string>();
   scheduled_samp_ = vm_["scheduled_samp"].as<float>();
+  dropout_ = vm_["dropout"].as<float>();
 
   // Perform appropriate training
   if(model_type == "nlm")           TrainLM();
@@ -292,6 +294,7 @@ void LamtramTrain::TrainLM() {
     // Start the training
     LLStats train_ll(nlm->GetVocabSize()), dev_ll(nlm->GetVocabSize());
     Timer time;
+    nlm->SetDropout(dropout_);
     for(int curr_sent_loc = 0; curr_sent_loc < eval_every_; ) {
       if(loc == (int)train_ids.size()) {
         // Shuffle the access order
@@ -326,6 +329,7 @@ void LamtramTrain::TrainLM() {
     // Measure development perplexity
     if(do_dev) {
       time = Timer();
+      nlm->SetDropout(0.f);
       for(auto & sent : dev_trg_minibatch) {
         cnn::ComputationGraph cg;
         nlm->NewGraph(cg);
@@ -588,6 +592,7 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
     // Start the training
     LLStats train_ll(vocab_trg.size()), dev_ll(vocab_trg.size());
     Timer time;
+    encdec.SetDropout(dropout_);
     for(int curr_sent_loc = 0; curr_sent_loc < eval_every_; ) {
       if(loc == (int)train_ids.size()) {
         // Shuffle the access order
@@ -623,6 +628,7 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
     if(do_dev) {
       time = Timer();
       std::vector<OutputType> empty_cache;
+      encdec.SetDropout(0.f);
       for(int i : boost::irange(0, (int)dev_src_minibatch.size())) {
         cnn::ComputationGraph cg;
         encdec.NewGraph(cg);
@@ -744,6 +750,7 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
     // Start the training
     LossStats train_loss, dev_loss;
     Timer time;
+    encdec.SetDropout(dropout_);
     for(int curr_sent_loc = 0; curr_sent_loc < eval_every_; ) {
       if(loc == (int)train_ids.size()) {
         // Shuffle the access order
@@ -782,6 +789,7 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
     // Measure development perplexity
     if(do_dev) {
       time = Timer();
+      encdec.SetDropout(0.f);
       for(int i : boost::irange(0, (int)dev_src.size())) {
           cnn::ComputationGraph cg;
           encdec.NewGraph(cg);

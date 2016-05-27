@@ -11,7 +11,7 @@ using namespace cnn::expr;
 
 Classifier::Classifier(int input_size, int label_size,
              const std::string & layers, cnn::Model & mod) :
-    input_size_(input_size), label_size_(label_size), layer_str_(layers), curr_graph_(NULL) {
+    input_size_(input_size), label_size_(label_size), layer_str_(layers), curr_graph_(NULL), dropout_(0.f) {
   vector<string> layer_sizes;
   if(layers.size() > 0)
     boost::split(layer_sizes, layers, boost::is_any_of(":"));
@@ -40,6 +40,7 @@ cnn::expr::Expression Classifier::BuildGraph<int>(const cnn::expr::Expression & 
   for(i = 0; i < (int)p_W_.size()-1; i++) {
     aff = affine_transform({i_b_[i], i_W_[i], last_expr});
     last_expr = tanh({aff});
+    if(dropout_) last_expr = dropout(last_expr, dropout_);
   }
   aff = affine_transform({i_b_[i], i_W_[i], last_expr});
   return pickneglogsoftmax({aff}, label);
@@ -56,6 +57,7 @@ cnn::expr::Expression Classifier::BuildGraph<vector<int> >(const cnn::expr::Expr
   for(i = 0; i < (int)p_W_.size()-1; i++) {
     aff = affine_transform({i_b_[i], i_W_[i], last_expr});
     last_expr = tanh({aff});
+    if(dropout_) last_expr = dropout(last_expr, dropout_);
   }
   aff = affine_transform({i_b_[i], i_W_[i], last_expr});
   vector<unsigned> un_label(label.size());
@@ -77,6 +79,7 @@ cnn::expr::Expression Classifier::Forward(const cnn::expr::Expression & input,
   for(i = 0; i < (int)p_W_.size()-1; i++) {
     aff = affine_transform({i_b_[i], i_W_[i], last_expr});
     last_expr = tanh({aff});
+    if(dropout_) last_expr = dropout(last_expr, dropout_);
   }
   aff = affine_transform({i_b_[i], i_W_[i], last_expr});
   return cnn::expr::Expression(aff.pg, aff.pg->add_function<SoftmaxOp>({aff.i}));

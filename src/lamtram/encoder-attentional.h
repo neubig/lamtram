@@ -49,6 +49,11 @@ public:
     static ExternAttentional* Read(std::istream & in, cnn::Model & model);
     void Write(std::ostream & out);
 
+    // Setters
+    void SetDropout(float dropout) {
+      for(auto & enc : encoders_) enc->SetDropout(dropout);
+    }
+
 protected:
     std::vector<LinearEncoderPtr> encoders_;
     int hidden_size_, state_size_;
@@ -139,6 +144,12 @@ public:
     int GetWordrepSize() const { return wordrep_size_; }
     int GetUnkSrc() const { return unk_src_; }
     int GetUnkTrg() const { return unk_trg_; }
+
+    // Setters
+    void SetDropout(float dropout) {
+      extern_calc_->SetDropout(dropout);
+      decoder_->SetDropout(dropout);
+    }
 
 protected:
 

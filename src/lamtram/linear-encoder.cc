@@ -111,3 +111,5 @@ void LinearEncoder::Write(std::ostream & out) {
 vector<cnn::expr::Expression> LinearEncoder::GetFinalHiddenLayers() const {
   return builder_->final_h();
 }
+
+void LinearEncoder::SetDropout(float dropout) { builder_->set_dropout(dropout); }

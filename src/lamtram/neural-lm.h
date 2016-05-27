@@ -122,6 +122,9 @@ public:
     int GetNumNodes() const { return hidden_spec_.nodes; }
     SoftmaxBase & GetSoftmax() { return *softmax_; }
 
+    // Setters
+    void SetDropout(float dropout);
+
 protected:
 
     // The vocabulary

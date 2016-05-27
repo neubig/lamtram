@@ -60,6 +60,10 @@ public:
     void LoadFile(const std::string filename, bool add_last, cnn::Dict & vocab, std::vector<Sentence> & sents);
     void LoadLabels(const std::string filename, cnn::Dict & vocab, std::vector<int> & labs);
 
+    void LoadBothFiles(
+          const std::string filename_src, cnn::Dict & vocab_src, std::vector<Sentence> & sents_src,
+          const std::string filename_trg, cnn::Dict & vocab_trg, std::vector<Sentence> & sents_trg);
+
 protected:
 
     boost::program_options::variables_map vm_;
@@ -67,7 +71,7 @@ protected:
     // Variable settings
     cnn::real rate_thresh_;
     int epochs_, context_, eval_every_;
-    float scheduled_samp_;
+    float scheduled_samp_, dropout_;
     std::string model_in_file_, model_out_file_;
     std::vector<std::string> train_files_trg_, train_files_src_;
     std::string dev_file_trg_, dev_file_src_;

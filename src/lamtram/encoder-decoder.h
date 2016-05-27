@@ -70,6 +70,12 @@ public:
     int GetUnkSrc() const { return unk_src_; }
     int GetUnkTrg() const { return unk_trg_; }
 
+    // Setters
+    void SetDropout(float dropout) {
+      for(auto & enc : encoders_) enc->SetDropout(dropout);
+      decoder_->SetDropout(dropout);
+    }
+
 protected:
 
     // Variables

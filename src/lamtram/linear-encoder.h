@@ -54,6 +54,7 @@ public:
     const std::vector<cnn::expr::Expression> & GetWordStates() const { return word_states_; }
 
     void SetReverse(bool reverse) { reverse_ = reverse; }
+    void SetDropout(float dropout);
 
 protected:
 
