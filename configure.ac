@@ -40,7 +40,7 @@ AC_ARG_WITH(cuda,
 	[AC_HELP_STRING([--with-cuda=DIR], [cuda in DIR])],
 	[cuda_dir="${withval}"], [cuda_dir=''])
 if test "x$cuda_dir" != "x"; then
-  CNN_CPPFLAGS="-I${cnn_dir} -I${cuda_dir}/include -DHAVE_CUDA"
+  CNN_CPPFLAGS="-I${cnn_dir} -I${cuda_dir}/include -DHAVE_CUDA -DEIGEN_USE_GPU -DEIGEN_HAS_CUDA_FP16"
   CNN_LDFLAGS="${cnn_dir}/build/cnn/libcnn.a ${cnn_dir}/build/cnn/libcnncuda.a -L${cuda_dir}/lib -lcudart -lcublas"
 fi
 AC_SUBST(CNN_CPPFLAGS)
