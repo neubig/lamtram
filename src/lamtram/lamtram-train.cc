@@ -13,7 +13,7 @@
 #include <lamtram/eval-measure-loader.h>
 #include <cnn/cnn.h>
 #include <cnn/dict.h>
-#include <cnn/random.h>
+#include <cnn/globals.h>
 #include <cnn/training.h>
 #include <cnn/tensor.h>
 #include <boost/program_options.hpp>
