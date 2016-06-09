@@ -32,16 +32,16 @@ cnn::expr::Expression SoftmaxFull::CalcLoss(cnn::expr::Expression & in, const st
 }
 
 // Calculate the full probability distribution
-cnn::expr::Expression SoftmaxFull::CalcProbability(cnn::expr::Expression & in, const Sentence & ctxt) {
+cnn::expr::Expression SoftmaxFull::CalcProb(cnn::expr::Expression & in, const Sentence & ctxt, bool train) {
   return softmax(affine_transform({i_sm_b_, i_sm_W_, in}));
 }
-cnn::expr::Expression SoftmaxFull::CalcProbability(cnn::expr::Expression & in, const vector<Sentence> & ctxt) {
+cnn::expr::Expression SoftmaxFull::CalcProb(cnn::expr::Expression & in, const vector<Sentence> & ctxt, bool train) {
   return softmax(affine_transform({i_sm_b_, i_sm_W_, in}));
 }
-cnn::expr::Expression SoftmaxFull::CalcLogProbability(cnn::expr::Expression & in, const Sentence & ctxt) {
+cnn::expr::Expression SoftmaxFull::CalcLogProb(cnn::expr::Expression & in, const Sentence & ctxt, bool train) {
   return log_softmax(affine_transform({i_sm_b_, i_sm_W_, in}));
 }
-cnn::expr::Expression SoftmaxFull::CalcLogProbability(cnn::expr::Expression & in, const vector<Sentence> & ctxt) {
+cnn::expr::Expression SoftmaxFull::CalcLogProb(cnn::expr::Expression & in, const vector<Sentence> & ctxt, bool train) {
   return log_softmax(affine_transform({i_sm_b_, i_sm_W_, in}));
 }
 

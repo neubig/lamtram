@@ -37,6 +37,7 @@ public:
     // Build the computation graph for the sentence including loss
     template <class SentData, class OutData>
     cnn::expr::Expression BuildSentGraph(const SentData & sent_src, const OutData & trg, const OutData & cache,
+                                         float samp_percent,
                                          bool train,
                                          cnn::ComputationGraph & cg, LLStats & ll) const;
 
@@ -60,6 +61,12 @@ public:
     // Accessors
     const Classifier & GetClassifier() const { return *classifier_; }
     const ClassifierPtr & GetClassifierPtr() const { return classifier_; }
+
+    // Setters
+    void SetDropout(float dropout) {
+      for(auto & enc : encoders_) enc->SetDropout(dropout);
+      classifier_->SetDropout(dropout);
+    }
 
 protected:
 

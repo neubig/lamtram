@@ -56,6 +56,7 @@ public:
                                    const Sentence & cache_ids,
                                    const ExternCalculator * extern_calc,
                                    const std::vector<cnn::expr::Expression> & layer_in,
+                                   float samp_percent,
                                    bool train,
                                    cnn::ComputationGraph & cg, LLStats & ll);
     cnn::expr::Expression BuildSentGraph(
@@ -63,8 +64,20 @@ public:
                                    const std::vector<Sentence> & cache_ids,
                                    const ExternCalculator * extern_calc,
                                    const std::vector<cnn::expr::Expression> & layer_in,
+                                   float samp_percent,
                                    bool train,
                                    cnn::ComputationGraph & cg, LLStats & ll);
+
+    // Acquire samples from this sentence and return their log probabilities as a vector
+    cnn::expr::Expression SampleTrgSentences(
+                                   const ExternCalculator * extern_calc,
+                                   const std::vector<cnn::expr::Expression> & layer_in,
+                                   const Sentence * answer,                                   
+                                   int num_samples,
+                                   int max_len,
+                                   bool train,
+                                   cnn::ComputationGraph & cg,
+                                   std::vector<Sentence> & samples);
 
     // Move forward one step using the language model and return the probabilities.
     //  REQUIRES NewGraph to be called before usage
@@ -108,6 +121,9 @@ public:
     int GetNumLayers() const { return hidden_spec_.layers; }
     int GetNumNodes() const { return hidden_spec_.nodes; }
     SoftmaxBase & GetSoftmax() { return *softmax_; }
+
+    // Setters
+    void SetDropout(float dropout);
 
 protected:
 

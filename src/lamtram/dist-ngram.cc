@@ -6,6 +6,7 @@
 #include <lamtram/macros.h>
 #include <lamtram/dist-ngram.h>
 #include <lamtram/dict-utils.h>
+#include <lamtram/string-util.h>
 #include <lamtram/counts.h>
 
 #define EOS_ID 0
@@ -22,16 +23,17 @@ DistNgram::DistNgram(const std::string & sig) : DistBase(sig) {
   // Split and sanity check signature
   std::vector<std::string> strs;
   boost::split(strs,sig,boost::is_any_of("_"));
-  if(strs[0] != "ngram" || strs.size() < 2)
+  if((strs[0] != "ngram" && strs[0] != "ngramh") || strs.size() < 2)
     THROW_ERROR("Bad signature in DistNgram: " << sig);
+  heuristics_ = (strs[0] == "ngramh");
   // Get the rest of the ctxt
-  if(sig != "ngram") {
+  if(strs.size() > 1) {
     for(size_t i = 2; i < strs.size(); i++)
       ctxt_pos_.push_back(stoi(strs[i]));
     if(ctxt_pos_.size() != 0) {
       ctxt_len_ = *boost::max_element(ctxt_pos_);
       if(*boost::min_element(ctxt_pos_) < 1)
-        THROW_ERROR("Negative ctxt id in signature: " << sig); 
+        THROW_ERROR("Negative ctxt id in signature: " << sig);
     }
   }
   ngram_len_ = ctxt_pos_.size() + 1;
@@ -49,7 +51,7 @@ DistNgram::DistNgram(const std::string & sig) : DistBase(sig) {
 
 std::string DistNgram::get_sig() const {
   ostringstream oss;
-  oss << "ngram_" << (smoothing_ == SMOOTH_LIN ? "lin" : "mabs");
+  oss << "ngram" << (heuristics_?"h":"") << "_" << (smoothing_ == SMOOTH_LIN ? "lin" : "mabs");
   for(auto i : ctxt_pos_) oss << '_' << i;
   return oss.str();
 }
@@ -87,14 +89,14 @@ int DistNgram::get_existing_ctxt_id(const Sentence & ngram) const {
 }
 
 // Add stats from one sentence at training time for count-based models
-void DistNgram::add_stats(const Sentence & sent) {  
+void DistNgram::add_stats(const Sentence & sent) {
   for(size_t i = 0; i < sent.size(); i++) {
     Sentence ngram(1, sent[i]);
     // for each context, add if necessary
     for(int j = ctxt_pos_.size(); j >= 0; j--) {
       if(j == 0) {
         mapping_[ngram]++;
-      } else { 
+      } else {
         if(smoothing_ != SMOOTH_MKN)
           ctxt_cnts_[get_ctxt_id(ngram)].first++;
         else if(j != ctxt_pos_.size())
@@ -116,19 +118,9 @@ inline Sentence get_next_ctxt(Sentence sent) {
   return sent;
 }
 
-
-template <class T>
-inline std::string print_vec(const std::vector<T> vec) {
-  ostringstream oss;
-  if(vec.size()) oss << vec[0];
-  for(size_t i = 1; i < vec.size(); i++)
-    oss << ' ' << vec[i];
-  return oss.str();
-}
-
 void DistNgram::finalize_stats() {
   int here = 0;
-  // Add the counts to the denominator 
+  // Add the counts to the denominator
   if(smoothing_ != SMOOTH_MKN || ngram_len_ == 1) {
     for(const auto & ngram : mapping_) {
       int value = (ngram.first.size() == ngram_len_ ? ngram.second : ctxt_cnts_[ngram.second].first);
@@ -143,7 +135,7 @@ void DistNgram::finalize_stats() {
         ctxt_cnts_[id].second += ngram.second;
         ctxt_cnts_[id].third++;
       }
-      if(ngram.first.size() == ngram_len_ || aux_cnts_[ngram.second]) {  
+      if(ngram.first.size() == ngram_len_ || aux_cnts_[ngram.second]) {
         Sentence next_ctxt = get_next_ctxt(ngram.first);
         int val = ++ctxt_cnts_[get_tmp_ctxt_id(next_ctxt)].first;
         int prev_next = get_tmp_ctxt_id(get_prev_ctxt(next_ctxt));
@@ -165,7 +157,7 @@ void DistNgram::finalize_stats() {
         fofs[ngram.first.size()-1][value]++;
     }
     discounts_ = vector<vector<float> >(ngram_len_, vector<float>(4));
-    for(size_t i = 0; i < fofs.size(); i++) {    
+    for(size_t i = 0; i < fofs.size(); i++) {
       float Y = fofs[i][1] / float(fofs[i][1] + 2*fofs[i][2]);
       discounts_[i][1] = 1 - 2.0*Y*fofs[i][2]/fofs[i][1];
       discounts_[i][2] = 2 - 3.0*Y*fofs[i][3]/fofs[i][2];
@@ -231,8 +223,14 @@ void DistNgram::calc_word_dists(const Sentence & ngram,
                                 float unk_prob,
                                 std::vector<float> & trg_dense,
                                 int & dense_offset,
-                                std::vector<std::pair<int,float> > & trg_sparse,
+                                SparseData & trg_sparse,
                                 int & sparse_offset) const {
+  // If heuristics, write to a temporary vector then adjust
+  vector<float> temp_vec(heuristics_?ctxt_pos_.size()+1:0);
+  int temp_offset = 0;
+  vector<float> & write_vec = (heuristics_?temp_vec:trg_dense);
+  int & write_offset = (heuristics_?temp_offset:dense_offset);
+  // Calculate the probability
   float base_prob = (*ngram.rbegin() != UNK_ID ? 1.0 : unk_prob);
   Sentence this_ngram(1, *ngram.rbegin()), this_ctxt;
   for(int j = ctxt_pos_.size(); j >= 0; j--) {
@@ -241,25 +239,141 @@ void DistNgram::calc_word_dists(const Sentence & ngram,
     if(ngram_it == mapping_.end()) {
       float my_prob = (context_it != mapping_.end() ? 0.0 : uniform_prob * base_prob);
       // cerr << "my_prob: " << my_prob << endl;
-      trg_dense[dense_offset++] = my_prob;
+      write_vec[write_offset++] = my_prob;
     } else {
-      assert(context_it != mapping_.end());
+      if(context_it == mapping_.end())
+        THROW_ERROR("ngram ("<<this_ngram<<") exists but ctxt (" << this_ctxt << ") doesn't");
       int value = (j == 0 ? ngram_it->second : ctxt_cnts_[ngram_it->second].first);
       if(smoothing_ == SMOOTH_MABS || smoothing_ == SMOOTH_MKN) {
-        // cerr << "value_absmkn: " << (value-discounts_[this_ctxt.size()][min(value,3)]) << "/" << disc_ctxt_cnts_[context_it->second] * base_prob << endl;
-        trg_dense[dense_offset++] = (value-discounts_[this_ctxt.size()][min(value,3)])/disc_ctxt_cnts_[context_it->second] * base_prob;
+        // assert(discounts_.size() > this_ctxt.size());
+        // assert(disc_ctxt_cnts_.size() > context_it->second);
+        write_vec[write_offset++] = (value-discounts_[this_ctxt.size()][min(value,3)])/disc_ctxt_cnts_[context_it->second] * base_prob;
+        // if(write_vec[write_offset-1] > 1.001) {
+        //   cerr << "this_ctxt: " << this_ctxt << endl;
+        //   cerr << "value_absmkn: (" << value << "-" << discounts_[this_ctxt.size()][min(value,3)] << ")/" << disc_ctxt_cnts_[context_it->second] << " * " << base_prob << endl;
+        //   THROW_ERROR("Bad probability");
+        // }
       } else {
         // cerr << "value_lin: " << value << "/" << (float)ctxt_cnts_[context_it->second].second * base_prob << endl;
-        trg_dense[dense_offset++] = value/(float)ctxt_cnts_[context_it->second].second * base_prob;
-      }
-      if(*ngram.rbegin() == GlobalVars::curr_word) {
-        // cerr << "trg_dense[" << dense_offset-1 << "] == " << trg_dense[dense_offset-1] << endl;
+        write_vec[write_offset++] = value/(float)ctxt_cnts_[context_it->second].second * base_prob;
       }
     }
     if(j != 0) {
       this_ngram.insert(this_ngram.begin(), ngram[ngram.size()-ctxt_pos_[j-1]-1]);
       this_ctxt.insert(this_ctxt.begin(), ngram[ngram.size()-ctxt_pos_[j-1]-1]);
     }
+  }
+  // Convert into heuristics if necessary
+  if(heuristics_) {
+    if(smoothing_ == SMOOTH_MABS || smoothing_ == SMOOTH_MKN) {
+      vector<float> ctxts((ctxt_pos_.size()+1)*4);
+      calc_ctxt_feats(this_ctxt, &ctxts[0]);
+      float val = 0.f;
+      float left = 1.0;
+      for(int i = temp_vec.size() - 1; i >= 0; i--) {
+        if(ctxts[i*4] == 1.0) continue;
+        // Discounted divided by total == amount for this dist
+        float my_prob = exp(ctxts[i*4+3]-ctxts[i*4+1]);
+        if(my_prob > 1) THROW_ERROR("Discount exceeding 1: " << my_prob);
+        val += left * my_prob * temp_vec[i];
+        left *= (1-my_prob);
+      }
+      val += left*uniform_prob;
+      // if(val < 0 || val > 1.001) {
+      //   cerr << "this_ctxt: " << this_ctxt << endl;
+      //   cerr << "ctxts: " << ctxts << endl;
+      //   cerr << "temp_vec: " << temp_vec << endl;
+      //   cerr << "val=" << val << ", left=" << left << endl;
+      //   THROW_ERROR("Illegal probability value");
+      // }
+      trg_dense[dense_offset++] = val;
+    } else {
+      THROW_ERROR("Heuristics are only implemented for discounting");
+    }
+  }
+}
+
+void DistNgram::calc_all_word_dists(const Sentence & ctxt_ngram,
+                                    int vocab_size,
+                                    float uniform_prob,
+                                    float unk_prob,
+                                    std::vector<float> & trg_dense,
+                                    int & dense_offset,
+                                    BatchSparseData & trg_sparse,
+                                    int & sparse_offset) const {
+  if(unk_prob != 1.f) THROW_ERROR("calc_all_word_dists not implemented for non-1.0 unk probabilities");
+  // If heuristics, write to a temporary vector then adjust
+  size_t ngram_len = (ctxt_pos_.size()+1);
+  size_t data_len = ngram_len*vocab_size;
+  vector<float> temp_vec(heuristics_?data_len:0);
+  int temp_offset = 0;
+  float *write_ptr = (heuristics_?&temp_vec[0]:&trg_dense[dense_offset]);
+  memset(write_ptr, 0, data_len*sizeof(float));
+  // Loop through all the contexts
+  Sentence this_ngram(1, 0), this_ctxt;
+  for(int j = ctxt_pos_.size(); j >= 0; j--) {
+    auto context_it = mapping_.find(this_ctxt);
+    int offset = ctxt_pos_.size()-j;
+    // If the context is not found, overwrite the remainder with uniform
+    // probabilities and terminate
+    if(context_it == mapping_.end()) {
+      float *beg = write_ptr;
+      for(int wid = 0; wid < vocab_size; wid++, beg += ngram_len)
+        for(int oid = offset; oid < ngram_len; oid++)
+          beg[oid] = uniform_prob;
+      break;
+    }
+    // TODO: This would be much better as prefix search
+    for(int wid = 0; wid < vocab_size; wid++) {
+      *this_ngram.rbegin() = wid;
+      auto ngram_it = mapping_.find(this_ngram);
+      if(ngram_it != mapping_.end()) {
+        int value = (j == 0 ? ngram_it->second : ctxt_cnts_[ngram_it->second].first);
+        if(smoothing_ == SMOOTH_MABS || smoothing_ == SMOOTH_MKN) {
+          write_ptr[wid*ngram_len+offset] = (value-discounts_[this_ctxt.size()][min(value,3)])/disc_ctxt_cnts_[context_it->second];
+          // if(write_ptr[wid*ngram_len+offset] > 1.001) {
+          //   cerr << "this_ctxt: " << this_ctxt << endl;
+          //   cerr << "value_absmkn: (" << value << "-" << discounts_[this_ctxt.size()][min(value,3)] << ")/" << disc_ctxt_cnts_[context_it->second] << endl;
+          //   THROW_ERROR("Bad probability");
+          // }
+        } else {
+          // cerr << "value_lin: " << value << "/" << (float)ctxt_cnts_[context_it->second].second << endl;
+          write_ptr[wid*ngram_len+offset] = value/(float)ctxt_cnts_[context_it->second].second;
+        }
+      }
+    }
+    if(j != 0) {
+      this_ngram.insert(this_ngram.begin(), ctxt_ngram[ctxt_ngram.size()-ctxt_pos_[j-1]]);
+      this_ctxt.insert(this_ctxt.begin(), ctxt_ngram[ctxt_ngram.size()-ctxt_pos_[j-1]]);
+    }
+  }
+  // Convert into heuristics if necessary
+  if(heuristics_) {
+    if(smoothing_ == SMOOTH_MABS || smoothing_ == SMOOTH_MKN) {
+      vector<float> ctxts((ctxt_pos_.size()+1)*4);
+      calc_ctxt_feats(this_ctxt, &ctxts[0]);
+      memset(&trg_dense[dense_offset], 0, vocab_size*sizeof(float));
+      float left = 1.0;
+      for(int i = temp_vec.size() - 1; i >= 0; i--) {
+        if(ctxts[i*4] == 1.0) continue;
+        // Discounted divided by total == amount for this dist
+        float my_prob = exp(ctxts[i*4+3]-ctxts[i*4+1]);
+        if(my_prob > 1) THROW_ERROR("Discount exceeding 1: " << my_prob);
+        // Perform interpolation
+        float mult = left * my_prob;
+        float *temp_ptr = &temp_vec[i*vocab_size], *dense_ptr = &trg_dense[dense_offset];
+        for(int wid = 0; wid < vocab_size; wid++)
+          *(dense_ptr++) += mult * *(temp_ptr++);
+        left *= (1-my_prob);
+      }
+      float mult = left*uniform_prob;
+      for(int wid = 0; wid < vocab_size; wid++)
+        trg_dense[dense_offset++] += mult;
+    } else {
+      THROW_ERROR("Heuristics are only implemented for discounting");
+    }
+  } else {
+    dense_offset += data_len;
   }
 }
 
@@ -268,7 +382,7 @@ void DistNgram::calc_word_dists(const Sentence & ngram,
 void DistNgram::write(DictPtr dict, std::ostream & out) const {
   out << DIST_NGRAM_VERSION << '\n';
   if(smoothing_ != SMOOTH_LIN) {
-    out << "discounts " << discounts_.size() << '\n';  
+    out << "discounts " << discounts_.size() << '\n';
     for(auto & discount : discounts_)
       out << discount[1] << ' ' << discount[2] << ' ' << discount[3] << '\n';
     out << '\n';
@@ -296,9 +410,9 @@ inline void getline_expected(std::istream & in, const std::string & expected) {
   if(line != expected) THROW_ERROR("Did not get expected line at DistNgram: " << line << " != " << expected);
 }
 void DistNgram::read(DictPtr dict, std::istream & in) {
-  vector<string> strs;
+  vector<string> strs, words;
   string line, strid;
-  int size, size2;
+  int size, size2, pos1;
   int cnt1, cnt2, cnt3;
   float cnt4;
   getline_expected(in, DIST_NGRAM_VERSION);
@@ -326,8 +440,13 @@ void DistNgram::read(DictPtr dict, std::istream & in) {
       getline_or_die(in, line);
       boost::split(strs, line, boost::is_any_of("\t"));
       if(strs.size() != 2) THROW_ERROR("Expecting two columns: " << line << endl);
-      Sentence ngram = ParseWords(*dict, strs[0], false);
-      for(WordId wid : ngram) if(wid == -1) THROW_ERROR("Out-of-vocabulary word found in one hot model: " << line);
+      words = Tokenize(strs[0], " ");
+      Sentence ngram = ParseWords(*dict, words, false);
+      bool ok = true;
+      for(pos1 = 0; pos1 < (int)words.size() && (ngram[pos1] != 1 || words[pos1] == "<unk>"); pos1++);
+      if(pos1 != words.size()) continue;
+      if(mapping_.find(ngram) != mapping_.end())
+        THROW_ERROR("Found duplicate entry for ngram " << ngram << " at: " << line << endl);
       if(ngram.size() == ngram_len_) {
         mapping_[ngram] = stoi(strs[1]);
       } else {

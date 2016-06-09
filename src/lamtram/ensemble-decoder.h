@@ -12,17 +12,17 @@ namespace lamtram {
 
 class EnsembleDecoderHyp {
 public:
-    EnsembleDecoderHyp(cnn::real score, const std::vector<std::vector<cnn::expr::Expression> > & states, const Sentence & sent, const Sentence & align) :
+    EnsembleDecoderHyp(float score, const std::vector<std::vector<cnn::expr::Expression> > & states, const Sentence & sent, const Sentence & align) :
         score_(score), states_(states), sent_(sent), align_(align) { }
 
-    cnn::real GetScore() const { return score_; }
+    float GetScore() const { return score_; }
     const std::vector<std::vector<cnn::expr::Expression> > & GetStates() const { return states_; }
     const Sentence & GetSentence() const { return sent_; }
     const Sentence & GetAlignment() const { return align_; }
 
 protected:
 
-    cnn::real score_;
+    float score_;
     std::vector<std::vector<cnn::expr::Expression> > states_;
     Sentence sent_;
     Sentence align_;
@@ -58,9 +58,11 @@ public:
     template <class Sent>
     cnn::expr::Expression EnsembleSingleLogProb(const std::vector<cnn::expr::Expression> & in, const Sent & sent, int loc, cnn::ComputationGraph & cg);
 
-    cnn::real GetWordPen() const { return word_pen_; }
+    float GetWordPen() const { return word_pen_; }
+    float GetUnkPen() const { return unk_pen_; }
     std::string GetEnsembleOperation() const { return ensemble_operation_; }
-    void SetWordPen(cnn::real word_pen) { word_pen_ = word_pen; }
+    void SetWordPen(float word_pen) { word_pen_ = word_pen; }
+    void SetUnkPen(float unk_pen) { unk_pen_ = unk_pen; }
     void SetEnsembleOperation(const std::string & ensemble_operation) { ensemble_operation_ = ensemble_operation; }
 
     int GetBeamSize() const { return beam_size_; }
@@ -73,7 +75,8 @@ protected:
     std::vector<EncoderAttentionalPtr> encatts_;
     std::vector<NeuralLMPtr> lms_;
     std::vector<ExternCalculatorPtr> externs_;
-    cnn::real word_pen_;
+    float word_pen_;
+    float unk_pen_, unk_log_prob_;
     int unk_id_;
     int size_limit_;
     int beam_size_;

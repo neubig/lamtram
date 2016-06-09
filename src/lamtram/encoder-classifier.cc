@@ -51,6 +51,7 @@ cnn::expr::Expression EncoderClassifier::GetEncodedState(
 
 template <class SentData, class OutputType>
 cnn::expr::Expression EncoderClassifier::BuildSentGraph(const SentData & sent_src, const OutputType & trg, const OutputType & cache,
+                                                        float samp_percent,
                                                         bool train,
                                                         cnn::ComputationGraph & cg, LLStats & ll) const {
     if(&cg != curr_graph_)
@@ -63,10 +64,14 @@ cnn::expr::Expression EncoderClassifier::BuildSentGraph(const SentData & sent_sr
 
 template
 cnn::expr::Expression EncoderClassifier::BuildSentGraph<Sentence, int>(
-  const Sentence & sent_src, const int & trg, const int & cache, bool train, cnn::ComputationGraph & cg, LLStats & ll) const;
+  const Sentence & sent_src, const int & trg, const int & cache, 
+  float samp_percent,
+  bool train, cnn::ComputationGraph & cg, LLStats & ll) const;
 template
 cnn::expr::Expression EncoderClassifier::BuildSentGraph<vector<Sentence>, vector<int> >(
-  const vector<Sentence> & sent_src, const vector<int> & trg, const vector<int> & cache, bool train, cnn::ComputationGraph & cg, LLStats & ll) const;
+  const vector<Sentence> & sent_src, const vector<int> & trg, const vector<int> & cache,
+  float samp_percent,
+  bool train, cnn::ComputationGraph & cg, LLStats & ll) const;
 
 template <class SoftmaxOp>
 cnn::expr::Expression EncoderClassifier::Forward(const Sentence & sent_src,

@@ -28,11 +28,18 @@ cnn::expr::Expression LinearEncoder::BuildSentGraph(const Sentence & sent, bool 
   builder_->start_new_sequence();
   // First get all the word representations
   cnn::expr::Expression i_wr_t, i_h_t;
-  for(int t = sent.size(); t > 0; t--) {
-    int pos = (reverse_ ? t-1 : (int)sent.size() - t);
-    i_wr_t = lookup(cg, p_wr_W_, sent[pos]);
-    i_h_t = builder_->add_input(i_wr_t);
-    word_states_[t] = i_h_t;
+  if(!reverse_) {
+    for(int t = 0; t < (int)sent.size(); t++) {
+      i_wr_t = lookup(cg, p_wr_W_, sent[t]);
+      i_h_t = builder_->add_input(i_wr_t);
+      word_states_[t] = i_h_t;
+    }
+  } else {
+    for(int t = sent.size()-1; t >= 0; t--) {
+      i_wr_t = lookup(cg, p_wr_W_, sent[t]);
+      i_h_t = builder_->add_input(i_wr_t);
+      word_states_[t] = i_h_t;
+    }
   }
   return i_h_t;
 }
@@ -50,14 +57,22 @@ cnn::expr::Expression LinearEncoder::BuildSentGraph(const vector<Sentence> & sen
   // First get all the word representations
   cnn::expr::Expression i_wr_t, i_h_t;
   vector<unsigned> words(sent.size());
-  for(int t = max_len; t > 0; t--) {
-    for(size_t i = 0; i < sent.size(); i++) {
-      int pos = (reverse_ ? t-1 : (int)sent[i].size() - t);
-      words[i] = (pos >= 0 && pos < sent[i].size()) ? sent[i][pos] : 0;
+  if(!reverse_) {
+    for(int t = 0; t < max_len; t++) {
+      for(size_t i = 0; i < sent.size(); i++)
+        words[i] = (t < sent[i].size() ? sent[i][t] : 0);
+      i_wr_t = lookup(cg, p_wr_W_, words);
+      i_h_t = builder_->add_input(i_wr_t);
+      word_states_[t] = i_h_t;
     }
-    i_wr_t = lookup(cg, p_wr_W_, words);
-    i_h_t = builder_->add_input(i_wr_t);
-    word_states_[word_states_.size()-t] = i_h_t;
+  } else {
+    for(int t = max_len-1; t >= 0; t--) {
+      for(size_t i = 0; i < sent.size(); i++)
+        words[i] = (t < sent[i].size() ? sent[i][t] : 0);
+      i_wr_t = lookup(cg, p_wr_W_, words);
+      i_h_t = builder_->add_input(i_wr_t);
+      word_states_[t] = i_h_t;
+    }
   }
   return i_h_t;
 }
@@ -96,3 +111,5 @@ void LinearEncoder::Write(std::ostream & out) {
 vector<cnn::expr::Expression> LinearEncoder::GetFinalHiddenLayers() const {
   return builder_->final_h();
 }
+
+void LinearEncoder::SetDropout(float dropout) { builder_->set_dropout(dropout); }

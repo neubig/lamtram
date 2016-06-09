@@ -50,15 +50,23 @@ public:
   virtual void calc_ctxt_feats(const Sentence & ctxt, float * feats_out) const override;
 
   // Get the number of distributions we can expect from this model
-  virtual size_t get_dense_size() const override { return ngram_len_; }
+  virtual size_t get_dense_size() const override { return heuristics_ ? 1 : ngram_len_; }
   virtual size_t get_sparse_size() const override { return 0; }
   virtual void calc_word_dists(const Sentence & ngram,
                                float uniform_prob,
                                float unk_prob,
-                               std::vector<float > & trg_dense,
+                               std::vector<float> & trg_dense,
                                int & dense_offset,
-                               std::vector<std::pair<int,float> > & trg_sparse,
+                               SparseData & trg_sparse,
                                int & sparse_offset) const override;
+  virtual void calc_all_word_dists(const Sentence & ctxt_ngram,
+                                   int vocab_size,
+                                   float uniform_prob,
+                                   float unk_prob,
+                                   std::vector<float> & trg_dense,
+                                   int & dense_offset,
+                                   BatchSparseData & trg_sparse,
+                                   int & sparse_offset) const override;
 
   // Read/write model. If dict is null, use numerical ids, otherwise strings.
   virtual void write(DictPtr dict, std::ostream & str) const override;
@@ -104,6 +112,7 @@ protected:
   std::vector<int> ctxt_pos_;
   SmoothType smoothing_;
   size_t ngram_len_;
+  bool heuristics_;
 
 };
 

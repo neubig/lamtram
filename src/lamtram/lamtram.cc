@@ -128,9 +128,10 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
   // Create the decoder
   EnsembleDecoder decoder(encdecs, encatts, lms);
   decoder.SetWordPen(vm["word_pen"].as<float>());
+  decoder.SetUnkPen(vm["unk_pen"].as<float>());
   decoder.SetEnsembleOperation(vm["ensemble_op"].as<string>());
   decoder.SetBeamSize(vm["beam"].as<int>());
-  decoder.SetSizeLimit(vm["size_limit"].as<int>());
+  decoder.SetSizeLimit(vm["max_len"].as<int>());
 
   
   // Perform operation
@@ -329,9 +330,10 @@ int Lamtram::main(int argc, char** argv) {
     ("models_in", po::value<string>()->default_value(""), "Model files in format \"{encdec,encatt,nlm}=filename\" with encdec for encoder-decoders, encatt for attentional models, nlm for language models. When multiple, separate by a pipe.")
     ("operation", po::value<string>()->default_value("ppl"), "Operations (ppl: measure perplexity, nbest: score n-best list, gen: generate most likely sentence, samp: sample sentences randomly)")
     ("sent_range", po::value<string>()->default_value(""), "Optionally specify a comma-delimited range on how many sentences to process")
-    ("size_limit", po::value<int>()->default_value(2000), "Limit on the size of sentences")
+    ("max_len", po::value<int>()->default_value(200), "Limit on the max length of sentences")
     ("src_in", po::value<string>()->default_value(""), "File to read the source from, if any")
-    ("word_pen", po::value<float>()->default_value(0.0), "The \"word penalty\", a larger value favors longer sentences, shorter favors shorter")
+    ("word_pen", po::value<float>()->default_value(0.f), "The \"word penalty\", a larger value favors longer sentences, shorter favors shorter")
+    ("unk_pen", po::value<float>()->default_value(1.f), "A penalty for unknown words, larger will create fewer unknown words when decoding")
     ;
   po::variables_map vm;
   po::store(po::parse_command_line(argc, argv, desc), vm);

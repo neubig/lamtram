@@ -37,6 +37,9 @@ public:
     static Classifier* Read(std::istream & in, cnn::Model & mod);
     void Write(std::ostream & out);
 
+    // Setters
+    void SetDropout(float dropout) { dropout_ = dropout; }
+
 protected:
 
     int input_size_; 
@@ -54,6 +57,9 @@ private:
     // This is only used for sanity checking to make sure NewGraph
     // is called before trying to do anything that requires it.
     cnn::ComputationGraph * curr_graph_;
+
+    // Dropout rate
+    float dropout_;
 
 };
 

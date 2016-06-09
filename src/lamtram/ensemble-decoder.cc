@@ -10,7 +10,7 @@ using namespace cnn::expr;
 
 
 EnsembleDecoder::EnsembleDecoder(const vector<EncoderDecoderPtr> & encdecs, const vector<EncoderAttentionalPtr> & encatts, const vector<NeuralLMPtr> & lms)
-      : encdecs_(encdecs), encatts_(encatts), word_pen_(0.0), size_limit_(2000), beam_size_(1), ensemble_operation_("sum") {
+      : encdecs_(encdecs), encatts_(encatts), word_pen_(0.f), unk_pen_(1.f), size_limit_(2000), beam_size_(1), ensemble_operation_("sum") {
   if(encdecs.size() + encatts.size() + lms.size() == 0)
     THROW_ERROR("Cannot decode with no models!");
   for(auto & ed : encdecs) {
@@ -26,6 +26,7 @@ EnsembleDecoder::EnsembleDecoder(const vector<EncoderDecoderPtr> & encdecs, cons
     externs_.push_back(NULL);
   }
   unk_id_ = lms_[0]->GetUnkId();
+  unk_log_prob_ = -log(lms_[0]->GetVocabSize());
 }
 
 vector<vector<Expression> > EnsembleDecoder::GetInitialStates(const Sentence & sent_src, cnn::ComputationGraph & cg) {
@@ -243,9 +244,10 @@ Sentence EnsembleDecoder::Generate(const Sentence & sent_src, Sentence & align) 
       } else {
         THROW_ERROR("Bad ensembling operation: " << ensemble_operation_ << endl);
       }
-      // Add the word penalty
+      // Add the word/unk penalty
       vector<cnn::real> softmax = as_vector(cg.incremental_forward());
       softmax[0] -= word_pen_;
+      softmax[unk_id_] += unk_pen_ * unk_log_prob_;
       // Find the best aligned source, if any alignments exists
       WordId best_align = -1;
       if(i_aligns.size() != 0) {
@@ -270,6 +272,7 @@ Sentence EnsembleDecoder::Generate(const Sentence & sent_src, Sentence & align) 
       int hypid = std::get<1>(next_beam_id[i]);
       int wid = std::get<2>(next_beam_id[i]);
       int aid = std::get<3>(next_beam_id[i]);
+      // cerr << "Adding " << wid << " @ beam " << i << ": score=" << std::get<0>(next_beam_id[i]) - curr_beam[hypid]->GetScore() << endl;
       if(hypid == -1) break;
       Sentence next_sent = curr_beam[hypid]->GetSentence();
       next_sent.push_back(wid);

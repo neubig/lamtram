@@ -19,6 +19,7 @@ LIBCPP = \
     input-file-stream.cc \
     softmax-full.cc \
     softmax-mod.cc \
+    softmax-diff.cc \
     softmax-class.cc \
     softmax-factory.cc \
     dict-utils.cc \
@@ -28,8 +29,13 @@ LIBCPP = \
     dist-one-hot.cc \
     dist-train.cc \
     dist-uniform.cc \
-    dist-unk.cc
-
+    dist-unk.cc \
+    eval-measure-loader.cc \
+    eval-measure-bleu.cc \
+    eval-measure-ribes.cc \
+    eval-measure-wer.cc \
+    eval-measure-interp.cc \
+    eval-measure.cc
 
 AM_CXXFLAGS = $(BOOST_CPPFLAGS) $(EIGEN_CPPFLAGS) $(CNN_CPPFLAGS) $(OPENMP_CXXFLAGS) -I$(srcdir)/..
 

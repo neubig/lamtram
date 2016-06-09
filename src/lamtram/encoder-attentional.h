@@ -49,6 +49,11 @@ public:
     static ExternAttentional* Read(std::istream & in, cnn::Model & model);
     void Write(std::ostream & out);
 
+    // Setters
+    void SetDropout(float dropout) {
+      for(auto & enc : encoders_) enc->SetDropout(dropout);
+    }
+
 protected:
     std::vector<LinearEncoderPtr> encoders_;
     int hidden_size_, state_size_;
@@ -97,8 +102,18 @@ public:
     // Build the computation graph for the sentence including loss
     template <class SentData>
     cnn::expr::Expression BuildSentGraph(const SentData & sent_src, const SentData & sent_trg, const SentData & sent_cache,
+                                         float samp_percent,
                                          bool train,
                                          cnn::ComputationGraph & cg, LLStats & ll);
+
+    // Sample sentences and return an expression of the vector of probabilities
+    cnn::expr::Expression SampleTrgSentences(const Sentence & sent_src,
+                                             const Sentence * sent_trg,
+                                             int num_samples,
+                                             int max_len,
+                                             bool train,
+                                             cnn::ComputationGraph & cg,
+                                             std::vector<Sentence> & samples);    
 
     template <class SentData>
     std::vector<cnn::expr::Expression> GetEncodedState(
@@ -129,6 +144,12 @@ public:
     int GetWordrepSize() const { return wordrep_size_; }
     int GetUnkSrc() const { return unk_src_; }
     int GetUnkTrg() const { return unk_trg_; }
+
+    // Setters
+    void SetDropout(float dropout) {
+      extern_calc_->SetDropout(dropout);
+      decoder_->SetDropout(dropout);
+    }
 
 protected:
 
