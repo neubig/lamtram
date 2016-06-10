@@ -4,6 +4,7 @@
 #include <lamtram/softmax-class.h>
 #include <lamtram/softmax-mod.h>
 #include <lamtram/softmax-diff.h>
+#include <lamtram/softmax-hinge.h>
 #include <lamtram/sentence.h>
 #include <lamtram/macros.h>
 #include <fstream>
@@ -15,6 +16,8 @@ using namespace lamtram;
 SoftmaxPtr SoftmaxFactory::CreateSoftmax(const std::string & sig, int input_size, const DictPtr & vocab, cnn::Model & mod) {
   if(sig == "full") {
     return SoftmaxPtr(new SoftmaxFull(sig, input_size, vocab, mod));
+  } else if(sig.substr(0,5) == "hinge") {
+    return SoftmaxPtr(new SoftmaxHinge(sig, input_size, vocab, mod));
   } else if(sig.substr(0,5) == "class") {
     return SoftmaxPtr(new SoftmaxClass(sig, input_size, vocab, mod));
   } else if(sig.substr(0,3) == "mod") {
