@@ -20,6 +20,6 @@ void WriteDict(const cnn::Dict & dict, const std::string & file);
 void WriteDict(const cnn::Dict & dict, std::ostream & out);
 cnn::Dict* ReadDict(const std::string & file);
 cnn::Dict* ReadDict(std::istream & in);
-cnn::Dict* CreateNewDict();
+cnn::Dict* CreateNewDict(bool add_symbols = true);
 
 }

@@ -43,7 +43,7 @@ int LamtramTrain::main(int argc, char** argv) {
     ("epochs", po::value<int>()->default_value(100), "Number of epochs")
     ("rate_thresh",  po::value<float>()->default_value(1e-5), "Threshold for the learning rate")
     ("trainer", po::value<string>()->default_value("sgd"), "Training algorithm (sgd/momentum/adagrad/adadelta)")
-    ("softmax", po::value<string>()->default_value("full"), "The type of softmax to use (full/hier/mod)")
+    ("softmax", po::value<string>()->default_value("full"), "The type of softmax to use (full/hinge/hier/mod)")
     ("seed", po::value<int>()->default_value(0), "Random seed (default 0 -> changes every time)")
     // See: Scheduled Sampling for Sequence Prediction with Recurrent Neural Networks
     ("scheduled_samp", po::value<float>()->default_value(0.f), "If set to 1 or more, perform scheduled sampling where the selected value is the number of iterations after which the sampling value reaches 0.5")
@@ -284,7 +284,8 @@ void LamtramTrain::TrainLM() {
   std::iota(train_ids.begin(), train_ids.end(), 0);
   // Perform the training
   std::vector<cnn::expr::Expression> empty_hist;
-  cnn::real last_ll = -1e99, best_ll = -1e99;
+  cnn::real last_loss = 1e99, best_loss = 1e99;
+  bool is_likelihood = (softmax_sig_ != "hinge");
   bool do_dev = dev_trg.size() != 0;
   int loc = 0, sent_loc = 0, last_print = 0;
   float epoch_frac = 0.f, samp_prob = 0.f;
@@ -293,6 +294,7 @@ void LamtramTrain::TrainLM() {
   while(epoch < epochs_) {
     // Start the training
     LLStats train_ll(nlm->GetVocabSize()), dev_ll(nlm->GetVocabSize());
+    train_ll.is_likelihood_ = is_likelihood; dev_ll.is_likelihood_ = is_likelihood;
     Timer time;
     nlm->SetDropout(dropout_);
     for(int curr_sent_loc = 0; curr_sent_loc < eval_every_; ) {
@@ -315,14 +317,14 @@ void LamtramTrain::TrainLM() {
       curr_sent_loc += train_trg_minibatch[train_ids[loc]].size();
       epoch_frac += 1.f/train_ids.size();
       // cg.PrintGraphviz();
-      train_ll.lik_ -= as_scalar(cg.forward());
+      train_ll.loss_ += as_scalar(cg.forward());
       cg.backward();
       trainer->update();
       ++loc;
       if(sent_loc / 100 != last_print || curr_sent_loc >= eval_every_ || epochs_ == epoch) {
         last_print = sent_loc / 100;
         float elapsed = time.Elapsed();
-        cerr << "Epoch " << epoch+1 << " sent " << sent_loc << ": ppl=" << train_ll.CalcPPL() << ", unk=" << train_ll.unk_ << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << train_ll.words_/elapsed << " w/s)" << endl;
+        cerr << "Epoch " << epoch+1 << " sent " << sent_loc << ": " << train_ll.PrintStats() << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << train_ll.words_/elapsed << " w/s)" << endl;
         if(epochs_ == epoch) break;
       }
     }
@@ -334,23 +336,23 @@ void LamtramTrain::TrainLM() {
         cnn::ComputationGraph cg;
         nlm->NewGraph(cg);
         nlm->BuildSentGraph(sent, empty_minibatch, NULL, empty_hist, 0.f, false, cg, dev_ll);
-        dev_ll.lik_ -= as_scalar(cg.forward());
+        dev_ll.loss_ += as_scalar(cg.forward());
       }
       float elapsed = time.Elapsed();
-      cerr << "Epoch " << epoch+1 << " dev: ppl=" << dev_ll.CalcPPL() << ", unk=" << dev_ll.unk_ << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << dev_ll.words_/elapsed << " w/s)" << endl;
+      cerr << "Epoch " << epoch+1 << " dev: " << dev_ll.PrintStats() << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << dev_ll.words_/elapsed << " w/s)" << endl;
     }
     // Adjust the learning rate
     trainer->update_epoch();
     // trainer->status(); cerr << endl;
     // Check the learning rate
-    if(last_ll != last_ll)
+    if(last_loss != last_loss)
       THROW_ERROR("Likelihood is not a number, dying...");
-    cnn::real my_ll = do_dev ? dev_ll.lik_ : train_ll.lik_;
-    if(my_ll < last_ll) {
+    cnn::real my_loss = do_dev ? dev_ll.loss_ : train_ll.loss_;
+    if(my_loss > last_loss) {
       learning_scale /= 2.0;
     }
-    last_ll = my_ll;
-    if(best_ll < my_ll) {
+    last_loss = my_loss;
+    if(best_loss > my_loss) {
       // Open the output stream
       ofstream out(model_out_file_.c_str());
       if(!out) THROW_ERROR("Could not open output file: " << model_out_file_);
@@ -359,7 +361,7 @@ void LamtramTrain::TrainLM() {
       // vocab_trg->Write(out);
       nlm->Write(out);
       ModelUtils::WriteModelText(out, *model);
-      best_ll = my_ll;
+      best_loss = my_loss;
     }
     // If the rate is less than the threshold
     if(learning_scale*learning_rate < rate_thresh_)
@@ -506,7 +508,7 @@ void LamtramTrain::TrainEncCls() {
     enccls.reset(ModelUtils::LoadBilingualModel<EncoderClassifier>(model_in_file_, model, vocab_src, vocab_trg));
   } else {
     vocab_src.reset(CreateNewDict());
-    vocab_trg.reset(CreateNewDict());
+    vocab_trg.reset(CreateNewDict(false));
     model.reset(new cnn::Model);
   }
   // if(!trg_sent) vocab_trg = cnn::Dict("");
@@ -540,7 +542,7 @@ void LamtramTrain::TrainEncCls() {
       encoders.push_back(enc);
     }
     BuilderSpec bspec(vm_["layers"].as<string>());
-    ClassifierPtr classifier(new Classifier(bspec.nodes * encoders.size(), vocab_trg->size(), vm_["cls_layers"].as<string>(), *model));
+    ClassifierPtr classifier(new Classifier(bspec.nodes * encoders.size(), vocab_trg->size(), vm_["cls_layers"].as<string>(), vm_["softmax"].as<string>(), *model));
     enccls.reset(new EncoderClassifier(encoders, classifier, *model));
   }
 
@@ -583,7 +585,8 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
   std::iota(train_ids.begin(), train_ids.end(), 0);
   // Perform the training
   std::vector<cnn::expr::Expression> empty_hist;
-  cnn::real last_ll = -1e99, best_ll = -1e99;
+  cnn::real last_loss = 1e99, best_loss = 1e99;
+  bool is_likelihood = (softmax_sig_ != "hinge");
   bool do_dev = dev_src.size() != 0;
   int loc = 0, epoch = 0, sent_loc = 0, last_print = 0;
   float epoch_frac = 0.f, samp_prob = 0.f;
@@ -591,6 +594,7 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
   while(epoch < epochs_) {
     // Start the training
     LLStats train_ll(vocab_trg.size()), dev_ll(vocab_trg.size());
+    train_ll.is_likelihood_ = is_likelihood; dev_ll.is_likelihood_ = is_likelihood;
     Timer time;
     encdec.SetDropout(dropout_);
     for(int curr_sent_loc = 0; curr_sent_loc < eval_every_; ) {
@@ -613,14 +617,14 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
       curr_sent_loc += train_trg_minibatch[train_ids[loc]].size();
       epoch_frac += 1.f/train_ids.size();
       // cg.PrintGraphviz();
-      train_ll.lik_ -= as_scalar(cg.forward());
+      train_ll.loss_ += as_scalar(cg.forward());
       cg.backward();
       trainer->update(learning_scale);
       ++loc;
       if(sent_loc / 100 != last_print || curr_sent_loc >= eval_every_ || epochs_ == epoch) {
         last_print = sent_loc / 100;
         float elapsed = time.Elapsed();
-        cerr << "Epoch " << epoch+1 << " sent " << sent_loc << ": ppl=" << train_ll.CalcPPL() << ", unk=" << train_ll.unk_ << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << train_ll.words_/elapsed << " w/s)" << endl;
+        cerr << "Epoch " << epoch+1 << " sent " << sent_loc << ": " << train_ll.PrintStats() << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << train_ll.words_/elapsed << " w/s)" << endl;
         if(epochs_ == epoch) break;
       }
     }
@@ -634,23 +638,23 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
         encdec.NewGraph(cg);
         // encdec.BuildSentGraph(dev_src[i], dev_trg[i], empty_cache, false, cg, dev_ll);
         encdec.BuildSentGraph(dev_src_minibatch[i], dev_trg_minibatch[i], empty_cache, 0.f, false, cg, dev_ll);
-        dev_ll.lik_ -= as_scalar(cg.forward());
+        dev_ll.loss_ += as_scalar(cg.forward());
       }
       float elapsed = time.Elapsed();
-      cerr << "Epoch " << epoch+1 << " dev: ppl=" << dev_ll.CalcPPL() << ", unk=" << dev_ll.unk_ << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << dev_ll.words_/elapsed << " w/s)" << endl;
+      cerr << "Epoch " << epoch+1 << " dev: " << dev_ll.PrintStats() << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << dev_ll.words_/elapsed << " w/s)" << endl;
     }
     // Adjust the learning rate
     trainer->update_epoch();
     // trainer->status(); cerr << endl;
     // Check the learning rate
-    if(last_ll != last_ll)
+    if(last_loss != last_loss)
       THROW_ERROR("Likelihood is not a number, dying...");
-    cnn::real my_ll = do_dev ? dev_ll.lik_ : train_ll.lik_;
-    if(my_ll < last_ll)
+    cnn::real my_loss = do_dev ? dev_ll.loss_ : train_ll.loss_;
+    if(my_loss > last_loss)
       learning_scale /= 2.0;
-    last_ll = my_ll;
+    last_loss = my_loss;
     // Open the output stream
-    if(best_ll < my_ll) {
+    if(best_loss > my_loss) {
       ofstream out(model_out_file_.c_str());
       if(!out) THROW_ERROR("Could not open output file: " << model_out_file_);
       // Write the model (TODO: move this to a separate file?)
@@ -658,7 +662,7 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
       WriteDict(vocab_trg, out);
       encdec.Write(out);
       ModelUtils::WriteModelText(out, model);
-      best_ll = my_ll;
+      best_loss = my_loss;
     }
     // If the rate is less than the threshold
     if(learning_scale * learning_rate < rate_thresh_)

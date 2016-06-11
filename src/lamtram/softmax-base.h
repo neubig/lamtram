@@ -7,7 +7,7 @@
 
 namespace cnn { 
   class Model;
-  class ComputationGraph;
+  struct ComputationGraph;
 }
 
 namespace lamtram {

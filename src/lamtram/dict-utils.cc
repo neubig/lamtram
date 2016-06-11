@@ -101,10 +101,12 @@ cnn::Dict* ReadDict(std::istream & in) {
   assert(dict->Convert("<unk>") == 1);
   return dict;
 }
-cnn::Dict * CreateNewDict() {
+cnn::Dict * CreateNewDict(bool add_tokens) {
   cnn::Dict * ret = new cnn::Dict;
-  ret->Convert("<s>");
-  ret->Convert("<unk>");
+  if(add_tokens) {
+    ret->Convert("<s>");
+    ret->Convert("<unk>");
+  }
   return ret;
 }
 

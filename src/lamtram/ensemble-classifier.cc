@@ -21,6 +21,7 @@ void EnsembleClassifier::CalcEval(const Sentence & sent_src, int trg, LLStats & 
     vector<Expression> i_sms;
     for(auto & tm : encclss_) {
         tm->NewGraph(cg);
+        // TODO: add identity
         if(ensemble_operation_ == "sum") {
             i_sms.push_back(tm->Forward<cnn::Softmax>(sent_src, false, cg));
         } else {
@@ -38,7 +39,7 @@ void EnsembleClassifier::CalcEval(const Sentence & sent_src, int trg, LLStats & 
     } else {
         THROW_ERROR("Bad ensembling operation: " << ensemble_operation_ << endl);
     }
-    ll.lik_ += as_scalar(cg.incremental_forward());
+    ll.loss_ -= as_scalar(cg.incremental_forward());
     // Check if it's correct
     if(label == trg) ll.correct_++;
     ll.words_++;

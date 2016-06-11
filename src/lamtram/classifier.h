@@ -13,7 +13,7 @@ class Classifier {
 
 public:
 
-    Classifier(int input_size, int label_size, const std::string & layers, cnn::Model & mod);
+    Classifier(int input_size, int label_size, const std::string & layers, const std::string & smsig, cnn::Model & mod);
     ~Classifier() { }
 
     // Calculate the log likelihood
@@ -45,6 +45,7 @@ protected:
     int input_size_; 
     int label_size_;
     std::string layer_str_;
+    std::string smsig_;
 
     std::vector<cnn::Parameter> p_W_; // Layer weights
     std::vector<cnn::Parameter> p_b_; // Layer bias

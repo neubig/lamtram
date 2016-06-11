@@ -10,8 +10,8 @@ using namespace cnn::expr;
 
 
 Classifier::Classifier(int input_size, int label_size,
-             const std::string & layers, cnn::Model & mod) :
-    input_size_(input_size), label_size_(label_size), layer_str_(layers), curr_graph_(NULL), dropout_(0.f) {
+             const std::string & layers, const std::string & smsig, cnn::Model & mod) :
+    input_size_(input_size), label_size_(label_size), layer_str_(layers), smsig_(smsig), curr_graph_(NULL), dropout_(0.f) {
   vector<string> layer_sizes;
   if(layers.size() > 0)
     boost::split(layer_sizes, layers, boost::is_any_of(":"));
@@ -43,7 +43,13 @@ cnn::expr::Expression Classifier::BuildGraph<int>(const cnn::expr::Expression & 
     if(dropout_) last_expr = dropout(last_expr, dropout_);
   }
   aff = affine_transform({i_b_[i], i_W_[i], last_expr});
-  return pickneglogsoftmax({aff}, label);
+  if(smsig_ == "full") {
+    return pickneglogsoftmax({aff}, label);
+  } else if(smsig_ == "hinge") {
+    return hinge({aff}, label);
+  } else {
+    THROW_ERROR("Illegal softmax signature: " << smsig_);
+  }
 }
 
 template <>
@@ -63,7 +69,13 @@ cnn::expr::Expression Classifier::BuildGraph<vector<int> >(const cnn::expr::Expr
   vector<unsigned> un_label(label.size());
   for(i = 0; i < (int)un_label.size(); i++)
     un_label[i] = label[i];
-  return pickneglogsoftmax({aff}, un_label);
+  if(smsig_ == "full") {
+    return sum_batches(pickneglogsoftmax({aff}, un_label));
+  } else if(smsig_ == "hinge") {
+    return sum_batches(hinge({aff}, un_label));
+  } else {
+    THROW_ERROR("Illegal softmax signature: " << smsig_);
+  }
 }
 
 }
@@ -94,6 +106,10 @@ template
 cnn::expr::Expression Classifier::Forward<cnn::LogSoftmax>(
                    const cnn::expr::Expression & input,
                    cnn::ComputationGraph & cg) const;
+template
+cnn::expr::Expression Classifier::Forward<cnn::Identity>(
+                   const cnn::expr::Expression & input,
+                   cnn::ComputationGraph & cg) const;
 
 void Classifier::NewGraph(cnn::ComputationGraph & cg) {
   for(int i = 0; i < (int)p_W_.size(); i++) {
@@ -106,15 +122,19 @@ void Classifier::NewGraph(cnn::ComputationGraph & cg) {
 
 Classifier* Classifier::Read(std::istream & in, cnn::Model & model) {
   int input_size, label_size;
-  string version_id, layers, line;
+  string version_id, layers, line, smsig;
   if(!getline(in, line))
     THROW_ERROR("Premature end of model file when expecting Classifier");
   istringstream iss(line);
-  iss >> version_id >> input_size >> label_size >> layers;
-  if(version_id != "cls_001") {
-    THROW_ERROR("Expecting a Classifier of version cls_001, but got something different:" << endl << line);
+  if(version_id != "cls_002") {
+    iss >> version_id >> input_size >> label_size >> layers;
+    smsig = "full";
+  } else if(version_id == "cls_002") {
+    iss >> version_id >> input_size >> label_size >> layers >> smsig;
+  } else {
+    THROW_ERROR("Expecting a Classifier of version cls_001 or cls_002, but got something different:" << endl << line);
   }
-  return new Classifier(input_size, label_size, layers, model);
+  return new Classifier(input_size, label_size, layers, smsig, model);
 }
 void Classifier::Write(std::ostream & out) {
   out << "cls_001 " << input_size_ << " " << label_size_ << " " << layer_str_ << endl;

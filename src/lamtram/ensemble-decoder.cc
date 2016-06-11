@@ -130,7 +130,7 @@ Expression EnsembleDecoder::EnsembleSingleLogProb(const std::vector<Expression> 
 
 template <>
 void EnsembleDecoder::AddLik<Sentence,LLStats>(const Sentence & sent, const cnn::expr::Expression & exp, LLStats & ll) {
-  ll.lik_ += as_scalar(exp.value());
+  ll.loss_ -= as_scalar(exp.value());
   ll.words_ += sent.size();
   for(unsigned t = 0; t < sent.size(); t++)
     if(sent[t] == unk_id_)
@@ -141,7 +141,7 @@ void EnsembleDecoder::AddLik<vector<Sentence>,vector<LLStats> >(const vector<Sen
   vector<float> ret = as_vector(exp.value());
   assert(ret.size() == ll.size());
   for(size_t i = 0; i < ret.size(); i++) {
-    ll[i].lik_ += ret[i];
+    ll[i].loss_ -= ret[i];
     ll[i].words_ += sent[i].size();
     for(unsigned t = 0; t < sent[i].size(); t++)
       if(sent[i][t] == unk_id_)
@@ -251,7 +251,6 @@ Sentence EnsembleDecoder::Generate(const Sentence & sent_src, Sentence & align) 
       // Find the best aligned source, if any alignments exists
       WordId best_align = -1;
       if(i_aligns.size() != 0) {
-        Expression i_align_sum = sum(i_aligns);
         vector<cnn::real> align = as_vector(cg.incremental_forward());
         best_align = 0;
         for(size_t aid = 0; aid < align.size(); aid++)

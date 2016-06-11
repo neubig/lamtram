@@ -159,7 +159,7 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
       if(last_id >= sent_range.first && last_id < sent_range.second) {
         LLStats sent_ll(vocab_size);
         decoder.CalcSentLL<Sentence,LLStats>(sent_src, sent_trg, sent_ll);
-        if(GlobalVars::verbose >= 1) { cout << "ll=" << sent_ll.CalcUnkLik() << " unk=" << sent_ll.unk_  << endl; }
+        if(GlobalVars::verbose >= 1) { cout << "ll=" << -sent_ll.CalcUnkLoss() << " unk=" << sent_ll.unk_  << endl; }
         corpus_ll += sent_ll;
       }
     }
@@ -183,7 +183,7 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
         else
           decoder.CalcSentLL<Sentence,LLStats>(sent_src, sents_trg[0], sents_ll[0]);
         for(auto & sent_ll : sents_ll)
-          cout << "ll=" << sent_ll.CalcUnkLik() << " unk=" << sent_ll.unk_  << endl;
+          cout << "ll=" << -sent_ll.CalcUnkLoss() << " unk=" << sent_ll.unk_  << endl;
         sents_trg.resize(0);
         curr_words = 0;
       }
@@ -210,7 +210,7 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
       vector<LLStats> sents_ll(sents_trg.size(), LLStats(vocab_size));
       decoder.CalcSentLL<vector<Sentence>,vector<LLStats> >(sent_src, sents_trg, sents_ll);
       for(auto & sent_ll : sents_ll)
-        cout << "ll=" << sent_ll.CalcUnkLik() << " unk=" << sent_ll.unk_  << endl;
+        cout << "ll=" << -sent_ll.CalcUnkLoss() << " unk=" << sent_ll.unk_  << endl;
       double elapsed = time.Elapsed();
       cerr << "sent=" << last_id << ", time=" << elapsed << " (" << all_words/elapsed << " w/s)" << endl;
     }
@@ -299,7 +299,7 @@ int Lamtram::ClassifierOperation(const boost::program_options::variables_map & v
       sent_src = ParseWords(*vocab_src, line, false);
       // If the encoder
       ensemble.CalcEval(sent_src, trg, sent_ll);
-      if(GlobalVars::verbose > 0) { cout << "ll=" << sent_ll.CalcUnkLik() << " correct=" << sent_ll.correct_ << endl; }
+      if(GlobalVars::verbose > 0) { cout << "ll=" << -sent_ll.CalcUnkLoss() << " correct=" << sent_ll.correct_ << endl; }
       corpus_ll += sent_ll;
     }
     double elapsed = time.Elapsed();
