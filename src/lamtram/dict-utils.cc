@@ -95,10 +95,10 @@ cnn::Dict* ReadDict(std::istream & in) {
     if(line == "") break;
     dict->Convert(line);
   }
+  bool has_unk = dict->Convert("<unk>") == 1;
   dict->Freeze();
-  dict->SetUnk("<unk>");
-  assert(dict->Convert("<s>") == 0);
-  assert(dict->Convert("<unk>") == 1);
+  if(has_unk)
+    dict->SetUnk("<unk>");
   return dict;
 }
 cnn::Dict * CreateNewDict(bool add_tokens) {
