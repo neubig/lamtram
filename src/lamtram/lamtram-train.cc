@@ -317,7 +317,7 @@ void LamtramTrain::TrainLM() {
       curr_sent_loc += train_trg_minibatch[train_ids[loc]].size();
       epoch_frac += 1.f/train_ids.size();
       // cg.PrintGraphviz();
-      train_ll.loss_ += as_scalar(cg.forward());
+      train_ll.loss_ += as_scalar(cg.incremental_forward());
       cg.backward();
       trainer->update();
       ++loc;
@@ -336,7 +336,7 @@ void LamtramTrain::TrainLM() {
         cnn::ComputationGraph cg;
         nlm->NewGraph(cg);
         nlm->BuildSentGraph(sent, empty_minibatch, NULL, empty_hist, 0.f, false, cg, dev_ll);
-        dev_ll.loss_ += as_scalar(cg.forward());
+        dev_ll.loss_ += as_scalar(cg.incremental_forward());
       }
       float elapsed = time.Elapsed();
       cerr << "Epoch " << epoch+1 << " dev: " << dev_ll.PrintStats() << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << dev_ll.words_/elapsed << " w/s)" << endl;
@@ -617,7 +617,7 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
       curr_sent_loc += train_trg_minibatch[train_ids[loc]].size();
       epoch_frac += 1.f/train_ids.size();
       // cg.PrintGraphviz();
-      train_ll.loss_ += as_scalar(cg.forward());
+      train_ll.loss_ += as_scalar(cg.incremental_forward());
       cg.backward();
       trainer->update(learning_scale);
       ++loc;
@@ -638,7 +638,7 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
         encdec.NewGraph(cg);
         // encdec.BuildSentGraph(dev_src[i], dev_trg[i], empty_cache, false, cg, dev_ll);
         encdec.BuildSentGraph(dev_src_minibatch[i], dev_trg_minibatch[i], empty_cache, 0.f, false, cg, dev_ll);
-        dev_ll.loss_ += as_scalar(cg.forward());
+        dev_ll.loss_ += as_scalar(cg.incremental_forward());
       }
       float elapsed = time.Elapsed();
       cerr << "Epoch " << epoch+1 << " dev: " << dev_ll.PrintStats() << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << dev_ll.words_/elapsed << " w/s)" << endl;
@@ -777,7 +777,7 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
       // Increment
       sent_loc++; curr_sent_loc++;
       epoch_frac += 1.f/train_src.size(); 
-      train_loss.loss_ += as_scalar(cg.forward());
+      train_loss.loss_ += as_scalar(cg.incremental_forward());
       train_loss.sents_++;
       // cg.PrintGraphviz();
       cg.backward();
@@ -803,7 +803,7 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
                                                                (include_ref ? &dev_trg[i] : NULL),
                                                                num_samples, max_len, true, cg, trg_samples);
           cnn::expr::Expression exp_loss = CalcRisk(dev_trg[i], trg_samples, trg_log_probs, eval, scaling, dedup, cg);
-          dev_loss.loss_ += as_scalar(cg.forward());
+          dev_loss.loss_ += as_scalar(cg.incremental_forward());
           dev_loss.sents_++;
       }
       float elapsed = time.Elapsed();

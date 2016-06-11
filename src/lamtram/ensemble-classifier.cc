@@ -29,7 +29,7 @@ void EnsembleClassifier::CalcEval(const Sentence & sent_src, int trg, LLStats & 
         }
     }
     Expression i_average = average(i_sms);
-    int label = MaxElement(cnn::as_vector(cg.forward()));
+    int label = MaxElement(cnn::as_vector(cg.incremental_forward()));
     // Ensemble the probabilities and calculate the likelihood
     Expression i_logprob;
     if(ensemble_operation_ == "sum") {
@@ -58,7 +58,7 @@ int EnsembleClassifier::Predict(const Sentence & sent_src) {
         }
     }
     sum(i_sms);
-    return MaxElement(cnn::as_vector(cg.forward()));
+    return MaxElement(cnn::as_vector(cg.incremental_forward()));
 }
 
 
