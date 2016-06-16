@@ -303,6 +303,7 @@ void LamtramTrain::TrainLM() {
         std::shuffle(train_ids.begin(), train_ids.end(), *cnn::rndeng);
         loc = 0;
         sent_loc = 0;
+        last_print = 0;
         ++epoch;
       }
       if(scheduled_samp_) {
@@ -603,6 +604,7 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
         std::shuffle(train_ids.begin(), train_ids.end(), *cnn::rndeng);
         loc = 0;
         sent_loc = 0;
+        last_print = 0;
         ++epoch;
       }
       cnn::ComputationGraph cg;
@@ -761,6 +763,7 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
         for(const pair<int,int> & fold_span : fold_id_spans)
           std::shuffle(train_ids.begin()+fold_span.first, train_ids.begin()+fold_span.second, *cnn::rndeng);
         loc = 0;
+        last_print = 0;
         sent_loc = 0;
         ++epoch;
       }
