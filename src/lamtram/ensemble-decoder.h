@@ -30,6 +30,10 @@ protected:
 };
 
 typedef std::shared_ptr<EnsembleDecoderHyp> EnsembleDecoderHypPtr;
+inline bool operator<(const EnsembleDecoderHypPtr & lhs, const EnsembleDecoderHypPtr & rhs) {
+  if(lhs->GetScore() != rhs->GetScore()) return lhs->GetScore() > rhs->GetScore();
+  return lhs->GetSentence() < rhs->GetSentence();
+}
 
 class EnsembleDecoder {
 
@@ -41,7 +45,9 @@ public:
 
     template <class OutSent, class OutLL>
     void CalcSentLL(const Sentence & sent_src, const OutSent & sent_trg, OutLL & ll);
-    Sentence Generate(const Sentence & sent_src, Sentence & align);
+
+    EnsembleDecoderHypPtr Generate(const Sentence & sent_src);
+    std::vector<EnsembleDecoderHypPtr> GenerateNbest(const Sentence & sent_src, int nbest);
 
     std::vector<std::vector<cnn::expr::Expression> > GetInitialStates(const Sentence & sent_src, cnn::ComputationGraph & cg);
     

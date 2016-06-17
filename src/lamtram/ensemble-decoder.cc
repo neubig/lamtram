@@ -203,15 +203,21 @@ void EnsembleDecoder::CalcSentLL<Sentence,LLStats>(const Sentence & sent_src, co
 template
 void EnsembleDecoder::CalcSentLL<vector<Sentence>,vector<LLStats> >(const Sentence & sent_src, const vector<Sentence> & sent_trg, vector<LLStats> & ll);
 
-Sentence EnsembleDecoder::Generate(const Sentence & sent_src, Sentence & align) {
+EnsembleDecoderHypPtr EnsembleDecoder::Generate(const Sentence & sent_src) {
+  auto nbest = GenerateNbest(sent_src, 1);
+  return (nbest.size() > 0 ? nbest[0] : EnsembleDecoderHypPtr());
+}
 
-  align.clear();
+std::vector<EnsembleDecoderHypPtr> EnsembleDecoder::GenerateNbest(const Sentence & sent_src, int nbest_size) {
 
   // First initialize states
   cnn::ComputationGraph cg;
   for(auto & tm : encdecs_) tm->NewGraph(cg);
   for(auto & tm : encatts_) tm->NewGraph(cg);
   for(auto & lm : lms_) lm->NewGraph(cg);
+
+  // The n-best hypotheses
+  vector<EnsembleDecoderHypPtr> nbest;
 
   // Create the initial hypothesis
   vector<vector<vector<Expression> > > last_states(beam_size_, vector<vector<Expression> >(lms_.size()));
@@ -246,7 +252,10 @@ Sentence EnsembleDecoder::Generate(const Sentence & sent_src, Sentence & align) 
       }
       // Add the word/unk penalty
       vector<cnn::real> softmax = as_vector(cg.incremental_forward());
-      softmax[0] -= word_pen_;
+      if(word_pen_ != 0.f) {
+        for(size_t i = 1; i < softmax.size(); i++)
+          softmax[i] += word_pen_;
+      }
       softmax[unk_id_] += unk_pen_ * unk_log_prob_;
       // Find the best aligned source, if any alignments exists
       WordId best_align = -1;
@@ -268,6 +277,7 @@ Sentence EnsembleDecoder::Generate(const Sentence & sent_src, Sentence & align) 
     // Create the new hypotheses
     vector<EnsembleDecoderHypPtr> next_beam;
     for(int i = 0; i < beam_size_; i++) {
+      cnn::real score = std::get<0>(next_beam_id[i]);
       int hypid = std::get<1>(next_beam_id[i]);
       int wid = std::get<2>(next_beam_id[i]);
       int aid = std::get<3>(next_beam_id[i]);
@@ -277,17 +287,19 @@ Sentence EnsembleDecoder::Generate(const Sentence & sent_src, Sentence & align) 
       next_sent.push_back(wid);
       Sentence next_align = curr_beam[hypid]->GetAlignment();
       next_align.push_back(aid);
-      if(i == 0 && wid == 0) {
-        for(auto a : next_align)
-          align.push_back(a);
-        if(align.size() != next_sent.size()) THROW_ERROR("align.size() == " << align.size() << ", next_sent.size() == " << next_sent.size());
-        return next_sent;
-      }
-      next_beam.push_back(EnsembleDecoderHypPtr(new EnsembleDecoderHyp(
-          std::get<0>(next_beam_id[i]), last_states[hypid], next_sent, next_align)));
+      EnsembleDecoderHypPtr hyp(new EnsembleDecoderHyp(score, last_states[hypid], next_sent, next_align));
+      if(wid == 0) 
+        nbest.push_back(hyp);
+      next_beam.push_back(hyp);
     }
     curr_beam = next_beam;
+    // Check if we're done with search
+    sort(nbest.begin(), nbest.end());
+    if(nbest.size() > nbest_size)
+      nbest.resize(nbest_size);
+    if(nbest.size() == nbest_size && (*nbest.rbegin())->GetScore() >= next_beam[0]->GetScore())
+      return nbest;
   }
   cerr << "WARNING: Generated sentence size exceeded " << size_limit_ << ". Returning empty sentence." << endl;
-  return Sentence();
+  return vector<EnsembleDecoderHypPtr>(0);
 }

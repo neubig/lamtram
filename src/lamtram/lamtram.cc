@@ -223,9 +223,17 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
         sent_src = ParseWords(*vocab_src, str_src, false);
       }
       if(i >= sent_range.first) {
-        sent_trg = decoder.Generate(sent_src, align);
-        str_trg = ConvertWords(*vocab_trg, sent_trg, false);
-        MapWords(str_src, sent_trg, align, mapping, str_trg);
+        EnsembleDecoderHypPtr trg_hyp = decoder.Generate(sent_src);
+        if(trg_hyp.get() == nullptr) {
+          sent_trg.clear();
+          align.clear();
+          str_trg.clear();
+        } else {
+          sent_trg = trg_hyp->GetSentence();
+          align = trg_hyp->GetAlignment();
+          str_trg = ConvertWords(*vocab_trg, sent_trg, false);
+          MapWords(str_src, sent_trg, align, mapping, str_trg);
+        }
         cout << PrintWords(str_trg) << endl;
       }
     }
