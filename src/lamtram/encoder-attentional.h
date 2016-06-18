@@ -23,7 +23,7 @@ class ExternAttentional : public ExternCalculator {
 public:
 
     ExternAttentional(const std::vector<LinearEncoderPtr> & encoders,
-                      int hidden_size, int state_size,
+                      const std::string & attention_type, int state_size,
                       cnn::Model & mod);
     virtual ~ExternAttentional() { }
 
@@ -59,6 +59,7 @@ public:
 
 protected:
     std::vector<LinearEncoderPtr> encoders_;
+    std::string attention_type_;
     int hidden_size_, state_size_;
 
     // Parameters
@@ -161,7 +162,6 @@ protected:
     int vocab_src_, vocab_trg_;
     int ngram_context_, wordrep_size_;
     int unk_src_, unk_trg_;
-    std::string hidden_spec_;
 
     // Vectors
     ExternAttentionalPtr extern_calc_;

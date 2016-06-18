@@ -13,16 +13,25 @@ using namespace lamtram;
 
 
 ExternAttentional::ExternAttentional(const std::vector<LinearEncoderPtr> & encoders,
-                   int hidden_size, int state_size,
+                   const std::string & attention_type, int state_size,
                    cnn::Model & mod)
     : ExternCalculator(0), encoders_(encoders),
-      hidden_size_(hidden_size), state_size_(state_size) {
+      attention_type_(attention_type), hidden_size_(0), state_size_(state_size) {
   for(auto & enc : encoders)
     context_size_ += enc->GetNumNodes();
 
-  p_ehid_h_W_ = mod.add_parameters({(unsigned int)hidden_size_, (unsigned int)context_size_});
-  p_ehid_state_W_ = mod.add_parameters({(unsigned int)hidden_size_, (unsigned int)state_size_});
-  p_e_ehid_W_ = mod.add_parameters({1, (unsigned int)hidden_size_});
+  if(attention_type == "dot") {
+    // No parameters for dot product
+  } else if(attention_type_ == "bilin") {
+    p_ehid_h_W_ = mod.add_parameters({(unsigned int)state_size_, (unsigned int)context_size_});
+  } else {
+    if(attention_type_.substr(0,4) != "mlp:") THROW_ERROR("Illegal attention type: " << attention_type_);
+    hidden_size_ = stoi(attention_type_.substr(4));
+    assert(hidden_size_ != 0);
+    p_ehid_h_W_ = mod.add_parameters({(unsigned int)hidden_size_, (unsigned int)context_size_});
+    p_ehid_state_W_ = mod.add_parameters({(unsigned int)hidden_size_, (unsigned int)state_size_});
+    p_e_ehid_W_ = mod.add_parameters({1, (unsigned int)hidden_size_});
+  }
 }
 
 
@@ -30,29 +39,32 @@ ExternAttentional::ExternAttentional(const std::vector<LinearEncoderPtr> & encod
 void ExternAttentional::NewGraph(cnn::ComputationGraph & cg) {
   for(auto & enc : encoders_)
     enc->NewGraph(cg);
-  i_ehid_h_W_ = parameter(cg, p_ehid_h_W_);
-  i_ehid_state_W_ = parameter(cg, p_ehid_state_W_);
-  i_e_ehid_W_ = parameter(cg, p_e_ehid_W_);
+  if(attention_type_ != "dot")
+    i_ehid_h_W_ = parameter(cg, p_ehid_h_W_);
+  if(hidden_size_) {
+    i_ehid_state_W_ = parameter(cg, p_ehid_state_W_);
+    i_e_ehid_W_ = parameter(cg, p_e_ehid_W_);
+  }
   curr_graph_ = &cg;
 
 }
 
 ExternAttentional* ExternAttentional::Read(std::istream & in, cnn::Model & model) {
-  int num_encoders, hidden_size, state_size;
-  string version_id, line;
+  int num_encoders, state_size;
+  string version_id, attention_type, line;
   if(!getline(in, line))
     THROW_ERROR("Premature end of model file when expecting ExternAttentional");
   istringstream iss(line);
-  iss >> version_id >> num_encoders >> hidden_size >> state_size;
-  if(version_id != "extatt_001")
-    THROW_ERROR("Expecting a ExternAttentional of version extatt_001, but got something different:" << endl << line);
+  iss >> version_id >> num_encoders >> attention_type >> state_size;
+  if(version_id != "extatt_002")
+    THROW_ERROR("Expecting a ExternAttentional of version extatt_002, but got something different:" << endl << line);
   vector<LinearEncoderPtr> encoders;
   while(num_encoders-- > 0)
     encoders.push_back(LinearEncoderPtr(LinearEncoder::Read(in, model)));
-  return new ExternAttentional(encoders, hidden_size, state_size, model);
+  return new ExternAttentional(encoders, attention_type, state_size, model);
 }
 void ExternAttentional::Write(std::ostream & out) {
-  out << "extatt_001 " << encoders_.size() << " " << hidden_size_ << " " << state_size_ << endl;
+  out << "extatt_002 " << encoders_.size() << " " << attention_type_ << " " << state_size_ << endl;
   for(auto & enc : encoders_) enc->Write(out);
 }
 
@@ -87,13 +99,18 @@ void ExternAttentional::InitializeSentence(
   i_h_ = concatenate_cols(hs_comb);
   i_h_last_ = *hs_comb.rbegin();
 
-  // TODO: Currently not using any bias
-  // i_ehid_h_W_ is {hidden_size, context_size}, i_h_ is {context_size, sent_len}
-  i_ehid_hpart_ = i_ehid_h_W_*i_h_;
-
   // Create an identity with shape
-  sent_values_.resize(sent_len_, 1.0);
-  i_sent_len_ = input(cg, {1, (unsigned int)sent_len_}, &sent_values_);
+  if(hidden_size_) {
+    i_ehid_hpart_ = i_ehid_h_W_*i_h_;
+    sent_values_.resize(sent_len_, 1.0);
+    i_sent_len_ = input(cg, {1, (unsigned int)sent_len_}, &sent_values_);
+  } else if(attention_type_ == "dot") {
+    i_ehid_hpart_ = transpose(i_h_);
+  } else if(attention_type_ == "bilin") {
+    i_ehid_hpart_ = transpose(i_ehid_h_W_*i_h_);
+  } else {
+    THROW_ERROR("Bad attention type " << attention_type_);
+  }
 
 }
 
@@ -127,13 +144,18 @@ void ExternAttentional::InitializeSentence(
   i_h_ = concatenate_cols(hs_comb);
   i_h_last_ = *hs_comb.rbegin();
 
-  // TODO: Currently not using any bias
-  // i_ehid_h_W_ is {hidden_size, context_size}, i_h_ is {context_size, sent_len}
-  i_ehid_hpart_ = i_ehid_h_W_*i_h_;
-
   // Create an identity with shape
-  sent_values_.resize(sent_len_, 1.0);
-  i_sent_len_ = input(cg, {1, (unsigned int)sent_len_}, &sent_values_);
+  if(hidden_size_) {
+    i_ehid_hpart_ = i_ehid_h_W_*i_h_;
+    sent_values_.resize(sent_len_, 1.0);
+    i_sent_len_ = input(cg, {1, (unsigned int)sent_len_}, &sent_values_);
+  } else if(attention_type_ == "dot") {
+    i_ehid_hpart_ = transpose(i_h_);
+  } else if(attention_type_ == "bilin") {
+    i_ehid_hpart_ = transpose(i_ehid_h_W_*i_h_);
+  } else {
+    THROW_ERROR("Bad attention type " << attention_type_);
+  }
 
 }
 
@@ -145,20 +167,26 @@ cnn::expr::Expression ExternAttentional::CreateContext(
     std::vector<cnn::expr::Expression> & align_out) const {
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match."); 
-  cnn::expr::Expression i_ehid;
-  if(state_in.size()) {
-    // i_ehid_state_W_ is {hidden_size, state_size}, state_in is {state_size, 1}
-    cnn::expr::Expression i_ehid_spart = i_ehid_state_W_ * *state_in.rbegin();
-    i_ehid = affine_transform({i_ehid_hpart_, i_ehid_spart, i_sent_len_});
+  cnn::expr::Expression i_ehid, i_e;
+  // MLP
+  if(hidden_size_) {
+    if(state_in.size()) {
+      // i_ehid_state_W_ is {hidden_size, state_size}, state_in is {state_size, 1}
+      cnn::expr::Expression i_ehid_spart = i_ehid_state_W_ * *state_in.rbegin();
+      i_ehid = affine_transform({i_ehid_hpart_, i_ehid_spart, i_sent_len_});
+    } else {
+      i_ehid = i_ehid_hpart_;
+    }
+    // Run through nonlinearity
+    cnn::expr::Expression i_ehid_out = tanh({i_ehid});
+    // i_e_ehid_W_ is {1, hidden_size}, i_ehid_out is {hidden_size, sent_len}
+    i_e = transpose(i_e_ehid_W_ * i_ehid_out);
+  // Bilinear/dot product
   } else {
-    i_ehid = i_ehid_hpart_;
+    assert(state_in.size() > 0);
+    i_e = i_ehid_hpart_ * (*state_in.rbegin());
   }
-  // Run through nonlinearity
-  cnn::expr::Expression i_ehid_out = tanh({i_ehid});
-  // i_e_ehid_W_ is {1, hidden_size}, i_ehid_out is {hidden_size, sent_len}
-  cnn::expr::Expression i_e = i_e_ehid_W_ * i_ehid_out;
-  cnn::expr::Expression i_e_trans = transpose(i_e);
-  cnn::expr::Expression i_alpha = softmax({i_e_trans});
+  cnn::expr::Expression i_alpha = softmax({i_e});
   align_out.push_back(i_alpha);
   // Print alignments
   if(GlobalVars::verbose >= 2) {
@@ -197,7 +225,9 @@ std::vector<cnn::expr::Expression> EncoderAttentional::GetEncodedState(const Sen
   // Perform transformation
   vector<cnn::expr::Expression> decoder_in(decoder_->GetNumLayers() * 2);
   for (int i = 0; i < decoder_->GetNumLayers(); ++i) {
-    decoder_in[i] = pickrange({i_decin}, i * decoder_->GetNumNodes(), (i + 1) * decoder_->GetNumNodes());
+    decoder_in[i] = (decoder_->GetNumLayers() == 1 ?
+                     i_decin :
+                     pickrange({i_decin}, i * decoder_->GetNumNodes(), (i + 1) * decoder_->GetNumNodes()));
     decoder_in[i + decoder_->GetNumLayers()] = tanh({decoder_in[i]});
   }
   return decoder_in;

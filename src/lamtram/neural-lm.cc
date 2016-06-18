@@ -15,7 +15,7 @@ using namespace std;
 using namespace lamtram;
 
 NeuralLM::NeuralLM(const DictPtr & vocab, int ngram_context, int extern_context, int wordrep_size,
-           const string & hidden_spec, int unk_id, const std::string & softmax_sig,
+           const BuilderSpec & hidden_spec, int unk_id, const std::string & softmax_sig,
            cnn::Model & model) :
       vocab_(vocab), ngram_context_(ngram_context),
       extern_context_(extern_context), wordrep_size_(wordrep_size),

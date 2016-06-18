@@ -12,7 +12,7 @@ using namespace std;
 using namespace lamtram;
 
 LinearEncoder::LinearEncoder(int vocab_size, int wordrep_size,
-           const string & hidden_spec, int unk_id,
+           const BuilderSpec & hidden_spec, int unk_id,
            cnn::Model & model) :
       vocab_size_(vocab_size), wordrep_size_(wordrep_size), unk_id_(unk_id), hidden_spec_(hidden_spec), reverse_(false) {
   // Hidden layers
@@ -107,7 +107,7 @@ LinearEncoder* LinearEncoder::Read(std::istream & in, cnn::Model & model) {
   iss >> version_id >> vocab_size >> wordrep_size >> hidden_spec >> unk_id >> reverse;
   if(version_id != "linenc_001")
     THROW_ERROR("Expecting a Neural LM of version linenc_001, but got something different:" << endl << line);
-  LinearEncoder * ret = new LinearEncoder(vocab_size, wordrep_size, hidden_spec, unk_id, model);
+  LinearEncoder * ret = new LinearEncoder(vocab_size, wordrep_size, BuilderSpec(hidden_spec), unk_id, model);
   if(reverse == "rev") ret->SetReverse(true);
   return ret;
 }

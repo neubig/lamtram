@@ -37,7 +37,7 @@ public:
     //   softmax_sig: A signature indicating the type of softmax to use
     //   model: The model in which to store the parameters.
     NeuralLM(const DictPtr & vocab, int ngram_context, int extern_context,
-             int wordrep_size, const std::string & hidden_spec, int unk_id,
+             int wordrep_size, const BuilderSpec & hidden_spec, int unk_id,
              const std::string & softmax_sig,
              cnn::Model & model);
     ~NeuralLM() { }

@@ -24,7 +24,7 @@ public:
 
     // Create a new LinearEncoder and add it to the existing model
     LinearEncoder(int vocab_size, int wordrep_size,
-             const std::string & hidden_spec, int unk_id,
+             const BuilderSpec & hidden_spec, int unk_id,
              cnn::Model & model);
     ~LinearEncoder() { }
 

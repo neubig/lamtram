@@ -32,9 +32,9 @@ BOOST_AUTO_TEST_CASE(TestWriteRead) {
   // Create a randomized lm
   cnn::Model act_mod, exp_mod;
   cnn::VariableIndex empty_idx;
-  NeuralLMPtr exp_lm(new NeuralLM(vocab, 2, 2, empty_idx, "rnn:2:1", -1, "full", exp_mod));
-  vector<LinearEncoderPtr> exp_encs(1, LinearEncoderPtr(new LinearEncoder(3, 2, "rnn:2:1", -1, exp_mod)));
-  ExternAttentionalPtr exp_ext(new ExternAttentional(exp_encs, 2, 3, exp_mod));
+  NeuralLMPtr exp_lm(new NeuralLM(vocab, 2, 2, empty_idx, BuilderSpec("rnn:2:1"), -1, "full", exp_mod));
+  vector<LinearEncoderPtr> exp_encs(1, LinearEncoderPtr(new LinearEncoder(3, 2, BuilderSpec("rnn:2:1"), -1, exp_mod)));
+  ExternAttentionalPtr exp_ext(new ExternAttentional(exp_encs, "mlp:2", 3, exp_mod));
   EncoderAttentional exp_encatt(exp_ext, exp_lm, exp_mod);
   // Write the LM
   ostringstream out;

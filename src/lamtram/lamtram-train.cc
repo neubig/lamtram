@@ -63,7 +63,7 @@ int LamtramTrain::main(int argc, char** argv) {
     ("layers", po::value<string>()->default_value("lstm:100:1"), "Descriptor for hidden layers, type:num_units:num_layers")
     ("cls_layers", po::value<string>()->default_value(""), "Descriptor for classifier layers, nodes1:nodes2:...")
     ("wildcards", po::value<string>()->default_value(""), "Wildcards to be used in loading training files")
-    ("attention_nodes", po::value<int>()->default_value(100), "Number of nodes in the attention layer for encatt")
+    ("attention_type", po::value<string>()->default_value("mlp:100"), "Type of attention score (mlp:NUM/bilin)")
     ("cnn_mem", po::value<int>()->default_value(512), "How much memory to allocate to cnn")
     ("verbose", po::value<int>()->default_value(0), "How much verbose output to print")
     ;
@@ -408,14 +408,18 @@ void LamtramTrain::TrainEncDec() {
     vector<LinearEncoderPtr> encoders;
     vector<string> encoder_types;
     boost::algorithm::split(encoder_types, vm_["encoder_types"].as<string>(), boost::is_any_of("|"));
+    BuilderSpec dec_layer_spec(vm_["layers"].as<string>());
+    if(dec_layer_spec.nodes % encoder_types.size() != 0)
+      THROW_ERROR("The number of nodes in the decoder (" << dec_layer_spec.nodes << ") must be divisible by the number of encoders (" << encoder_types.size() << ")");
+    BuilderSpec enc_layer_spec(dec_layer_spec); enc_layer_spec.nodes /= encoder_types.size();
     for(auto & spec : encoder_types) {
-      LinearEncoderPtr enc(new LinearEncoder(vocab_src->size(), vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_src->GetUnkId(), *model));
+      LinearEncoderPtr enc(new LinearEncoder(vocab_src->size(), vm_["wordrep"].as<int>(), enc_layer_spec, vocab_src->GetUnkId(), *model));
       if(spec == "for") { }
       else if(spec == "rev") { enc->SetReverse(true); }
       else { THROW_ERROR("Illegal encoder type: " << spec); }
       encoders.push_back(enc);
     }
-    decoder.reset(new NeuralLM(vocab_trg, context_, 0, vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_trg->GetUnkId(), softmax_sig_, *model));
+    decoder.reset(new NeuralLM(vocab_trg, context_, 0, vm_["wordrep"].as<int>(), dec_layer_spec, vocab_trg->GetUnkId(), softmax_sig_, *model));
     encdec.reset(new EncoderDecoder(encoders, decoder, *model));
   }
 
@@ -472,14 +476,17 @@ void LamtramTrain::TrainEncAtt() {
     vector<LinearEncoderPtr> encoders;
     vector<string> encoder_types;
     boost::algorithm::split(encoder_types, vm_["encoder_types"].as<string>(), boost::is_any_of("|"));
+    BuilderSpec dec_layer_spec(vm_["layers"].as<string>());
+    if(dec_layer_spec.nodes % encoder_types.size() != 0)
+      THROW_ERROR("The number of nodes in the decoder (" << dec_layer_spec.nodes << ") must be divisible by the number of encoders (" << encoder_types.size() << ")");
+    BuilderSpec enc_layer_spec(dec_layer_spec); enc_layer_spec.nodes /= encoder_types.size();
     for(auto & spec : encoder_types) {
-      LinearEncoderPtr enc(new LinearEncoder(vocab_src->size(), vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_src->GetUnkId(), *model));
+      LinearEncoderPtr enc(new LinearEncoder(vocab_src->size(), vm_["wordrep"].as<int>(), enc_layer_spec, vocab_src->GetUnkId(), *model));
       if(spec == "rev") enc->SetReverse(true);
       encoders.push_back(enc);
     }
-    BuilderSpec bspec(vm_["layers"].as<string>());
-    ExternAttentionalPtr extatt(new ExternAttentional(encoders, vm_["attention_nodes"].as<int>(), bspec.nodes, *model));
-    decoder.reset(new NeuralLM(vocab_trg, context_, bspec.nodes * encoders.size(), vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_trg->GetUnkId(), softmax_sig_, *model));
+    ExternAttentionalPtr extatt(new ExternAttentional(encoders, vm_["attention_type"].as<string>(), dec_layer_spec.nodes, *model));
+    decoder.reset(new NeuralLM(vocab_trg, context_, dec_layer_spec.nodes, vm_["wordrep"].as<int>(), dec_layer_spec, vocab_trg->GetUnkId(), softmax_sig_, *model));
     encatt.reset(new EncoderAttentional(extatt, decoder, *model));
   }
 
