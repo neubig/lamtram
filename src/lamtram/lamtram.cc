@@ -34,9 +34,12 @@ void Lamtram::MapWords(const vector<string> & src_strs, const Sentence & trg_sen
     if(trg_sent[i] == unk_id) {
       size_t max_id = align[i];
       if(max_id != -1) {
-        assert(src_strs.size() > max_id);
-        auto it = mapping.find(src_strs[max_id]);
-        trg_strs[i] = (it != mapping.end()) ? it->second.first : src_strs[max_id];
+        if(src_strs.size() <= max_id) {
+          trg_strs[i] = "<unk>";
+        } else {
+          auto it = mapping.find(src_strs[max_id]);
+          trg_strs[i] = (it != mapping.end()) ? it->second.first : src_strs[max_id];
+        }
       }
     }
   }
