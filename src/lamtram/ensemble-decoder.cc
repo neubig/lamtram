@@ -35,7 +35,7 @@ vector<vector<Expression> > EnsembleDecoder::GetInitialStates(const Sentence & s
   for(auto & tm : encdecs_)
     last_state[id++] = tm->GetEncodedState(sent_src, false, cg);
   for(int i : boost::irange(0, (int)encatts_.size()))
-    externs_[id + i]->InitializeSentence(sent_src, false, cg);
+    last_state[id + i] = encatts_[i]->GetEncodedState(sent_src, false, cg);
   return last_state;
 }
 

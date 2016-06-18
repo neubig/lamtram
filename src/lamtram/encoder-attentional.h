@@ -44,6 +44,9 @@ public:
 
     int GetHiddenSize() const { return hidden_size_; }
     int GetStateSize() const { return state_size_; }
+    int GetContextSize() const { return context_size_; }
+
+    cnn::expr::Expression GetState() { return i_h_last_; }
 
     // Reading/writing functions
     static ExternAttentional* Read(std::istream & in, cnn::Model & model);
@@ -70,6 +73,7 @@ protected:
 
     // Temporary variables
     cnn::expr::Expression i_h_;
+    cnn::expr::Expression i_h_last_;
     cnn::expr::Expression i_ehid_hpart_;
     cnn::expr::Expression i_sent_len_;
 
@@ -117,7 +121,7 @@ public:
 
     template <class SentData>
     std::vector<cnn::expr::Expression> GetEncodedState(
-                                    const SentData & sent_src, cnn::ComputationGraph & cg);
+                                    const SentData & sent_src, bool train, cnn::ComputationGraph & cg);
 
     // Reading/writing functions
     static EncoderAttentional* Read(const DictPtr & vocab_src, const DictPtr & vocab_trg, std::istream & in, cnn::Model & model);
@@ -162,6 +166,14 @@ protected:
     // Vectors
     ExternAttentionalPtr extern_calc_;
     NeuralLMPtr decoder_;
+
+    // Parameters
+    cnn::Parameter p_enc2dec_W_; // Encoder to decoder weights
+    cnn::Parameter p_enc2dec_b_; // Encoder to decoder bias
+
+    // Interned Parameters
+    cnn::expr::Expression i_enc2dec_W_;
+    cnn::expr::Expression i_enc2dec_b_;
 
 private:
     // A pointer to the current computation graph.

@@ -85,6 +85,7 @@ void ExternAttentional::InitializeSentence(
     THROW_ERROR("Oversized sentence combination (size="<<hs_comb.size()<<"): " << sent_src);
   }
   i_h_ = concatenate_cols(hs_comb);
+  i_h_last_ = *hs_comb.rbegin();
 
   // TODO: Currently not using any bias
   // i_ehid_h_W_ is {hidden_size, context_size}, i_h_ is {context_size, sent_len}
@@ -124,6 +125,7 @@ void ExternAttentional::InitializeSentence(
     THROW_ERROR("Oversized sentence combination (size="<<hs_comb.size()<<"): " << sent_src);
   }
   i_h_ = concatenate_cols(hs_comb);
+  i_h_last_ = *hs_comb.rbegin();
 
   // TODO: Currently not using any bias
   // i_ehid_h_W_ is {hidden_size, context_size}, i_h_ is {context_size, sent_len}
@@ -171,14 +173,40 @@ EncoderAttentional::EncoderAttentional(
            const ExternAttentionalPtr & extern_calc,
            const NeuralLMPtr & decoder,
            cnn::Model & model)
-  : extern_calc_(extern_calc), decoder_(decoder), curr_graph_(NULL) { }
+  : extern_calc_(extern_calc), decoder_(decoder), curr_graph_(NULL) {
+  // Encoder to decoder mapping parameters
+  int enc2dec_in = extern_calc->GetContextSize();
+  int enc2dec_out = decoder_->GetNumLayers() * decoder_->GetNumNodes();
+  p_enc2dec_W_ = model.add_parameters({(unsigned int)enc2dec_out, (unsigned int)enc2dec_in});
+  p_enc2dec_b_ = model.add_parameters({(unsigned int)enc2dec_out});
+}
 
 
 void EncoderAttentional::NewGraph(cnn::ComputationGraph & cg) {
   extern_calc_->NewGraph(cg);
   decoder_->NewGraph(cg);
+  i_enc2dec_b_ = parameter(cg, p_enc2dec_b_);
+  i_enc2dec_W_ = parameter(cg, p_enc2dec_W_);
   curr_graph_ = &cg;
 }
+
+template <class SentData>
+std::vector<cnn::expr::Expression> EncoderAttentional::GetEncodedState(const SentData & sent_src, bool train, cnn::ComputationGraph & cg) {
+  extern_calc_->InitializeSentence(sent_src, train, cg);
+  cnn::expr::Expression i_decin = affine_transform({i_enc2dec_b_, i_enc2dec_W_, extern_calc_->GetState()});
+  // Perform transformation
+  vector<cnn::expr::Expression> decoder_in(decoder_->GetNumLayers() * 2);
+  for (int i = 0; i < decoder_->GetNumLayers(); ++i) {
+    decoder_in[i] = pickrange({i_decin}, i * decoder_->GetNumNodes(), (i + 1) * decoder_->GetNumNodes());
+    decoder_in[i + decoder_->GetNumLayers()] = tanh({decoder_in[i]});
+  }
+  return decoder_in;
+}
+
+template
+std::vector<cnn::expr::Expression> EncoderAttentional::GetEncodedState<Sentence>(const Sentence & sent_src, bool train, cnn::ComputationGraph & cg);
+template
+std::vector<cnn::expr::Expression> EncoderAttentional::GetEncodedState<std::vector<Sentence> >(const std::vector<Sentence> & sent_src, bool train, cnn::ComputationGraph & cg);
 
 template <class SentData>
 cnn::expr::Expression EncoderAttentional::BuildSentGraph(
@@ -189,8 +217,7 @@ cnn::expr::Expression EncoderAttentional::BuildSentGraph(
           cnn::ComputationGraph & cg, LLStats & ll) {
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match."); 
-  extern_calc_->InitializeSentence(sent_src, train, cg);
-  vector<cnn::expr::Expression> decoder_in;
+  std::vector<cnn::expr::Expression> decoder_in = GetEncodedState(sent_src, train, cg);
   return decoder_->BuildSentGraph(sent_trg, sent_cache, extern_calc_.get(), decoder_in, samp_percent, train, cg, ll);
 }
 
@@ -203,9 +230,7 @@ cnn::expr::Expression EncoderAttentional::SampleTrgSentences(const Sentence & se
                                                              vector<Sentence> & samples) {
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match."); 
-  // Perform encoding with each encoder
-  extern_calc_->InitializeSentence(sent_src, train, cg);
-  vector<cnn::expr::Expression> decoder_in;
+  std::vector<cnn::expr::Expression> decoder_in = GetEncodedState(sent_src, train, cg);
   return decoder_->SampleTrgSentences(extern_calc_.get(), decoder_in, sent_trg, num_samples, max_len, train, cg, samples);
 }
 
