@@ -29,8 +29,8 @@ public:
     ~LinearEncoder() { }
 
     // Build the computation graph for the sentence including loss
-    cnn::expr::Expression BuildSentGraph(const Sentence & sent, bool train, cnn::ComputationGraph & cg);
-    cnn::expr::Expression BuildSentGraph(const std::vector<Sentence> & sent, bool train, cnn::ComputationGraph & cg);
+    cnn::expr::Expression BuildSentGraph(const Sentence & sent, bool add, bool train, cnn::ComputationGraph & cg);
+    cnn::expr::Expression BuildSentGraph(const std::vector<Sentence> & sent, bool add, bool train, cnn::ComputationGraph & cg);
 
     // Reading/writing functions
     static LinearEncoder* Read(std::istream & in, cnn::Model & model);

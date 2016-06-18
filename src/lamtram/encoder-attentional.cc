@@ -60,14 +60,14 @@ void ExternAttentional::Write(std::ostream & out) {
 void ExternAttentional::InitializeSentence(
       const Sentence & sent_src, bool train, cnn::ComputationGraph & cg) {
 
-  sent_len_ = sent_src.size();
-
   // First get the states in a digestable format
   vector<vector<cnn::expr::Expression> > hs_sep;
   for(auto & enc : encoders_) {
-    enc->BuildSentGraph(sent_src, train, cg);
+    enc->BuildSentGraph(sent_src, true, train, cg);
     hs_sep.push_back(enc->GetWordStates());
+    assert(hs_sep[0].size() == hs_sep.rbegin()->size());
   }
+  sent_len_ = hs_sep[0].size();
   // Concatenate them if necessary
   vector<cnn::expr::Expression> hs_comb;
   if(encoders_.size() == 1) {
@@ -102,7 +102,7 @@ void ExternAttentional::InitializeSentence(
   // First get the states in a digestable format
   vector<vector<cnn::expr::Expression> > hs_sep;
   for(auto & enc : encoders_) {
-    enc->BuildSentGraph(sent_src, train, cg);
+    enc->BuildSentGraph(sent_src, true, train, cg);
     hs_sep.push_back(enc->GetWordStates());
     assert(hs_sep[0].size() == hs_sep.rbegin()->size());
   }

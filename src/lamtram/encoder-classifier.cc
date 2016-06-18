@@ -37,7 +37,7 @@ cnn::expr::Expression EncoderClassifier::GetEncodedState(
     // Perform encoding with each encoder
     vector<cnn::expr::Expression> inputs;
     for(auto & enc : encoders_) {
-        enc->BuildSentGraph(sent_src, train, cg);
+        enc->BuildSentGraph(sent_src, true, train, cg);
         for(auto & id : enc->GetFinalHiddenLayers())
             inputs.push_back(id);
     }
