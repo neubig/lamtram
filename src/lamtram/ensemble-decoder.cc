@@ -168,6 +168,7 @@ void EnsembleDecoder::CalcSentLL(const Sentence & sent_src, const Sent & sent_tr
   for(auto & tm : encatts_) tm->NewGraph(cg);
   for(auto & lm : lms_) lm->NewGraph(cg);
   vector<vector<Expression> > last_state = GetInitialStates(sent_src, cg), next_state(lms_.size());
+  vector<Expression> last_extern(lms_.size()), next_extern(lms_.size());
   // Go through and collect the values
   vector<Expression> errs, aligns;
   int max_len = MaxLen(sent_trg);
@@ -176,7 +177,7 @@ void EnsembleDecoder::CalcSentLL(const Sentence & sent_src, const Sent & sent_tr
     // Perform the forward step on all models
     vector<Expression> i_sms;
     for(int j : boost::irange(0, (int)lms_.size()))
-      i_sms.push_back(lms_[j]->Forward<Sent>(sent_trg, t, externs_[j].get(), ensemble_operation_ == "logsum", last_state[j], next_state[j], cg, aligns));
+      i_sms.push_back(lms_[j]->Forward<Sent>(sent_trg, t, externs_[j].get(), ensemble_operation_ == "logsum", last_state[j], last_extern[j], next_state[j], next_extern[j], cg, aligns));
     // Ensemble the probabilities and calculate the likelihood
     Expression i_logprob;
     if(ensemble_operation_ == "sum") {
@@ -221,9 +222,10 @@ std::vector<EnsembleDecoderHypPtr> EnsembleDecoder::GenerateNbest(const Sentence
 
   // Create the initial hypothesis
   vector<vector<vector<Expression> > > last_states(beam_size_, vector<vector<Expression> >(lms_.size()));
+  vector<vector<Expression> > last_externs(beam_size_, vector<Expression>(lms_.size()));
   vector<EnsembleDecoderHypPtr> curr_beam(1, 
       EnsembleDecoderHypPtr(new EnsembleDecoderHyp(
-          0.0, GetInitialStates(sent_src, cg), Sentence(), Sentence())));
+          0.0, GetInitialStates(sent_src, cg), last_externs[0], Sentence(), Sentence())));
   int bid;
   Expression empty_idx;
 
@@ -239,7 +241,7 @@ std::vector<EnsembleDecoderHypPtr> EnsembleDecoder::GenerateNbest(const Sentence
       // Perform the forward step on all models
       vector<Expression> i_softmaxes, i_aligns;
       for(int j : boost::irange(0, (int)lms_.size()))
-        i_softmaxes.push_back( lms_[j]->Forward(sent, sent_len, externs_[j].get(), ensemble_operation_ == "logsum", curr_hyp->GetStates()[j], last_states[hypid][j], cg, i_aligns) );
+        i_softmaxes.push_back( lms_[j]->Forward(sent, sent_len, externs_[j].get(), ensemble_operation_ == "logsum", curr_hyp->GetStates()[j], curr_hyp->GetExterns()[j], last_states[hypid][j], last_externs[hypid][j], cg, i_aligns) );
       // Ensemble and calculate the likelihood
       Expression i_softmax, i_logprob;
       if(ensemble_operation_ == "sum") {
@@ -287,7 +289,7 @@ std::vector<EnsembleDecoderHypPtr> EnsembleDecoder::GenerateNbest(const Sentence
       next_sent.push_back(wid);
       Sentence next_align = curr_beam[hypid]->GetAlignment();
       next_align.push_back(aid);
-      EnsembleDecoderHypPtr hyp(new EnsembleDecoderHyp(score, last_states[hypid], next_sent, next_align));
+      EnsembleDecoderHypPtr hyp(new EnsembleDecoderHyp(score, last_states[hypid], last_externs[hypid], next_sent, next_align));
       if(wid == 0) 
         nbest.push_back(hyp);
       next_beam.push_back(hyp);

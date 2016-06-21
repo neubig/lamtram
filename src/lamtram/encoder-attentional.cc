@@ -24,13 +24,14 @@ ExternAttentional::ExternAttentional(const std::vector<LinearEncoderPtr> & encod
     // No parameters for dot product
   } else if(attention_type_ == "bilin") {
     p_ehid_h_W_ = mod.add_parameters({(unsigned int)state_size_, (unsigned int)context_size_});
-  } else {
-    if(attention_type_.substr(0,4) != "mlp:") THROW_ERROR("Illegal attention type: " << attention_type_);
+  } else if(attention_type_.substr(0,4) == "mlp:") {
     hidden_size_ = stoi(attention_type_.substr(4));
     assert(hidden_size_ != 0);
     p_ehid_h_W_ = mod.add_parameters({(unsigned int)hidden_size_, (unsigned int)context_size_});
     p_ehid_state_W_ = mod.add_parameters({(unsigned int)hidden_size_, (unsigned int)state_size_});
     p_e_ehid_W_ = mod.add_parameters({1, (unsigned int)hidden_size_});
+  } else {
+    THROW_ERROR("Illegal attention type");
   }
 }
 
@@ -157,6 +158,10 @@ void ExternAttentional::InitializeSentence(
     THROW_ERROR("Bad attention type " << attention_type_);
   }
 
+}
+
+cnn::expr::Expression ExternAttentional::GetEmptyContext(cnn::ComputationGraph & cg) const {
+  return zeroes(cg, {(unsigned int)state_size_});
 }
 
 // Create a variable encoding the context

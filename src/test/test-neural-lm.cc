@@ -32,7 +32,7 @@ BOOST_AUTO_TEST_CASE(TestWriteRead) {
   // Create a randomized lm
   std::shared_ptr<cnn::Model> act_mod(new cnn::Model), exp_mod(new cnn::Model);
   cnn::VariableIndex empty_idx;
-  NeuralLM exp_lm(vocab, 2, 2, empty_idx, BuilderSpec("rnn:2:1"), -1, "full", *exp_mod);
+  NeuralLM exp_lm(vocab, 2, 2, false, empty_idx, BuilderSpec("rnn:2:1"), -1, "full", *exp_mod);
   cnn::Dict exp_vocab; exp_vocab.Convert("a"); // Vocab of size 3
   // Write the LM
   ostringstream out;

@@ -42,6 +42,9 @@ public:
         cnn::ComputationGraph & cg,
         std::vector<cnn::expr::Expression> & align_out) const override;
 
+    // Create an empty context
+    virtual cnn::expr::Expression GetEmptyContext(cnn::ComputationGraph & cg) const override;
+
     int GetHiddenSize() const { return hidden_size_; }
     int GetStateSize() const { return state_size_; }
     int GetContextSize() const { return context_size_; }

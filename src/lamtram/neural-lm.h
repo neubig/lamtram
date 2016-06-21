@@ -32,11 +32,13 @@ public:
     //   extern_context: The size in nodes of vector containing extern context
     //     that is calculated from something other than the previous words.
     //     Can be set to zero if this doesn't apply.
+    //   extern_feed: Whether to feed the previous external context back in
     //   wordrep_size: The size of the word representations.
     //   unk_id: The ID of unknown words.
     //   softmax_sig: A signature indicating the type of softmax to use
     //   model: The model in which to store the parameters.
     NeuralLM(const DictPtr & vocab, int ngram_context, int extern_context,
+             bool extern_feed,
              int wordrep_size, const BuilderSpec & hidden_spec, int unk_id,
              const std::string & softmax_sig,
              cnn::Model & model);
@@ -83,10 +85,12 @@ public:
     //  REQUIRES NewGraph to be called before usage
     //   sent: The sentence to be used.
     //   id: The id of the word in the sentence to be used.
-    //   extern_in: The id of the extern context. Ignored if extern_context=0.
+    //   extern_calc: The extern calculator.
     //   log_prob: Calculate the log probability
     //   layer_in: The input of the hidden layer.
+    //   extern_in: The previous extern, if necessary
     //   layer_out: The output of the hidden layer.
+    //   extern_out: The next extern, if necessary
     //   cg: The computation graph.
     //   align_out: The alignments.
     template <class Sent>
@@ -94,7 +98,9 @@ public:
                                const ExternCalculator * extern_calc,
                                bool log_prob,
                                const std::vector<cnn::expr::Expression> & layer_in,
+                               const cnn::expr::Expression & extern_in,
                                std::vector<cnn::expr::Expression> & layer_out,
+                               cnn::expr::Expression & extern_out,
                                cnn::ComputationGraph & cg,
                                std::vector<cnn::expr::Expression> & align_out);
 
@@ -131,7 +137,9 @@ protected:
     DictPtr vocab_;
 
     // Variables
-    int ngram_context_, extern_context_, wordrep_size_, unk_id_;
+    int ngram_context_, extern_context_;
+    bool extern_feed_;
+    int wordrep_size_, unk_id_;
     BuilderSpec hidden_spec_;
 
     // Pointers to the parameters

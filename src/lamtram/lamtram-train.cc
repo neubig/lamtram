@@ -64,6 +64,7 @@ int LamtramTrain::main(int argc, char** argv) {
     ("cls_layers", po::value<string>()->default_value(""), "Descriptor for classifier layers, nodes1:nodes2:...")
     ("wildcards", po::value<string>()->default_value(""), "Wildcards to be used in loading training files")
     ("attention_type", po::value<string>()->default_value("mlp:100"), "Type of attention score (mlp:NUM/bilin)")
+    ("attention_feed", po::value<bool>()->default_value(false), "Whether to perform the input feeding of Luong et al.")
     ("cnn_mem", po::value<int>()->default_value(512), "How much memory to allocate to cnn")
     ("verbose", po::value<int>()->default_value(0), "How much verbose output to print")
     ;
@@ -263,7 +264,7 @@ void LamtramTrain::TrainLM() {
 
   // Create the model
   if(model_in_file_.size() == 0)
-    nlm.reset(new NeuralLM(vocab_trg, context_, 0, vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_trg->GetUnkId(), softmax_sig_, *model));
+    nlm.reset(new NeuralLM(vocab_trg, context_, 0, false, vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_trg->GetUnkId(), softmax_sig_, *model));
   TrainerPtr trainer = GetTrainer(vm_["trainer"].as<string>(), vm_["learning_rate"].as<float>(), *model);
 
   // If necessary, cache the softmax
@@ -419,7 +420,7 @@ void LamtramTrain::TrainEncDec() {
       else { THROW_ERROR("Illegal encoder type: " << spec); }
       encoders.push_back(enc);
     }
-    decoder.reset(new NeuralLM(vocab_trg, context_, 0, vm_["wordrep"].as<int>(), dec_layer_spec, vocab_trg->GetUnkId(), softmax_sig_, *model));
+    decoder.reset(new NeuralLM(vocab_trg, context_, 0, false, vm_["wordrep"].as<int>(), dec_layer_spec, vocab_trg->GetUnkId(), softmax_sig_, *model));
     encdec.reset(new EncoderDecoder(encoders, decoder, *model));
   }
 
@@ -486,7 +487,7 @@ void LamtramTrain::TrainEncAtt() {
       encoders.push_back(enc);
     }
     ExternAttentionalPtr extatt(new ExternAttentional(encoders, vm_["attention_type"].as<string>(), dec_layer_spec.nodes, *model));
-    decoder.reset(new NeuralLM(vocab_trg, context_, dec_layer_spec.nodes, vm_["wordrep"].as<int>(), dec_layer_spec, vocab_trg->GetUnkId(), softmax_sig_, *model));
+    decoder.reset(new NeuralLM(vocab_trg, context_, dec_layer_spec.nodes, vm_["attention_feed"].as<bool>(), vm_["wordrep"].as<int>(), dec_layer_spec, vocab_trg->GetUnkId(), softmax_sig_, *model));
     encatt.reset(new EncoderAttentional(extatt, decoder, *model));
   }
 

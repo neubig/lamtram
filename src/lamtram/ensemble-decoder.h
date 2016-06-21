@@ -12,11 +12,12 @@ namespace lamtram {
 
 class EnsembleDecoderHyp {
 public:
-    EnsembleDecoderHyp(float score, const std::vector<std::vector<cnn::expr::Expression> > & states, const Sentence & sent, const Sentence & align) :
-        score_(score), states_(states), sent_(sent), align_(align) { }
+    EnsembleDecoderHyp(float score, const std::vector<std::vector<cnn::expr::Expression> > & states, const std::vector<cnn::expr::Expression> & externs, const Sentence & sent, const Sentence & align) :
+        score_(score), states_(states), externs_(externs), sent_(sent), align_(align) { }
 
     float GetScore() const { return score_; }
     const std::vector<std::vector<cnn::expr::Expression> > & GetStates() const { return states_; }
+    const std::vector<cnn::expr::Expression> & GetExterns() const { return externs_; }
     const Sentence & GetSentence() const { return sent_; }
     const Sentence & GetAlignment() const { return align_; }
 
@@ -24,6 +25,7 @@ protected:
 
     float score_;
     std::vector<std::vector<cnn::expr::Expression> > states_;
+    std::vector<cnn::expr::Expression> externs_;
     Sentence sent_;
     Sentence align_;
 

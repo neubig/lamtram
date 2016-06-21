@@ -28,6 +28,8 @@ public:
         cnn::ComputationGraph & cg,
         std::vector<cnn::expr::Expression> & align_out) const = 0;
 
+    virtual cnn::expr::Expression GetEmptyContext(cnn::ComputationGraph & cg) const = 0;
+
     int GetSize() const { return context_size_; }
 
 protected:
