@@ -45,7 +45,6 @@ int LamtramTrain::main(int argc, char** argv) {
     ("trainer", po::value<string>()->default_value("sgd"), "Training algorithm (sgd/momentum/adagrad/adadelta)")
     ("softmax", po::value<string>()->default_value("full"), "The type of softmax to use (full/hinge/hier/mod)")
     ("seed", po::value<int>()->default_value(0), "Random seed (default 0 -> changes every time)")
-    // See: Scheduled Sampling for Sequence Prediction with Recurrent Neural Networks
     ("scheduled_samp", po::value<float>()->default_value(0.f), "If set to 1 or more, perform scheduled sampling where the selected value is the number of iterations after which the sampling value reaches 0.5")
     ("learning_rate", po::value<float>()->default_value(0.1), "Learning rate")
     ("learning_criterion", po::value<string>()->default_value("ml"), "The criterion to use for learning (ml/minrisk)")
@@ -65,6 +64,7 @@ int LamtramTrain::main(int argc, char** argv) {
     ("wildcards", po::value<string>()->default_value(""), "Wildcards to be used in loading training files")
     ("attention_type", po::value<string>()->default_value("mlp:100"), "Type of attention score (mlp:NUM/bilin)")
     ("attention_feed", po::value<bool>()->default_value(false), "Whether to perform the input feeding of Luong et al.")
+    ("attention_hist", po::value<string>()->default_value("none"), "How to pass information about the attention into the score function (none/sum)")
     ("cnn_mem", po::value<int>()->default_value(512), "How much memory to allocate to cnn")
     ("verbose", po::value<int>()->default_value(0), "How much verbose output to print")
     ;
@@ -486,7 +486,7 @@ void LamtramTrain::TrainEncAtt() {
       if(spec == "rev") enc->SetReverse(true);
       encoders.push_back(enc);
     }
-    ExternAttentionalPtr extatt(new ExternAttentional(encoders, vm_["attention_type"].as<string>(), dec_layer_spec.nodes, *model));
+    ExternAttentionalPtr extatt(new ExternAttentional(encoders, vm_["attention_type"].as<string>(), vm_["attention_hist"].as<string>(), dec_layer_spec.nodes, *model));
     decoder.reset(new NeuralLM(vocab_trg, context_, dec_layer_spec.nodes, vm_["attention_feed"].as<bool>(), vm_["wordrep"].as<int>(), dec_layer_spec, vocab_trg->GetUnkId(), softmax_sig_, *model));
     encatt.reset(new EncoderAttentional(extatt, decoder, *model));
   }

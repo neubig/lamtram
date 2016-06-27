@@ -99,8 +99,10 @@ public:
                                bool log_prob,
                                const std::vector<cnn::expr::Expression> & layer_in,
                                const cnn::expr::Expression & extern_in,
+                               const cnn::expr::Expression & extern_sum_in,
                                std::vector<cnn::expr::Expression> & layer_out,
                                cnn::expr::Expression & extern_out,
+                               cnn::expr::Expression & extern_sum_out,
                                cnn::ComputationGraph & cg,
                                std::vector<cnn::expr::Expression> & align_out);
 

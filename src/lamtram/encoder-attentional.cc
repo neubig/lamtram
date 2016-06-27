@@ -13,10 +13,10 @@ using namespace lamtram;
 
 
 ExternAttentional::ExternAttentional(const std::vector<LinearEncoderPtr> & encoders,
-                   const std::string & attention_type, int state_size,
+                   const std::string & attention_type, const std::string & attention_hist, int state_size,
                    cnn::Model & mod)
     : ExternCalculator(0), encoders_(encoders),
-      attention_type_(attention_type), hidden_size_(0), state_size_(state_size) {
+      attention_type_(attention_type), attention_hist_(attention_hist), hidden_size_(0), state_size_(state_size) {
   for(auto & enc : encoders)
     context_size_ += enc->GetNumNodes();
 
@@ -31,7 +31,14 @@ ExternAttentional::ExternAttentional(const std::vector<LinearEncoderPtr> & encod
     p_ehid_state_W_ = mod.add_parameters({(unsigned int)hidden_size_, (unsigned int)state_size_});
     p_e_ehid_W_ = mod.add_parameters({1, (unsigned int)hidden_size_});
   } else {
-    THROW_ERROR("Illegal attention type");
+    THROW_ERROR("Illegal attention type: " << attention_type);
+  }
+  // Create the attention history type
+  if(attention_hist == "sum") {
+    p_align_sum_W_ = mod.add_parameters({1});
+    p_align_sum_W_.zero();
+  } else if(attention_hist != "none") {
+    THROW_ERROR("Illegal attention history type: " << attention_hist);
   }
 }
 
@@ -46,26 +53,34 @@ void ExternAttentional::NewGraph(cnn::ComputationGraph & cg) {
     i_ehid_state_W_ = parameter(cg, p_ehid_state_W_);
     i_e_ehid_W_ = parameter(cg, p_e_ehid_W_);
   }
+  if(attention_hist_ == "sum") {
+    i_align_sum_W_ = parameter(cg, p_align_sum_W_);
+  }
   curr_graph_ = &cg;
-
 }
 
 ExternAttentional* ExternAttentional::Read(std::istream & in, cnn::Model & model) {
   int num_encoders, state_size;
-  string version_id, attention_type, line;
+  string version_id, attention_type, attention_hist, line;
   if(!getline(in, line))
     THROW_ERROR("Premature end of model file when expecting ExternAttentional");
   istringstream iss(line);
-  iss >> version_id >> num_encoders >> attention_type >> state_size;
-  if(version_id != "extatt_002")
-    THROW_ERROR("Expecting a ExternAttentional of version extatt_002, but got something different:" << endl << line);
+  iss >> version_id;
+  if(version_id == "extatt_002") {
+    iss >> num_encoders >> attention_type >> state_size;
+    attention_hist = "none";
+  } else if (version_id == "extatt_003") {
+    iss >> num_encoders >> attention_type >> attention_hist >> state_size;
+  } else {
+    THROW_ERROR("Expecting a ExternAttentional of version extatt_002 or extatt_003, but got something different:" << endl << line);
+  }
   vector<LinearEncoderPtr> encoders;
   while(num_encoders-- > 0)
     encoders.push_back(LinearEncoderPtr(LinearEncoder::Read(in, model)));
-  return new ExternAttentional(encoders, attention_type, state_size, model);
+  return new ExternAttentional(encoders, attention_type, attention_hist, state_size, model);
 }
 void ExternAttentional::Write(std::ostream & out) {
-  out << "extatt_002 " << encoders_.size() << " " << attention_type_ << " " << state_size_ << endl;
+  out << "extatt_003 " << encoders_.size() << " " << attention_type_ << " " << attention_hist_ << " " << state_size_ << endl;
   for(auto & enc : encoders_) enc->Write(out);
 }
 
@@ -167,9 +182,11 @@ cnn::expr::Expression ExternAttentional::GetEmptyContext(cnn::ComputationGraph &
 // Create a variable encoding the context
 cnn::expr::Expression ExternAttentional::CreateContext(
     const std::vector<cnn::expr::Expression> & state_in,
+    const cnn::expr::Expression & align_sum_in,
     bool train,
     cnn::ComputationGraph & cg,
-    std::vector<cnn::expr::Expression> & align_out) const {
+    std::vector<cnn::expr::Expression> & align_out,
+    cnn::expr::Expression & align_sum_out) const {
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match."); 
   cnn::expr::Expression i_ehid, i_e;
@@ -191,12 +208,26 @@ cnn::expr::Expression ExternAttentional::CreateContext(
     assert(state_in.size() > 0);
     i_e = i_ehid_hpart_ * (*state_in.rbegin());
   }
-  cnn::expr::Expression i_alpha = softmax({i_e});
+  cnn::expr::Expression i_alpha;
+  // Calculate the softmax, adding the previous sum if necessary
+  if(align_sum_in.pg != nullptr) {
+    i_alpha = softmax(i_e + align_sum_in * i_align_sum_W_);
+    // // DEBUG
+    // cnn::Tensor align_sum_tens = align_sum_in.value();
+    // vector<float> align_sum_val = as_vector(align_sum_in.value());
+    // cerr << "align_sum_in:"; for(size_t i = 0; i < align_sum_tens.d.rows(); ++i) cerr << ' ' << align_sum_val[i]; cerr << endl;
+  } else {
+    i_alpha = softmax(i_e);
+  }
+  // Save the alignments and print if necessary
   align_out.push_back(i_alpha);
-  // Print alignments
   if(GlobalVars::verbose >= 2) {
     vector<cnn::real> softmax = as_vector(cg.incremental_forward());
     cerr << "Alignments: " << softmax << endl;
+  }
+  // Update the sum if necessary
+  if(attention_hist_ == "sum") {
+    align_sum_out = (align_sum_in.pg != nullptr ? align_sum_in + i_alpha : i_alpha);
   }
   // i_h_ is {input_size, sent_len}, i_alpha is {sent_len, 1}
   return i_h_ * i_alpha; 
