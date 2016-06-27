@@ -344,7 +344,7 @@ int Lamtram::main(int argc, char** argv) {
     ("max_len", po::value<int>()->default_value(200), "Limit on the max length of sentences")
     ("src_in", po::value<string>()->default_value(""), "File to read the source from, if any")
     ("word_pen", po::value<float>()->default_value(0.f), "The \"word penalty\", a larger value favors longer sentences, shorter favors shorter")
-    ("unk_pen", po::value<float>()->default_value(1.f), "A penalty for unknown words, larger will create fewer unknown words when decoding")
+    ("unk_pen", po::value<float>()->default_value(0.f), "A penalty for unknown words, larger will create fewer unknown words when decoding")
     ;
   po::variables_map vm;
   po::store(po::parse_command_line(argc, argv, desc), vm);
