@@ -27,16 +27,15 @@ BOOST_FIXTURE_TEST_SUITE(neural_lm, TestNeuralLM)
 // Note that this is just checking if serialized strings is equal,
 // which is a hack for now because cnn::Model doesn't have an equality operator.
 BOOST_AUTO_TEST_CASE(TestWriteRead) {
-  DictPtr vocab(new cnn::Dict);
-  vocab->Convert("<s>"); vocab->Convert("<unk>"); vocab->Convert("hello");
-  // Create a randomized lm
   std::shared_ptr<cnn::Model> act_mod(new cnn::Model), exp_mod(new cnn::Model);
+  // Create a randomized lm
+  DictPtr exp_vocab(new cnn::Dict);
+  exp_vocab->Convert("<s>"); exp_vocab->Convert("<unk>"); exp_vocab->Convert("hello");
   cnn::VariableIndex empty_idx;
-  NeuralLM exp_lm(vocab, 2, 2, false, empty_idx, BuilderSpec("rnn:2:1"), -1, "full", *exp_mod);
-  cnn::Dict exp_vocab; exp_vocab.Convert("a"); // Vocab of size 3
+  NeuralLM exp_lm(exp_vocab, 2, 2, false, empty_idx, BuilderSpec("rnn:2:1"), -1, "full", *exp_mod);
   // Write the LM
   ostringstream out;
-  WriteDict(exp_vocab, out);
+  WriteDict(*exp_vocab, out);
   exp_lm.Write(out);
   ModelUtils::WriteModelText(out, *exp_mod);
   // Read the LM

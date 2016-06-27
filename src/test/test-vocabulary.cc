@@ -14,18 +14,19 @@ using namespace lamtram;
 BOOST_AUTO_TEST_SUITE(vocabulary)
 
 BOOST_AUTO_TEST_CASE(TestParseWords) {
-    // Create the words. Sentence end symbol is always 0.
-    cnn::Dict vocab;
-    string in = "  a b  c a c <s> b  ";
-    Sentence exp(7), act;
-    exp[0] = 1;
-    exp[1] = 2;
-    exp[2] = 3;
-    exp[3] = 1;
-    exp[4] = 3;
+    // Create the words. <s> is 0 and <unk> is 1.
+    DictPtr vocab(CreateNewDict());
+    string in = "  a b  c a c <s> b <unk> ";
+    Sentence exp(8), act;
+    exp[0] = 2;
+    exp[1] = 3;
+    exp[2] = 4;
+    exp[3] = 2;
+    exp[4] = 4;
     exp[5] = 0;
-    exp[6] = 2;
-    act = ParseWords(vocab, in, false);
+    exp[6] = 3;
+    exp[7] = 1;
+    act = ParseWords(*vocab, in, false);
     BOOST_CHECK_EQUAL_COLLECTIONS(exp.begin(), exp.end(), act.begin(), act.end());
 }
 
@@ -38,14 +39,14 @@ BOOST_AUTO_TEST_CASE(TestPrintWords) {
 }
 
 BOOST_AUTO_TEST_CASE(TestReadWrite) {
-    cnn::Dict vocab_exp;
+    DictPtr vocab_exp(CreateNewDict());
     string in = "  a b  c a c <s> b  ";
-    ParseWords(vocab_exp, in, false);
+    ParseWords(*vocab_exp, in, false);
     stringstream out;
-    WriteDict(vocab_exp, out);
-    shared_ptr<cnn::Dict> vocab_act(ReadDict(out));
+    WriteDict(*vocab_exp, out);
+    DictPtr vocab_act(ReadDict(out));
     BOOST_CHECK_EQUAL_COLLECTIONS(
-        vocab_exp.GetWords().begin(), vocab_exp.GetWords().end(),
+        vocab_exp->GetWords().begin(), vocab_exp->GetWords().end(),
         vocab_act->GetWords().begin(), vocab_act->GetWords().end());
 }
 
