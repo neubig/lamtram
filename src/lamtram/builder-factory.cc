@@ -18,6 +18,7 @@ BuilderSpec::BuilderSpec(const std::string & spec) {
     type = strs[0];
     nodes = boost::lexical_cast<int>(strs[1]); 
     layers = boost::lexical_cast<int>(strs[2]); 
+    multiplier = (type == "lstm" ? 2 : 1);
 }
 
 BuilderPtr BuilderFactory::CreateBuilder(const BuilderSpec & spec, int input_dim, cnn::Model & model) {

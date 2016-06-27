@@ -192,7 +192,7 @@ void EnsembleDecoder::CalcSentLL(const Sentence & sent_src, const Sent & sent_tr
     // cerr << "i_logprob @ " << t << " == " << sent_trg[t] << ": " << as_scalar(i_logprob.value()) << endl;
     errs.push_back(i_logprob);
     last_state = next_state;
-
+    last_extern = next_extern;
   }
   Expression err = sum(errs);
   cg.forward();

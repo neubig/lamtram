@@ -128,6 +128,7 @@ public:
     int GetUnkId() const { return unk_id_; }
     int GetNumLayers() const { return hidden_spec_.layers; }
     int GetNumNodes() const { return hidden_spec_.nodes; }
+    int GetLayerMultiplier() const { return hidden_spec_.multiplier; }
     SoftmaxBase & GetSoftmax() { return *softmax_; }
 
     // Setters

@@ -3,6 +3,9 @@
 
 #include <lamtram/macros.h>
 #include <lamtram/neural-lm.h>
+#include <lamtram/encoder-decoder.h>
+#include <lamtram/encoder-attentional.h>
+#include <lamtram/ensemble-decoder.h>
 #include <lamtram/model-utils.h>
 #include <cnn/dict.h>
 
@@ -12,12 +15,13 @@ using namespace lamtram;
 // ****** The fixture *******
 struct TestNeuralLM {
 
-  TestNeuralLM() : sent_(6) {
-    sent_ = {0, 0, 1, 2, 3, 0};
+  TestNeuralLM() : sent_src_(4), sent_trg_(4), cache_() {
+    sent_src_ = {1, 2, 3, 0};
+    sent_trg_ = {3, 2, 1, 0};
   }
   ~TestNeuralLM() { }
 
-  Sentence sent_;
+  Sentence sent_src_, sent_trg_, cache_;
 };
 
 // ****** The tests *******
@@ -30,8 +34,7 @@ BOOST_AUTO_TEST_CASE(TestWriteRead) {
   std::shared_ptr<cnn::Model> act_mod(new cnn::Model), exp_mod(new cnn::Model);
   // Create a randomized lm
   DictPtr exp_vocab(CreateNewDict()); exp_vocab->Convert("hello");
-  cnn::VariableIndex empty_idx;
-  NeuralLM exp_lm(exp_vocab, 2, 2, false, empty_idx, BuilderSpec("rnn:2:1"), -1, "full", *exp_mod);
+  NeuralLM exp_lm(exp_vocab, 2, 2, false, 3, BuilderSpec("rnn:2:1"), -1, "full", *exp_mod);
   // Write the LM
   ostringstream out;
   WriteDict(*exp_vocab, out);
@@ -50,6 +53,30 @@ BOOST_AUTO_TEST_CASE(TestWriteRead) {
   string second_string = out2.str();
   // Check if the two
   BOOST_CHECK_EQUAL(first_string, second_string);
+}
+
+// Test whether scores during decoding are the same as those during training
+BOOST_AUTO_TEST_CASE(TestDecodingScores) {
+  std::shared_ptr<cnn::Model> mod(new cnn::Model);
+  // Create a randomized lm
+  DictPtr vocab(CreateNewDict()); vocab->Convert("a"); vocab->Convert("b"); vocab->Convert("c");
+  NeuralLMPtr lmptr(new NeuralLM(vocab, 1, 0, false, 3, BuilderSpec("rnn:2:1"), -1, "full", *mod));
+  // Create the ensemble decoder
+  vector<EncoderDecoderPtr> encdecs;
+  vector<EncoderAttentionalPtr> encatts;
+  vector<NeuralLMPtr> lms; lms.push_back(lmptr);
+  EnsembleDecoder ensdec(encdecs, encatts, lms);
+  // Compare the two values
+  LLStats train_stat(vocab->size()), test_stat(vocab->size());
+  vector<cnn::expr::Expression> layer_in;
+  {
+    cnn::ComputationGraph cg;
+    lmptr->NewGraph(cg);
+    lmptr->BuildSentGraph(sent_trg_, cache_, nullptr, layer_in, 0.f, false, cg, train_stat);
+    train_stat.loss_ += as_scalar(cg.incremental_forward());
+  }
+  ensdec.CalcSentLL(sent_src_, sent_trg_, test_stat);
+  BOOST_CHECK_EQUAL(train_stat.CalcPPL(), test_stat.CalcPPL());
 }
 
 BOOST_AUTO_TEST_SUITE_END()

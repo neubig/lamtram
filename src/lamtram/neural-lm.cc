@@ -14,6 +14,13 @@
 using namespace std;
 using namespace lamtram;
 
+inline std::string print_vec(const std::vector<float> & vec) {
+  ostringstream oss;
+  if(vec.size() > 0) oss << vec[0];
+  for(size_t i = 1; i < vec.size(); ++i) oss << ' ' << vec[i];
+  return oss.str();
+}
+
 NeuralLM::NeuralLM(const DictPtr & vocab, int ngram_context, int extern_context, bool extern_feed,
            int wordrep_size, const BuilderSpec & hidden_spec, int unk_id, const std::string & softmax_sig,
            cnn::Model & model) :
@@ -25,6 +32,7 @@ NeuralLM::NeuralLM(const DictPtr & vocab, int ngram_context, int extern_context,
                        ngram_context*wordrep_size + (extern_feed ? extern_context : 0),
                        model);
   // Word representations
+  assert(wordrep_size > 0);
   p_wr_W_ = model.add_lookup_parameters(vocab->size(), {(unsigned int)wordrep_size}); 
 
   // Create the softmax
@@ -41,7 +49,6 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
                       cnn::ComputationGraph & cg, LLStats & ll) {
   if(samp_prob != 0.f)
     THROW_ERROR("Single-sentence scheduled sampling not implemented yet");
-  // DEBUG if(!train) cerr << "LOSS @ " << sent << ": " << endl;
   size_t i;
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
@@ -49,11 +56,13 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
   builder_->start_new_sequence(layer_in);
   // First get all the word representations
   cnn::expr::Expression i_wr_start = lookup(cg, p_wr_W_, (unsigned)0);
-  vector<cnn::expr::Expression> i_wr;
+  // cerr << "i_wr_start = " << i_wr_start.value().d << endl;
+  vector<cnn::expr::Expression> i_wr(slen);
   for(auto t : boost::irange(0, slen))
-    i_wr.push_back(lookup(cg, p_wr_W_, sent[t]));
+    i_wr[t] = lookup(cg, p_wr_W_, sent[t]);
   // Initialize the previous extern
   cnn::expr::Expression extern_in;
+  assert(extern_context_ == 0 || extern_calc != nullptr);
   if(extern_context_ != 0 && extern_feed_) extern_in = extern_calc->GetEmptyContext(cg);
   // Next, do the computation
   vector<cnn::expr::Expression> errs, aligns;
@@ -62,11 +71,20 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
   for(auto t : boost::irange(0, slen+1)) {
     // Concatenate wordrep and possibly external context into a vector for the hidden unit
     vector<cnn::expr::Expression> i_wrs_t;
-    for(auto hist : boost::irange(t - ngram_context_, t))
+    for(auto hist : boost::irange(t - ngram_context_, t)) {
       i_wrs_t.push_back(hist >= 0 ? i_wr[hist] : i_wr_start);
+    }
     if(extern_context_ > 0 && extern_feed_)
       i_wrs_t.push_back(extern_in);
-    cnn::expr::Expression i_wr_t = concatenate(i_wrs_t);
+    // Concatenate the inputs if necessary
+    cnn::expr::Expression i_wr_t;
+    if(i_wrs_t.size() > 1) {
+      i_wr_t = concatenate(i_wrs_t);
+    } else {
+      assert(i_wrs_t.size() == 1);
+      i_wr_t = i_wrs_t[0];
+    }
+    // cerr << "i_wr_t == " << print_vec(as_vector(i_wr_t.value())) << endl;
     // Run the hidden unit
     cnn::expr::Expression i_h_t = builder_->add_input(i_wr_t);
     // Calculate the extern if existing
@@ -74,21 +92,21 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
       extern_in = extern_calc->CreateContext(builder_->final_h(), align_sum, train, cg, aligns, align_sum);
       i_h_t = concatenate({i_h_t, extern_in});
     }
+    // cerr << "i_h_t == " << print_vec(as_vector(i_h_t.value())) << endl;
     // Run the softmax and calculate the error
     for(i = 0; i < ngram.size()-1; i++) ngram[i] = ngram[i+1];
     ngram[i] = sent[t];
     cnn::expr::Expression i_err = (cache_ids.size() ?
       softmax_->CalcLossCache(i_h_t, cache_ids[t], ngram, train) :
       softmax_->CalcLoss(i_h_t, ngram, train));
-    // DEBUG if(!train) cerr << ' ' << as_scalar(i_err.value());
+    // DEBUG cerr << ' ' << as_scalar(i_err.value());
     errs.push_back(i_err);
     // If this word is unknown, then add to the unknown count
     if(sent[t] == unk_id_)
       ll.unk_++;
     ll.words_++;
   }
-  // DEBUG if(!train) cerr << endl;
-  
+  // DEBUG cerr << endl; 
   cnn::expr::Expression i_nerr = sum(errs);
   return i_nerr;
 }
@@ -144,7 +162,14 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
       i_wrs_t.push_back(hist >= 0 ? i_wr[hist] : i_wr_start);
     if(extern_context_ > 0 && extern_feed_)
       i_wrs_t.push_back(extern_in);
-    cnn::expr::Expression i_wr_t = concatenate(i_wrs_t);
+    // Concatenate the inputs if necessary
+    cnn::expr::Expression i_wr_t;
+    if(i_wrs_t.size() > 1) {
+      i_wr_t = concatenate(i_wrs_t);
+    } else {
+      assert(i_wrs_t.size() == 1);
+      i_wr_t = i_wrs_t[0];
+    }
     // Run the hidden unit
     cnn::expr::Expression i_h_t = builder_->add_input(i_wr_t);
     // Calculate the extern if existing
@@ -244,7 +269,14 @@ Expression NeuralLM::SampleTrgSentences(
       i_wrs_t.push_back(hist >= 0 ? i_wr[hist] : i_wr_start);
     if(extern_context_ > 0 && extern_feed_)
       i_wrs_t.push_back(extern_in);
-    cnn::expr::Expression i_wr_t = concatenate(i_wrs_t);
+    // Concatenate the inputs if necessary
+    cnn::expr::Expression i_wr_t;
+    if(i_wrs_t.size() > 1) {
+      i_wr_t = concatenate(i_wrs_t);
+    } else {
+      assert(i_wrs_t.size() == 1);
+      i_wr_t = i_wrs_t[0];
+    }
     // Run the hidden unit
     cnn::expr::Expression i_h_t = builder_->add_input(i_wr_t);
     // Calculate the extern if existing
@@ -354,7 +386,15 @@ cnn::expr::Expression NeuralLM::Forward(const Sent & sent, int t,
     i_wrs_t.push_back(lookup(cg, p_wr_W_, CreateWord(sent, hist)));
   if(extern_feed_)
     i_wrs_t.push_back(extern_in.pg == nullptr ? extern_calc->GetEmptyContext(cg) : extern_in);
-  cnn::expr::Expression i_wr_t = concatenate(i_wrs_t);
+  // Concatenate the inputs if necessary
+  cnn::expr::Expression i_wr_t;
+  if(i_wrs_t.size() > 1) {
+    i_wr_t = concatenate(i_wrs_t);
+  } else {
+    assert(i_wrs_t.size() == 1);
+    i_wr_t = i_wrs_t[0];
+  }
+  // cerr << "i_wr_t == " << print_vec(as_vector(i_wr_t.value())) << endl;
   // Run the hidden unit
   cnn::expr::Expression i_h_t = builder_->add_input(i_wr_t);
   // Calculate the extern if existing
@@ -362,6 +402,7 @@ cnn::expr::Expression NeuralLM::Forward(const Sent & sent, int t,
     extern_out = extern_calc->CreateContext(builder_->final_h(), align_sum_in, false, cg, align_out, align_sum_out);
     i_h_t = concatenate({i_h_t, extern_out});
   }
+  // cerr << "i_h_t == " << print_vec(as_vector(i_h_t.value())) << endl;
   // Create the context
   Sent ctxt_ngram = CreateContext<Sent>(sent, t);
   // Run the softmax and calculate the error

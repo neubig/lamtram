@@ -15,7 +15,7 @@ class BuilderSpec {
 public:
     BuilderSpec(const std::string & str);
     std::string type;
-    int nodes, layers;
+    int nodes, layers, multiplier;
 };
 inline std::ostream & operator<<(std::ostream & out, const BuilderSpec & spec) {
     return out << spec.type << ":" << spec.nodes << ":" << spec.layers;

@@ -256,15 +256,20 @@ void EncoderAttentional::NewGraph(cnn::ComputationGraph & cg) {
 
 template <class SentData>
 std::vector<cnn::expr::Expression> EncoderAttentional::GetEncodedState(const SentData & sent_src, bool train, cnn::ComputationGraph & cg) {
+  int here = 0;
   extern_calc_->InitializeSentence(sent_src, train, cg);
   cnn::expr::Expression i_decin = affine_transform({i_enc2dec_b_, i_enc2dec_W_, extern_calc_->GetState()});
   // Perform transformation
-  vector<cnn::expr::Expression> decoder_in(decoder_->GetNumLayers() * 2);
+  vector<cnn::expr::Expression> decoder_in(decoder_->GetNumLayers() * decoder_->GetLayerMultiplier());
   for (int i = 0; i < decoder_->GetNumLayers(); ++i) {
     decoder_in[i] = (decoder_->GetNumLayers() == 1 ?
                      i_decin :
                      pickrange({i_decin}, i * decoder_->GetNumNodes(), (i + 1) * decoder_->GetNumNodes()));
-    decoder_in[i + decoder_->GetNumLayers()] = tanh({decoder_in[i]});
+    if(decoder_->GetLayerMultiplier() == 2) {
+      decoder_in[i + decoder_->GetNumLayers()] = tanh({decoder_in[i]});
+    } else {
+      decoder_in[i] = tanh(decoder_in[i]);
+    }
   }
   return decoder_in;
 }
