@@ -30,8 +30,8 @@ BOOST_AUTO_TEST_CASE(TestWriteRead) {
   // Create a randomized lm
   shared_ptr<cnn::Model> act_mod(new cnn::Model), exp_mod(new cnn::Model);
   cnn::VariableIndex empty_idx;
-  DictPtr exp_src_vocab(new cnn::Dict); exp_src_vocab->Convert("<s>"); exp_src_vocab->Convert("<unk>"); exp_src_vocab->Convert("hola");
-  DictPtr exp_trg_vocab(new cnn::Dict); exp_trg_vocab->Convert("<s>"); exp_trg_vocab->Convert("<unk>"); exp_trg_vocab->Convert("hello");
+  DictPtr exp_src_vocab(CreateNewDict()); exp_src_vocab->Convert("hola");
+  DictPtr exp_trg_vocab(CreateNewDict()); exp_trg_vocab->Convert("hello");
   NeuralLMPtr exp_lm(new NeuralLM(exp_trg_vocab, 2, 2, false, empty_idx, BuilderSpec("rnn:2:1"), -1, "full", *exp_mod));
   vector<LinearEncoderPtr> exp_encs(1, LinearEncoderPtr(new LinearEncoder(3, 2, BuilderSpec("rnn:2:1"), -1, *exp_mod)));
   EncoderDecoder exp_encatt(exp_encs, exp_lm, *exp_mod);

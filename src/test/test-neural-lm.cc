@@ -29,8 +29,7 @@ BOOST_FIXTURE_TEST_SUITE(neural_lm, TestNeuralLM)
 BOOST_AUTO_TEST_CASE(TestWriteRead) {
   std::shared_ptr<cnn::Model> act_mod(new cnn::Model), exp_mod(new cnn::Model);
   // Create a randomized lm
-  DictPtr exp_vocab(new cnn::Dict);
-  exp_vocab->Convert("<s>"); exp_vocab->Convert("<unk>"); exp_vocab->Convert("hello");
+  DictPtr exp_vocab(CreateNewDict()); exp_vocab->Convert("hello");
   cnn::VariableIndex empty_idx;
   NeuralLM exp_lm(exp_vocab, 2, 2, false, empty_idx, BuilderSpec("rnn:2:1"), -1, "full", *exp_mod);
   // Write the LM
