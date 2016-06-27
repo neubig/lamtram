@@ -7,6 +7,7 @@ test_lamtram_SOURCES = \
     test-lamtram.cc \
     test-neural-lm.cc \
     test-encoder-attentional.cc \
+    test-encoder-decoder.cc \
     test-vocabulary.cc
 
 test_lamtram_LDADD = \
