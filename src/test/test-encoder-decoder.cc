@@ -32,6 +32,7 @@ struct TestEncoderDecoder {
     vector<EncoderAttentionalPtr> encatts;
     vector<NeuralLMPtr> lms;
     ensdec_ = shared_ptr<EnsembleDecoder>(new EnsembleDecoder(encdecs, encatts, lms));
+    ensdec_->SetSizeLimit(100);
     // Perform a few rounds of training
     cnn::SimpleSGDTrainer sgd(mod_.get());
     LLStats train_stat(vocab_trg_->size());
@@ -47,10 +48,10 @@ struct TestEncoderDecoder {
   ~TestEncoderDecoder() { }
 
   Sentence sent_src_, sent_trg_, cache_;
-  shared_ptr<EnsembleDecoder> ensdec_;
   DictPtr vocab_src_, vocab_trg_;
+  shared_ptr<EnsembleDecoder> ensdec_;
   EncoderDecoderPtr encdec_;
-  std::shared_ptr<cnn::Model> mod_;
+  shared_ptr<cnn::Model> mod_;
 };
 
 // ****** The tests *******
@@ -100,7 +101,7 @@ BOOST_AUTO_TEST_CASE(TestLLScores) {
     train_stat.loss_ += as_scalar(cg.incremental_forward());
   }
   ensdec_->CalcSentLL(sent_src_, sent_trg_, test_stat);
-  BOOST_CHECK_EQUAL(train_stat.CalcPPL(), test_stat.CalcPPL());
+  BOOST_CHECK_CLOSE(train_stat.CalcPPL(), test_stat.CalcPPL(), 0.1);
 }
 
 // Test whether scores during decoding are the same as training
@@ -110,6 +111,29 @@ BOOST_AUTO_TEST_CASE(TestDecodingScores) {
   // Perform decoding
   {
     vector<EnsembleDecoderHypPtr> hyps = ensdec_->GenerateNbest(sent_src_, 1);
+    decode_ll = hyps[0]->GetScore();
+    decode_sent = hyps[0]->GetSentence();
+  }
+  // Calculate the training likelihood for that value
+  {
+    LLStats train_stat(vocab_trg_->size());
+    cnn::ComputationGraph cg;
+    encdec_->NewGraph(cg);
+    encdec_->BuildSentGraph(sent_src_, decode_sent, cache_, 0.f, false, cg, train_stat);
+    train_ll = -as_scalar(cg.incremental_forward());
+  }
+  BOOST_CHECK_CLOSE(train_ll, decode_ll, 0.01);
+}
+
+// Test whether scores during decoding are the same as training
+BOOST_AUTO_TEST_CASE(TestBeamDecodingScores) {
+  float train_ll = 0, decode_ll = 0;
+  Sentence decode_sent;
+  // Perform decoding
+  {
+    ensdec_->SetBeamSize(5);
+    vector<EnsembleDecoderHypPtr> hyps = ensdec_->GenerateNbest(sent_src_, 1);
+    ensdec_->SetBeamSize(1);
     decode_ll = hyps[0]->GetScore();
     decode_sent = hyps[0]->GetSentence();
   }

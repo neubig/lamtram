@@ -297,11 +297,13 @@ std::vector<EnsembleDecoderHypPtr> EnsembleDecoder::GenerateNbest(const Sentence
     }
     curr_beam = next_beam;
     // Check if we're done with search
-    sort(nbest.begin(), nbest.end());
-    if(nbest.size() > nbest_size)
-      nbest.resize(nbest_size);
-    if(nbest.size() == nbest_size && (*nbest.rbegin())->GetScore() >= next_beam[0]->GetScore())
-      return nbest;
+    if(nbest.size() != 0) {
+      sort(nbest.begin(), nbest.end());
+      if(nbest.size() > nbest_size)
+        nbest.resize(nbest_size);
+      if(nbest.size() == nbest_size && (*nbest.rbegin())->GetScore() >= next_beam[0]->GetScore())
+        return nbest;
+    }
   }
   cerr << "WARNING: Generated sentence size exceeded " << size_limit_ << ". Truncating." << endl;
   return nbest;

@@ -76,7 +76,7 @@ BOOST_AUTO_TEST_CASE(TestDecodingScores) {
     train_stat.loss_ += as_scalar(cg.incremental_forward());
   }
   ensdec.CalcSentLL(sent_src_, sent_trg_, test_stat);
-  BOOST_CHECK_EQUAL(train_stat.CalcPPL(), test_stat.CalcPPL());
+  BOOST_CHECK_CLOSE(train_stat.CalcPPL(), test_stat.CalcPPL(), 0.1);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
