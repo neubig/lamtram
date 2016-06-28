@@ -7,6 +7,7 @@
 #include <lamtram/ensemble-decoder.h>
 #include <lamtram/model-utils.h>
 #include <cnn/dict.h>
+#include <cnn/training.h>
 
 using namespace std;
 using namespace lamtram;
@@ -17,10 +18,40 @@ struct TestEncoderAttentional {
   TestEncoderAttentional() : sent_src_(4), sent_trg_(4) {
     sent_src_ = {1, 2, 3, 0};
     sent_trg_ = {3, 2, 1, 0};
+
+    // Create the model
+    mod_ = shared_ptr<cnn::Model>(new cnn::Model);
+    // Create a randomized lm
+    vocab_src_ = DictPtr(CreateNewDict()); vocab_src_->Convert("a"); vocab_src_->Convert("b"); vocab_src_->Convert("c");
+    vocab_trg_ = DictPtr(CreateNewDict()); vocab_trg_->Convert("x"); vocab_trg_->Convert("y"); vocab_trg_->Convert("z");
+    NeuralLMPtr lmptr(new NeuralLM(vocab_trg_, 1, 0, false, 5, BuilderSpec("lstm:5:1"), -1, "full", *mod_));
+    vector<LinearEncoderPtr> encs(1, LinearEncoderPtr(new LinearEncoder(vocab_src_->size(), 5, BuilderSpec("lstm:5:1"), -1, *mod_)));
+    ExternAttentionalPtr ext(new ExternAttentional(encs, "mlp:2", "none", 3, *mod_));
+    encatt_ = shared_ptr<EncoderAttentional>(new EncoderAttentional(ext, lmptr, *mod_));
+    // Create the ensemble decoder
+    vector<EncoderDecoderPtr> encdecs;
+    vector<EncoderAttentionalPtr> encatts; encatts.push_back(encatt_);
+    vector<NeuralLMPtr> lms;
+    ensdec_ = shared_ptr<EnsembleDecoder>(new EnsembleDecoder(encdecs, encatts, lms));
+    // Perform a few rounds of training
+    cnn::SimpleSGDTrainer sgd(mod_.get());
+    LLStats train_stat(vocab_trg_->size());
+    for(size_t i = 0; i < 100; ++i) {
+      cnn::ComputationGraph cg;
+      encatt_->NewGraph(cg);
+      encatt_->BuildSentGraph(sent_src_, sent_trg_, cache_, 0.f, false, cg, train_stat);
+      cg.forward();
+      cg.backward();
+      sgd.update(0.1);
+    }
   }
   ~TestEncoderAttentional() { }
 
   Sentence sent_src_, sent_trg_, cache_;
+  shared_ptr<EnsembleDecoder> ensdec_;
+  DictPtr vocab_src_, vocab_trg_;
+  EncoderAttentionalPtr encatt_;
+  std::shared_ptr<cnn::Model> mod_;
 };
 
 // ****** The tests *******
@@ -62,57 +93,37 @@ BOOST_AUTO_TEST_CASE(TestWriteRead) {
 
 // Test whether scores during likelihood calculation are the same as training
 BOOST_AUTO_TEST_CASE(TestLLScores) {
-  std::shared_ptr<cnn::Model> mod(new cnn::Model);
-  // Create a randomized lm
-  DictPtr vocab_src(CreateNewDict()); vocab_src->Convert("a"); vocab_src->Convert("b"); vocab_src->Convert("c");
-  DictPtr vocab_trg(CreateNewDict()); vocab_trg->Convert("x"); vocab_trg->Convert("y"); vocab_trg->Convert("z");
-  NeuralLMPtr lmptr(new NeuralLM(vocab_trg, 2, 2, true, 3, BuilderSpec("rnn:2:1"), -1, "full", *mod));
-  vector<LinearEncoderPtr> encs(1, LinearEncoderPtr(new LinearEncoder(vocab_src->size(), 2, BuilderSpec("rnn:2:1"), -1, *mod)));
-  ExternAttentionalPtr ext(new ExternAttentional(encs, "mlp:2", "sum", 2, *mod));
-  EncoderAttentionalPtr encatt(new EncoderAttentional(ext, lmptr, *mod));
-  // Create the ensemble decoder
-  vector<EncoderDecoderPtr> encdecs;
-  vector<EncoderAttentionalPtr> encatts; encatts.push_back(encatt);
-  vector<NeuralLMPtr> lms;
-  EnsembleDecoder ensdec(encdecs, encatts, lms);
   // Compare the two values
-  LLStats train_stat(vocab_trg->size()), test_stat(vocab_trg->size());
+  LLStats train_stat(vocab_trg_->size()), test_stat(vocab_trg_->size());
   {
     cnn::ComputationGraph cg;
-    encatt->NewGraph(cg);
-    encatt->BuildSentGraph(sent_src_, sent_trg_, cache_, 0.f, false, cg, train_stat);
+    encatt_->NewGraph(cg);
+    encatt_->BuildSentGraph(sent_src_, sent_trg_, cache_, 0.f, false, cg, train_stat);
     train_stat.loss_ += as_scalar(cg.incremental_forward());
   }
-  ensdec.CalcSentLL(sent_src_, sent_trg_, test_stat);
+  ensdec_->CalcSentLL(sent_src_, sent_trg_, test_stat);
   BOOST_CHECK_EQUAL(train_stat.CalcPPL(), test_stat.CalcPPL());
 }
 
-// Test whether scores during likelihood calculation are the same as training
-BOOST_AUTO_TEST_CASE(TestLLScoresDot) {
-  std::shared_ptr<cnn::Model> mod(new cnn::Model);
-  // Create a randomized lm
-  DictPtr vocab_src(CreateNewDict()); vocab_src->Convert("a"); vocab_src->Convert("b"); vocab_src->Convert("c");
-  DictPtr vocab_trg(CreateNewDict()); vocab_trg->Convert("x"); vocab_trg->Convert("y"); vocab_trg->Convert("z");
-  NeuralLMPtr lmptr(new NeuralLM(vocab_trg, 2, 2, false, 3, BuilderSpec("rnn:2:1"), -1, "full", *mod));
-  vector<LinearEncoderPtr> encs(1, LinearEncoderPtr(new LinearEncoder(vocab_src->size(), 2, BuilderSpec("rnn:2:1"), -1, *mod)));
-  ExternAttentionalPtr ext(new ExternAttentional(encs, "dot", "none", 2, *mod));
-  EncoderAttentionalPtr encatt(new EncoderAttentional(ext, lmptr, *mod));
-  // Create the ensemble decoder
-  vector<EncoderDecoderPtr> encdecs;
-  vector<EncoderAttentionalPtr> encatts; encatts.push_back(encatt);
-  vector<NeuralLMPtr> lms;
-  EnsembleDecoder ensdec(encdecs, encatts, lms);
-  // Compare the two values
-  LLStats train_stat(vocab_trg->size()), test_stat(vocab_trg->size());
+// Test whether scores during decoding are the same as training
+BOOST_AUTO_TEST_CASE(TestDecodingScores) {
+  float train_ll = 0, decode_ll = 0;
+  Sentence decode_sent;
+  // Perform decoding
   {
-    cnn::ComputationGraph cg;
-    encatt->NewGraph(cg);
-    encatt->BuildSentGraph(sent_src_, sent_trg_, cache_, 0.f, false, cg, train_stat);
-    train_stat.loss_ += as_scalar(cg.incremental_forward());
+    vector<EnsembleDecoderHypPtr> hyps = ensdec_->GenerateNbest(sent_src_, 1);
+    decode_ll = hyps[0]->GetScore();
+    decode_sent = hyps[0]->GetSentence();
   }
-  ensdec.CalcSentLL(sent_src_, sent_trg_, test_stat);
-  BOOST_CHECK_EQUAL(train_stat.CalcPPL(), test_stat.CalcPPL());
+  // Calculate the training likelihood for that value
+  {
+    LLStats train_stat(vocab_trg_->size());
+    cnn::ComputationGraph cg;
+    encatt_->NewGraph(cg);
+    encatt_->BuildSentGraph(sent_src_, decode_sent, cache_, 0.f, false, cg, train_stat);
+    train_ll = -as_scalar(cg.incremental_forward());
+  }
+  BOOST_CHECK_CLOSE(train_ll, decode_ll, 0.01);
 }
-
 
 BOOST_AUTO_TEST_SUITE_END()
