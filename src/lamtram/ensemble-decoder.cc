@@ -259,7 +259,7 @@ std::vector<EnsembleDecoderHypPtr> EnsembleDecoder::GenerateNbest(const Sentence
         for(size_t i = 1; i < softmax.size(); i++)
           softmax[i] += word_pen_;
       }
-      softmax[unk_id_] += unk_pen_ * unk_log_prob_;
+      if(unk_id_ >= 0) softmax[unk_id_] += unk_pen_ * unk_log_prob_;
       // Find the best aligned source, if any alignments exists
       WordId best_align = -1;
       if(i_aligns.size() != 0) {
@@ -291,7 +291,7 @@ std::vector<EnsembleDecoderHypPtr> EnsembleDecoder::GenerateNbest(const Sentence
       Sentence next_align = curr_beam[hypid]->GetAlignment();
       next_align.push_back(aid);
       EnsembleDecoderHypPtr hyp(new EnsembleDecoderHyp(score, last_states[hypid], last_externs[hypid], last_sums[hypid], next_sent, next_align));
-      if(wid == 0) 
+      if(wid == 0 || sent_len == size_limit_) 
         nbest.push_back(hyp);
       next_beam.push_back(hyp);
     }
@@ -303,6 +303,7 @@ std::vector<EnsembleDecoderHypPtr> EnsembleDecoder::GenerateNbest(const Sentence
     if(nbest.size() == nbest_size && (*nbest.rbegin())->GetScore() >= next_beam[0]->GetScore())
       return nbest;
   }
-  cerr << "WARNING: Generated sentence size exceeded " << size_limit_ << ". Returning empty sentence." << endl;
-  return vector<EnsembleDecoderHypPtr>(0);
+  cerr << "WARNING: Generated sentence size exceeded " << size_limit_ << ". Truncating." << endl;
+  return nbest;
+  // return vector<EnsembleDecoderHypPtr>(0);
 }
