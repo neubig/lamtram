@@ -360,6 +360,8 @@ void LamtramTrain::TrainLM() {
       // Open the output stream
       ofstream out(model_out_file_.c_str());
       if(!out) THROW_ERROR("Could not open output file: " << model_out_file_);
+      // Rescale parameters before writing
+      trainer->rescale_and_reset_weight_decay();
       // Write the model (TODO: move this to a separate file?)
       WriteDict(*vocab_trg, out);
       // vocab_trg->Write(out);
@@ -669,6 +671,8 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
     if(best_loss > my_loss) {
       ofstream out(model_out_file_.c_str());
       if(!out) THROW_ERROR("Could not open output file: " << model_out_file_);
+      // Rescale parameters before writing
+      trainer->rescale_and_reset_weight_decay();
       // Write the model (TODO: move this to a separate file?)
       WriteDict(vocab_src, out);
       WriteDict(vocab_trg, out);
@@ -836,6 +840,8 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
     if(best_loss > my_loss) {
       ofstream out(model_out_file_.c_str());
       if(!out) THROW_ERROR("Could not open output file: " << model_out_file_);
+      // Rescale parameters before writing
+      trainer->rescale_and_reset_weight_decay();
       // Write the model (TODO: move this to a separate file?)
       WriteDict(vocab_src, out);
       WriteDict(vocab_trg, out);
