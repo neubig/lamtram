@@ -78,6 +78,7 @@ protected:
     std::string lex_type_, lex_file_;
     MultipleIdMappingPtr lex_mapping_;
     float lex_alpha_;
+    size_t lex_size_;
 
     // Parameters
     cnn::Parameter p_ehid_h_W_;

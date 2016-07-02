@@ -25,7 +25,7 @@ namespace po = boost::program_options;
 
 // typedef std::vector<std::vector<float> > Sentence;
 
-void Lamtram::MapWords(const vector<string> & src_strs, const Sentence & trg_sent, const Sentence & align, const UniqueStringMapping & mapping, vector<string> & trg_strs) {
+void Lamtram::MapWords(const vector<string> & src_strs, const Sentence & trg_sent, const Sentence & align, const UniqueStringMappingPtr & mapping, vector<string> & trg_strs) {
   if(align.size() == 0) return;
   assert(trg_sent.size() >= trg_strs.size());
   assert(align.size() == trg_sent.size());
@@ -36,9 +36,11 @@ void Lamtram::MapWords(const vector<string> & src_strs, const Sentence & trg_sen
       if(max_id != -1) {
         if(src_strs.size() <= max_id) {
           trg_strs[i] = "<unk>";
+        } else if(mapping.get() != nullptr) {
+          auto it = mapping->find(src_strs[max_id]);
+          trg_strs[i] = (it != mapping->end()) ? it->second.first : src_strs[max_id];
         } else {
-          auto it = mapping.find(src_strs[max_id]);
-          trg_strs[i] = (it != mapping.end()) ? it->second.first : src_strs[max_id];
+          trg_strs[i] = src_strs[max_id];
         }
       }
     }
@@ -223,7 +225,7 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
           sent_trg = trg_hyp->GetSentence();
           align = trg_hyp->GetAlignment();
           str_trg = ConvertWords(*vocab_trg, sent_trg, false);
-          MapWords(str_src, sent_trg, align, *mapping, str_trg);
+          MapWords(str_src, sent_trg, align, mapping, str_trg);
         }
         cout << PrintWords(str_trg) << endl;
       }

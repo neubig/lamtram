@@ -4,6 +4,7 @@
 #include <cnn/model.h>
 #include <cnn/nodes.h>
 #include <cnn/rnn.h>
+#include <cnn/dict.h>
 #include <boost/range/irange.hpp>
 #include <boost/algorithm/string.hpp>
 #include <ctime>
@@ -56,11 +57,18 @@ ExternAttentional::ExternAttentional(const std::vector<LinearEncoderPtr> & encod
           lex_mapping_.reset(LoadMultipleIdMapping(lex_file_, vocab_src, vocab_trg));
         } else if(strs[i].substr(0,6) == "alpha=") {
           lex_alpha_ = stof(strs[i].substr(6));
+          if(lex_alpha_ <= 0) THROW_ERROR("Value alpha for lexicon must be larger than zero");
         } else {
           THROW_ERROR("Illegal lexicon type: " << lex_type_);
         }
         assert(lex_mapping_.get() != nullptr);
       }
+      // Do post-processing
+      lex_size_ = vocab_trg->size();
+      for(auto & lex_val : *lex_mapping_)
+        for(auto & kv : lex_val.second)
+          kv.second = log(kv.second + lex_alpha_);
+      lex_alpha_ = log(lex_alpha_);
     } else {
       THROW_ERROR("Illegal lexicon type: " << lex_type_);
     }
@@ -164,7 +172,15 @@ void ExternAttentional::InitializeSentence(
 
   // If we're using a lexicon, create it
   if(lex_type_ != "none") {
-    THROW_ERROR("Cannot use prior yet");
+    vector<float> prior_val(lex_size_*sent_len_, lex_alpha_);
+    size_t start = 0;
+    for(size_t i = 0; i < sent_len_; ++i, start += lex_size_) {
+      auto it = lex_mapping_->find(sent_src[i]);
+      if(it != lex_mapping_->end())
+        for(auto & kv : it->second)
+          prior_val[start + kv.first] = kv.second;
+    }
+    i_lexicon_ = input(cg, {(unsigned int)lex_size_, (unsigned int)sent_len_}, prior_val);
   }
 
 }
@@ -210,6 +226,22 @@ void ExternAttentional::InitializeSentence(
     i_ehid_hpart_ = transpose(i_ehid_h_W_*i_h_);
   } else {
     THROW_ERROR("Bad attention type " << attention_type_);
+  }
+
+  // If we're using a lexicon, create it
+  if(lex_type_ != "none") {
+    vector<float> prior_val(lex_size_*sent_len_*sent_src.size(), lex_alpha_);
+    size_t start = 0;
+    for(size_t j = 0; j < sent_src.size(); ++j) {
+      for(size_t i = 0; i < sent_len_; ++i, start += lex_size_) {
+        if(sent_src[j][i] == 0 && sent_src[j][i-1] == 0) continue;
+        auto it = lex_mapping_->find(sent_src[j][i]);
+        if(it != lex_mapping_->end())
+          for(auto & kv : it->second)
+            prior_val[start + kv.first] = kv.second;
+      }
+    }
+    i_lexicon_ = input(cg, cnn::Dim({(unsigned int)lex_size_, (unsigned int)sent_len_}, (unsigned int)sent_src.size()), prior_val);
   }
 
 }

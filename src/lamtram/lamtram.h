@@ -11,7 +11,7 @@ class Lamtram {
 
 public:
 
-  void MapWords(const std::vector<std::string> & src_strs, const Sentence & trg_sent, const Sentence & align, const UniqueStringMapping & mapping, std::vector<std::string> & trg_strs);
+  void MapWords(const std::vector<std::string> & src_strs, const Sentence & trg_sent, const Sentence & align, const UniqueStringMappingPtr & mapping, std::vector<std::string> & trg_strs);
 
   Lamtram() { }
   int main(int argc, char** argv);
