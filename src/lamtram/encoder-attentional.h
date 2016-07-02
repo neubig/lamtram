@@ -5,6 +5,7 @@
 #include <lamtram/linear-encoder.h>
 #include <lamtram/neural-lm.h>
 #include <lamtram/extern-calculator.h>
+#include <lamtram/mapping.h>
 #include <cnn/cnn.h>
 #include <vector>
 #include <iostream>
@@ -24,7 +25,8 @@ public:
 
     ExternAttentional(const std::vector<LinearEncoderPtr> & encoders,
                       const std::string & attention_type, const std::string & attention_hist,
-                      int state_size,
+                      int state_size, const std::string & lex_type,
+                      const DictPtr & vocab_src, const DictPtr & vocab_trg,
                       cnn::Model & mod);
     virtual ~ExternAttentional() { }
 
@@ -45,6 +47,10 @@ public:
         std::vector<cnn::expr::Expression> & align_out,
         cnn::expr::Expression & align_sum_out) const override;
 
+    // Calculate the prior
+    cnn::expr::Expression CalcPrior(
+        const cnn::expr::Expression & align_vec) const override;
+
     // Create an empty context
     virtual cnn::expr::Expression GetEmptyContext(cnn::ComputationGraph & cg) const override;
 
@@ -55,7 +61,7 @@ public:
     cnn::expr::Expression GetState() { return i_h_last_; }
 
     // Reading/writing functions
-    static ExternAttentional* Read(std::istream & in, cnn::Model & model);
+    static ExternAttentional* Read(std::istream & in, const DictPtr & vocab_src, const DictPtr & vocab_trg, cnn::Model & model);
     void Write(std::ostream & out);
 
     // Setters
@@ -67,6 +73,11 @@ protected:
     std::vector<LinearEncoderPtr> encoders_;
     std::string attention_type_, attention_hist_;
     int hidden_size_, state_size_;
+
+    // Lexical type
+    std::string lex_type_, lex_file_;
+    MultipleIdMappingPtr lex_mapping_;
+    float lex_alpha_;
 
     // Parameters
     cnn::Parameter p_ehid_h_W_;
@@ -85,6 +96,7 @@ protected:
     cnn::expr::Expression i_h_last_;
     cnn::expr::Expression i_ehid_hpart_;
     cnn::expr::Expression i_sent_len_;
+    cnn::expr::Expression i_lexicon_;
 
 private:
     // A pointer to the current computation graph.

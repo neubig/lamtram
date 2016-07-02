@@ -11,6 +11,7 @@
 #include <lamtram/string-util.h>
 #include <lamtram/ensemble-decoder.h>
 #include <lamtram/ensemble-classifier.h>
+#include <lamtram/mapping.h>
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string.hpp>
 #include <cnn/dict.h>
@@ -22,10 +23,9 @@ using namespace std;
 using namespace lamtram;
 namespace po = boost::program_options;
 
-typedef std::unordered_map<std::string, std::pair<std::string, float> > Mapping;
-typedef std::vector<std::vector<float> > Sentence;
+// typedef std::vector<std::vector<float> > Sentence;
 
-void Lamtram::MapWords(const vector<string> & src_strs, const Sentence & trg_sent, const Sentence & align, const Mapping & mapping, vector<string> & trg_strs) {
+void Lamtram::MapWords(const vector<string> & src_strs, const Sentence & trg_sent, const Sentence & align, const UniqueStringMapping & mapping, vector<string> & trg_strs) {
   if(align.size() == 0) return;
   assert(trg_sent.size() >= trg_strs.size());
   assert(align.size() == trg_sent.size());
@@ -94,21 +94,9 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
   int vocab_size = vocab_trg->size();
 
   // Get the mapping table if necessary
-  Mapping mapping;
-  if(vm["map_in"].as<std::string>() != "") {
-    ifstream map_in(vm["map_in"].as<std::string>());
-    if(!map_in)
-      THROW_ERROR("Could not find map_in file " << vm["map_in"].as<std::string>());
-    while(getline(map_in, line)) {
-      boost::split(strs, line, boost::is_any_of("\t"));
-      if(strs.size() != 3)
-        THROW_ERROR("Invalid line in mapping file: " << line);
-      float my_score = stof(strs[2]);
-      auto it = mapping.find(strs[0]);
-      if(it == mapping.end() || it->second.second < my_score)
-        mapping[strs[0]] = make_pair(strs[1], my_score);
-    }
-  }
+  UniqueStringMappingPtr mapping;
+  if(vm["map_in"].as<std::string>() != "")
+    mapping.reset(LoadUniqueStringMapping(vm["map_in"].as<std::string>()));
 
   // Get the source input if necessary
   shared_ptr<ifstream> src_in;
@@ -235,7 +223,7 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
           sent_trg = trg_hyp->GetSentence();
           align = trg_hyp->GetAlignment();
           str_trg = ConvertWords(*vocab_trg, sent_trg, false);
-          MapWords(str_src, sent_trg, align, mapping, str_trg);
+          MapWords(str_src, sent_trg, align, *mapping, str_trg);
         }
         cout << PrintWords(str_trg) << endl;
       }

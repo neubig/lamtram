@@ -12,6 +12,7 @@ LIBCPP = \
     encoder-classifier.cc \
     timer.cc \
     macros.cc \
+    mapping.cc \
     classifier.cc \
     builder-factory.cc \
     model-utils.cc \

@@ -30,6 +30,10 @@ public:
         std::vector<cnn::expr::Expression> & align_out,
         cnn::expr::Expression & align_sum_out) const = 0;
 
+    // Calculate the prior over the inputs
+    virtual cnn::expr::Expression CalcPrior(
+        const cnn::expr::Expression & align_vec) const { return cnn::expr::Expression(); };
+
     virtual cnn::expr::Expression GetEmptyContext(cnn::ComputationGraph & cg) const = 0;
 
     int GetSize() const { return context_size_; }

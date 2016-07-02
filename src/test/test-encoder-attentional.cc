@@ -1,13 +1,16 @@
 #define BOOST_TEST_DYN_LINK
 #include <boost/test/unit_test.hpp>
 
+#include <fstream>
+
+#include <cnn/dict.h>
+#include <cnn/training.h>
+
 #include <lamtram/macros.h>
 #include <lamtram/encoder-decoder.h>
 #include <lamtram/encoder-attentional.h>
 #include <lamtram/ensemble-decoder.h>
 #include <lamtram/model-utils.h>
-#include <cnn/dict.h>
-#include <cnn/training.h>
 
 using namespace std;
 using namespace lamtram;
@@ -34,13 +37,22 @@ struct TestEncoderAttentional {
         shared_ptr<EnsembleDecoder> & ensdec,
         const std::string & attention_type = "mlp:2",
         bool attention_feed = false,
-        const std::string & attention_hist = "none"
+        const std::string & attention_hist = "none",
+        const std::string & lex_type = "none"
   ) {
+    // Create a dummy lexicon file if necessary
+    string my_lex_type = lex_type;
+    if(lex_type == "prior") {
+      ofstream ofs("/tmp/lex_prior.txt");
+      if(!ofs) THROW_ERROR("Could not open /tmp/lex_prior.txt for writing");
+      ofs << "a\tx\t0.7\na\ty\t0.3\nb\tz\t1.0\nc\ty\t1.0\n";
+      my_lex_type = "prior:file=/tmp/lex_prior.txt:alpha=0.001";
+    }
     // Create the model
     mod = shared_ptr<cnn::Model>(new cnn::Model);
     NeuralLMPtr lmptr(new NeuralLM(vocab_trg_, 1, (attention_feed ? 5 : 0), attention_feed, 5, BuilderSpec("lstm:5:1"), -1, "full", *mod));
     vector<LinearEncoderPtr> encs(1, LinearEncoderPtr(new LinearEncoder(vocab_src_->size(), 5, BuilderSpec("lstm:5:1"), -1, *mod)));
-    ExternAttentionalPtr ext(new ExternAttentional(encs, attention_type, attention_hist, 5, *mod));
+    ExternAttentionalPtr ext(new ExternAttentional(encs, attention_type, attention_hist, 5, my_lex_type, vocab_src_, vocab_trg_, *mod));
     encatt = shared_ptr<EncoderAttentional>(new EncoderAttentional(ext, lmptr, *mod));
     // Create the ensemble decoder
     vector<EncoderDecoderPtr> encdecs;
@@ -48,6 +60,8 @@ struct TestEncoderAttentional {
     vector<NeuralLMPtr> lms;
     ensdec = shared_ptr<EnsembleDecoder>(new EnsembleDecoder(encdecs, encatts, lms));
     ensdec->SetSizeLimit(100);
+    if(lex_type == "prior")
+      std::remove("/tmp/lex_prior.txt");
     // Perform a few rounds of training
     cnn::SimpleSGDTrainer sgd(mod.get());
     LLStats train_stat(vocab_trg_->size());
@@ -61,11 +75,33 @@ struct TestEncoderAttentional {
     }
   }
 
-  void TestDecoding(const std::string & attention_type, bool attention_feed, const std::string & attention_hist) {
+  void TestLLScores(
+     const std::string & attention_type,
+     bool attention_feed,
+     const std::string & attention_hist,
+     const std::string & lex_type
+  ) {
     shared_ptr<cnn::Model> mod;
     EncoderAttentionalPtr encatt;
     shared_ptr<EnsembleDecoder> ensdec;
-    CreateModel(mod, encatt, ensdec, attention_type, attention_feed, attention_hist);
+    CreateModel(mod, encatt, ensdec, attention_type, attention_feed, attention_hist, lex_type);
+    // Compare the two values
+    LLStats train_stat(vocab_trg_->size()), test_stat(vocab_trg_->size());
+    {
+      cnn::ComputationGraph cg;
+      encatt->NewGraph(cg);
+      encatt->BuildSentGraph(sent_src_, sent_trg_, cache_, 0.f, false, cg, train_stat);
+      train_stat.loss_ += as_scalar(cg.incremental_forward());
+    }
+    ensdec->CalcSentLL(sent_src_, sent_trg_, test_stat);
+    BOOST_CHECK_CLOSE(train_stat.CalcPPL(), test_stat.CalcPPL(), 0.01);
+  }
+
+  void TestDecoding(const std::string & attention_type, bool attention_feed, const std::string & attention_hist, const std::string & lex_type) {
+    shared_ptr<cnn::Model> mod;
+    EncoderAttentionalPtr encatt;
+    shared_ptr<EnsembleDecoder> ensdec;
+    CreateModel(mod, encatt, ensdec, attention_type, attention_feed, attention_hist, lex_type);
     // Train
     float train_ll = 0, decode_ll = 0;
     Sentence decode_sent;
@@ -103,7 +139,7 @@ BOOST_AUTO_TEST_CASE(TestWriteRead) {
   DictPtr exp_trg_vocab(CreateNewDict()); exp_trg_vocab->Convert("hello");
   NeuralLMPtr exp_lm(new NeuralLM(exp_trg_vocab, 2, 2, false, 3, BuilderSpec("rnn:2:1"), -1, "full", *exp_mod));
   vector<LinearEncoderPtr> exp_encs(1, LinearEncoderPtr(new LinearEncoder(3, 2, BuilderSpec("rnn:2:1"), -1, *exp_mod)));
-  ExternAttentionalPtr exp_ext(new ExternAttentional(exp_encs, "mlp:2", "none", 3, *exp_mod));
+  ExternAttentionalPtr exp_ext(new ExternAttentional(exp_encs, "mlp:2", "none", 3, "none", vocab_src_, vocab_trg_, *exp_mod));
   EncoderAttentional exp_encatt(exp_ext, exp_lm, *exp_mod);
   // Write the Model
   ostringstream out;
@@ -128,22 +164,13 @@ BOOST_AUTO_TEST_CASE(TestWriteRead) {
 }
 
 // Test whether scores during likelihood calculation are the same as training
-BOOST_AUTO_TEST_CASE(TestLLScores) {
-  shared_ptr<cnn::Model> mod;
-  EncoderAttentionalPtr encatt;
-  shared_ptr<EnsembleDecoder> ensdec;
-  CreateModel(mod, encatt, ensdec);
-  // Compare the two values
-  LLStats train_stat(vocab_trg_->size()), test_stat(vocab_trg_->size());
-  {
-    cnn::ComputationGraph cg;
-    encatt->NewGraph(cg);
-    encatt->BuildSentGraph(sent_src_, sent_trg_, cache_, 0.f, false, cg, train_stat);
-    train_stat.loss_ += as_scalar(cg.incremental_forward());
-  }
-  ensdec->CalcSentLL(sent_src_, sent_trg_, test_stat);
-  BOOST_CHECK_CLOSE(train_stat.CalcPPL(), test_stat.CalcPPL(), 0.01);
-}
+BOOST_AUTO_TEST_CASE(TestLLScoresDotFalseNone)      { TestLLScores("dot",   false, "none", "none"); }
+BOOST_AUTO_TEST_CASE(TestLLScoresDotFalseNonePrior) { TestLLScores("dot",   false, "none", "prior"); }
+BOOST_AUTO_TEST_CASE(TestLLScoresDotTrueNone)       { TestLLScores("dot",   true,  "none", "none"); }
+BOOST_AUTO_TEST_CASE(TestLLScoresDotFalseSum)       { TestLLScores("dot",   false, "sum" , "none"); }
+BOOST_AUTO_TEST_CASE(TestLLScoresMLPFalseNone)      { TestLLScores("mlp:5", false, "none", "none"); }
+BOOST_AUTO_TEST_CASE(TestLLScoresMLPTrueSum)        { TestLLScores("mlp:5", true,  "sum" , "none"); }
+BOOST_AUTO_TEST_CASE(TestLLScoresBilinFalseNone)    { TestLLScores("bilin", false, "none", "none"); }
 
 
 // Test whether log likelihood is the same when batched or not
@@ -177,12 +204,13 @@ BOOST_AUTO_TEST_CASE(TestLLBatchScores) {
 }
 
 // Test whether scores during decoding are the same as training
-BOOST_AUTO_TEST_CASE(TestDecodingDotFalseNone)   { TestDecoding("dot",   false, "none"); }
-BOOST_AUTO_TEST_CASE(TestDecodingDotTrueNone)    { TestDecoding("dot",   true,  "none"); }
-BOOST_AUTO_TEST_CASE(TestDecodingDotFalseSum)    { TestDecoding("dot",   false, "sum" ); }
-BOOST_AUTO_TEST_CASE(TestDecodingMLPFalseNone)   { TestDecoding("mlp:5", false, "none"); }
-BOOST_AUTO_TEST_CASE(TestDecodingMLPTrueSum)     { TestDecoding("mlp:5", true,  "sum" ); }
-BOOST_AUTO_TEST_CASE(TestDecodingBilinFalseNone) { TestDecoding("bilin", false, "none"); }
+BOOST_AUTO_TEST_CASE(TestDecodingDotFalseNone)      { TestDecoding("dot",   false, "none", "none"); }
+BOOST_AUTO_TEST_CASE(TestDecodingDotFalseNonePrior) { TestDecoding("dot",   false, "none", "prior"); }
+BOOST_AUTO_TEST_CASE(TestDecodingDotTrueNone)       { TestDecoding("dot",   true,  "none", "none"); }
+BOOST_AUTO_TEST_CASE(TestDecodingDotFalseSum)       { TestDecoding("dot",   false, "sum" , "none"); }
+BOOST_AUTO_TEST_CASE(TestDecodingMLPFalseNone)      { TestDecoding("mlp:5", false, "none", "none"); }
+BOOST_AUTO_TEST_CASE(TestDecodingMLPTrueSum)        { TestDecoding("mlp:5", true,  "sum" , "none"); }
+BOOST_AUTO_TEST_CASE(TestDecodingBilinFalseNone)    { TestDecoding("bilin", false, "none", "none"); }
 
 // Test whether scores during decoding are the same as training
 BOOST_AUTO_TEST_CASE(TestBeamDecodingScores) {

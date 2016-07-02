@@ -87,18 +87,20 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
     // cerr << "i_wr_t == " << print_vec(as_vector(i_wr_t.value())) << endl;
     // Run the hidden unit
     cnn::expr::Expression i_h_t = builder_->add_input(i_wr_t);
+    cnn::expr::Expression i_prior;
     // Calculate the extern if existing
     if(extern_context_ > 0) {
       extern_in = extern_calc->CreateContext(builder_->final_h(), align_sum, train, cg, aligns, align_sum);
       i_h_t = concatenate({i_h_t, extern_in});
+      i_prior = extern_calc->CalcPrior(*aligns.rbegin());
     }
-    // cerr << "i_h_t == " << print_vec(as_vector(i_h_t.value())) << endl;
+    // If the extern is capable of calculating a probability distribution, do it
     // Run the softmax and calculate the error
     for(i = 0; i < ngram.size()-1; i++) ngram[i] = ngram[i+1];
     ngram[i] = sent[t];
     cnn::expr::Expression i_err = (cache_ids.size() ?
-      softmax_->CalcLossCache(i_h_t, cache_ids[t], ngram, train) :
-      softmax_->CalcLoss(i_h_t, ngram, train));
+      softmax_->CalcLossCache(i_h_t, i_prior, cache_ids[t], ngram, train) :
+      softmax_->CalcLoss(i_h_t, i_prior, ngram, train));
     // DEBUG cerr << ' ' << as_scalar(i_err.value());
     errs.push_back(i_err);
     // If this word is unknown, then add to the unknown count
@@ -172,10 +174,12 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
     }
     // Run the hidden unit
     cnn::expr::Expression i_h_t = builder_->add_input(i_wr_t);
+    cnn::expr::Expression i_prior;
     // Calculate the extern if existing
     if(extern_context_ > 0) {
       extern_in = extern_calc->CreateContext(builder_->final_h(), align_sum, train, cg, aligns, align_sum);
       i_h_t = concatenate({i_h_t, extern_in});
+      i_prior = extern_calc->CalcPrior(*aligns.rbegin());
     }
     // Run the softmax and calculate the error
     for(size_t i = 0; i < sent.size(); i++) {
@@ -210,8 +214,8 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
       }
       cnn::expr::Expression i_prob = (
         cache_ids.size() ?
-        softmax_->CalcProbCache(i_h_t, my_cache, ctxts, train) :
-        softmax_->CalcProb(i_h_t, ctxts, train));
+        softmax_->CalcProbCache(i_h_t, i_prior, my_cache, ctxts, train) :
+        softmax_->CalcProb(i_h_t, i_prior, ctxts, train));
       i_err = -log(pick(i_prob, words));
       vector<float> probs = as_vector(i_prob.value());
       for(size_t i = 0; i < ngrams.size(); i++)
@@ -220,8 +224,8 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
     } else {
       i_err = (
         cache_ids.size() ?
-        softmax_->CalcLossCache(i_h_t, my_cache, ngrams, train) :
-        softmax_->CalcLoss(i_h_t, ngrams, train));
+        softmax_->CalcLossCache(i_h_t, i_prior, my_cache, ngrams, train) :
+        softmax_->CalcLoss(i_h_t, i_prior, ngrams, train));
       for(size_t i = 0; i < sent.size(); i++)
         words[i] = (sent[i].size() > t ? sent[i][t] : 0);
     }
@@ -280,14 +284,16 @@ Expression NeuralLM::SampleTrgSentences(
     // Run the hidden unit
     cnn::expr::Expression i_h_t = builder_->add_input(i_wr_t);
     // Calculate the extern if existing
+    cnn::expr::Expression i_prior;
     if(extern_context_ > 0) {
       extern_in = extern_calc->CreateContext(builder_->final_h(), align_sum, train, cg, aligns, align_sum);
       i_h_t = concatenate({i_h_t, extern_in});
+      i_prior = extern_calc->CalcPrior(*aligns.rbegin());
     }
     // Create the cache
     cnn::expr::Expression i_err;
     // Perform sampling if necessary
-    cnn::expr::Expression i_prob = softmax_->CalcProb(i_h_t, ctxts, train);
+    cnn::expr::Expression i_prob = softmax_->CalcProb(i_h_t, i_prior, ctxts, train);
     vector<float> probs = as_vector(i_prob.value());
     if(mask[0]) {
       if(answer != NULL && t < (int)answer->size())
@@ -397,18 +403,20 @@ cnn::expr::Expression NeuralLM::Forward(const Sent & sent, int t,
   // cerr << "i_wr_t == " << print_vec(as_vector(i_wr_t.value())) << endl;
   // Run the hidden unit
   cnn::expr::Expression i_h_t = builder_->add_input(i_wr_t);
+  cnn::expr::Expression i_prior;
   // Calculate the extern if existing
   if(extern_context_ > 0) {
     extern_out = extern_calc->CreateContext(builder_->final_h(), align_sum_in, false, cg, align_out, align_sum_out);
     i_h_t = concatenate({i_h_t, extern_out});
+    i_prior = extern_calc->CalcPrior(*align_out.rbegin());
   }
   // cerr << "i_h_t == " << print_vec(as_vector(i_h_t.value())) << endl;
   // Create the context
   Sent ctxt_ngram = CreateContext<Sent>(sent, t);
   // Run the softmax and calculate the error
   cnn::expr::Expression i_sm_t = (log_prob ?
-                  softmax_->CalcLogProb(i_h_t, ctxt_ngram, false) :
-                  softmax_->CalcProb(i_h_t, ctxt_ngram, false));
+                  softmax_->CalcLogProb(i_h_t, i_prior, ctxt_ngram, false) :
+                  softmax_->CalcProb(i_h_t, i_prior, ctxt_ngram, false));
   // Update the state
   layer_out = builder_->final_s();
   return i_sm_t;
