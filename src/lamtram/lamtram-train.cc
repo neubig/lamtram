@@ -41,6 +41,7 @@ int LamtramTrain::main(int argc, char** argv) {
     ("model_in", po::value<string>()->default_value(""), "If resuming training, read the model in")
     ("model_type", po::value<string>()->default_value("nlm"), "Model type (Neural LM nlm, Encoder Decoder encdec, Attentional Model encatt, or Encoder Classifier enccls)")
     ("epochs", po::value<int>()->default_value(100), "Number of epochs")
+    ("rate_decay", po::value<float>()->default_value(0.5), "Learning rate decay when dev perplexity gets worse")
     ("rate_thresh",  po::value<float>()->default_value(1e-5), "Threshold for the learning rate")
     ("trainer", po::value<string>()->default_value("sgd"), "Training algorithm (sgd/momentum/adagrad/adadelta)")
     ("softmax", po::value<string>()->default_value("full"), "The type of softmax to use (full/hinge/hier/mod)")
@@ -113,6 +114,7 @@ int LamtramTrain::main(int argc, char** argv) {
     THROW_ERROR("The specified model requires a source file to train, specify source files using train_src.");
 
   // Save some variables
+  rate_decay_ = vm_["rate_decay"].as<float>();
   rate_thresh_ = vm_["rate_thresh"].as<float>();
   epochs_ = vm_["epochs"].as<int>();
   context_ = vm_["context"].as<int>();
@@ -352,13 +354,15 @@ void LamtramTrain::TrainLM() {
       THROW_ERROR("Likelihood is not a number, dying...");
     cnn::real my_loss = do_dev ? dev_ll.loss_ : train_ll.loss_;
     if(my_loss > last_loss) {
-      learning_scale /= 2.0;
+      learning_scale *= rate_decay_;
     }
     last_loss = my_loss;
     if(best_loss > my_loss) {
       // Open the output stream
       ofstream out(model_out_file_.c_str());
       if(!out) THROW_ERROR("Could not open output file: " << model_out_file_);
+      // Rescale parameters before writing
+      trainer->rescale_and_reset_weight_decay();
       // Write the model (TODO: move this to a separate file?)
       WriteDict(*vocab_trg, out);
       // vocab_trg->Write(out);
@@ -662,12 +666,14 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
       THROW_ERROR("Likelihood is not a number, dying...");
     cnn::real my_loss = do_dev ? dev_ll.loss_ : train_ll.loss_;
     if(my_loss > last_loss)
-      learning_scale /= 2.0;
+      learning_scale *= rate_decay_;
     last_loss = my_loss;
     // Open the output stream
     if(best_loss > my_loss) {
       ofstream out(model_out_file_.c_str());
       if(!out) THROW_ERROR("Could not open output file: " << model_out_file_);
+      // Rescale parameters before writing
+      trainer->rescale_and_reset_weight_decay();
       // Write the model (TODO: move this to a separate file?)
       WriteDict(vocab_src, out);
       WriteDict(vocab_trg, out);
@@ -829,12 +835,14 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
       THROW_ERROR("Loss is not a number, dying...");
     cnn::real my_loss = do_dev ? dev_loss.loss_ : train_loss.loss_;
     if(my_loss > last_loss)
-      learning_scale /= 2.0;
+      learning_scale *= rate_decay_;
     last_loss = my_loss;
     // Open the output stream
     if(best_loss > my_loss) {
       ofstream out(model_out_file_.c_str());
       if(!out) THROW_ERROR("Could not open output file: " << model_out_file_);
+      // Rescale parameters before writing
+      trainer->rescale_and_reset_weight_decay();
       // Write the model (TODO: move this to a separate file?)
       WriteDict(vocab_src, out);
       WriteDict(vocab_trg, out);

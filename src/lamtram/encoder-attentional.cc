@@ -150,10 +150,6 @@ void ExternAttentional::InitializeSentence(
       hs_comb.push_back(concatenate(vars));
     }
   }
-  if(hs_comb.size() >= 512) {
-    cg.PrintGraphviz();
-    THROW_ERROR("Oversized sentence combination (size="<<hs_comb.size()<<"): " << sent_src);
-  }
   i_h_ = concatenate_cols(hs_comb);
   i_h_last_ = *hs_comb.rbegin();
 
@@ -207,10 +203,6 @@ void ExternAttentional::InitializeSentence(
         vars.push_back(hs_sep[j][i]);
       hs_comb.push_back(concatenate(vars));
     }
-  }
-  if(hs_comb.size() >= 512) {
-    cg.PrintGraphviz();
-    THROW_ERROR("Oversized sentence combination (size="<<hs_comb.size()<<"): " << sent_src);
   }
   i_h_ = concatenate_cols(hs_comb);
   i_h_last_ = *hs_comb.rbegin();

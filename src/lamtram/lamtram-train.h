@@ -69,7 +69,7 @@ protected:
     boost::program_options::variables_map vm_;
 
     // Variable settings
-    cnn::real rate_thresh_;
+    cnn::real rate_thresh_, rate_decay_;
     int epochs_, context_, eval_every_;
     float scheduled_samp_, dropout_;
     std::string model_in_file_, model_out_file_;
