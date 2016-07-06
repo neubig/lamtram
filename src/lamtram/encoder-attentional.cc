@@ -101,14 +101,13 @@ void ExternAttentional::NewGraph(cnn::ComputationGraph & cg) {
 
 ExternAttentional* ExternAttentional::Read(std::istream & in, const DictPtr & vocab_src, const DictPtr & vocab_trg, cnn::Model & model) {
   int num_encoders, state_size;
-  string version_id, attention_type, attention_hist, lex_type, line;
+  string version_id, attention_type, attention_hist = "none", lex_type = "none", line;
   if(!getline(in, line))
     THROW_ERROR("Premature end of model file when expecting ExternAttentional");
   istringstream iss(line);
   iss >> version_id;
   if(version_id == "extatt_002") {
     iss >> num_encoders >> attention_type >> state_size;
-    attention_hist = "none";
   } else if (version_id == "extatt_003") {
     iss >> num_encoders >> attention_type >> attention_hist >> state_size;
   } else if (version_id == "extatt_004") {
