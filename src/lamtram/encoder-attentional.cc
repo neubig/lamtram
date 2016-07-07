@@ -165,17 +165,21 @@ void ExternAttentional::InitializeSentence(
     THROW_ERROR("Bad attention type " << attention_type_);
   }
 
-  // If we're using a lexicon, create it
+  // If we're using a lexicon, create the values
   if(lex_type_ != "none") {
-    vector<float> prior_val(lex_size_*sent_len_, lex_alpha_);
-    size_t start = 0;
+    vector<float> lex_data;
+    vector<unsigned int> lex_ids;
+    unsigned int start = 0;
     for(size_t i = 0; i < sent_len_; ++i, start += lex_size_) {
       auto it = lex_mapping_->find(sent_src[i]);
-      if(it != lex_mapping_->end())
-        for(auto & kv : it->second)
-          prior_val[start + kv.first] = kv.second;
+      if(it != lex_mapping_->end()) {
+        for(auto & kv : it->second) {
+          lex_ids.push_back(start + kv.first);
+          lex_data.push_back(kv.second);
+        }
+      }
     }
-    i_lexicon_ = input(cg, {(unsigned int)lex_size_, (unsigned int)sent_len_}, prior_val);
+    i_lexicon_ = input(cg, {(unsigned int)lex_size_, (unsigned int)sent_len_}, lex_ids, lex_data, lex_alpha_);
   }
 
 }
