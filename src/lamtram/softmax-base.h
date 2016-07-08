@@ -26,28 +26,28 @@ public:
 
   // Calculate training loss for one word. train_time indicates that we are training, in 
   // case we want to do something differently (such as dropout)
-  virtual cnn::expr::Expression CalcLoss(cnn::expr::Expression & in, const Sentence & ngram, bool train) = 0;
+  virtual cnn::expr::Expression CalcLoss(cnn::expr::Expression & in, cnn::expr::Expression & prior, const Sentence & ngram, bool train) = 0;
   // Calculate training loss for a multi-word batch
-  virtual cnn::expr::Expression CalcLoss(cnn::expr::Expression & in, const std::vector<Sentence> & ngrams, bool train) = 0;
+  virtual cnn::expr::Expression CalcLoss(cnn::expr::Expression & in, cnn::expr::Expression & prior, const std::vector<Sentence> & ngrams, bool train) = 0;
 
   // Calculate loss using cached info
-  virtual cnn::expr::Expression CalcLossCache(cnn::expr::Expression & in, int cache_id, const Sentence & ngram, bool train) {
-    return CalcLoss(in, ngram, train);
+  virtual cnn::expr::Expression CalcLossCache(cnn::expr::Expression & in, cnn::expr::Expression & prior, int cache_id, const Sentence & ngram, bool train) {
+    return CalcLoss(in, prior, ngram, train);
   }
-  virtual cnn::expr::Expression CalcLossCache(cnn::expr::Expression & in, const std::vector<int> & cache_ids, const std::vector<Sentence> & ngrams, bool train) {
-    return CalcLoss(in, ngrams, train);
+  virtual cnn::expr::Expression CalcLossCache(cnn::expr::Expression & in, cnn::expr::Expression & prior, const std::vector<int> & cache_ids, const std::vector<Sentence> & ngrams, bool train) {
+    return CalcLoss(in, prior, ngrams, train);
   }
   
   // Calculate the full probability distribution
-  virtual cnn::expr::Expression CalcProb(cnn::expr::Expression & in, const Sentence & ctxt, bool train) = 0;
-  virtual cnn::expr::Expression CalcProb(cnn::expr::Expression & in, const std::vector<Sentence> & ctxt, bool train) = 0;
-  virtual cnn::expr::Expression CalcLogProb(cnn::expr::Expression & in, const Sentence & ctxt, bool train) = 0;
-  virtual cnn::expr::Expression CalcLogProb(cnn::expr::Expression & in, const std::vector<Sentence> & ctxt, bool train) = 0;
+  virtual cnn::expr::Expression CalcProb(cnn::expr::Expression & in, cnn::expr::Expression & prior, const Sentence & ctxt, bool train) = 0;
+  virtual cnn::expr::Expression CalcProb(cnn::expr::Expression & in, cnn::expr::Expression & prior, const std::vector<Sentence> & ctxt, bool train) = 0;
+  virtual cnn::expr::Expression CalcLogProb(cnn::expr::Expression & in, cnn::expr::Expression & prior, const Sentence & ctxt, bool train) = 0;
+  virtual cnn::expr::Expression CalcLogProb(cnn::expr::Expression & in, cnn::expr::Expression & prior, const std::vector<Sentence> & ctxt, bool train) = 0;
 
-  virtual cnn::expr::Expression CalcProbCache(cnn::expr::Expression & in, int cache_id,                       const Sentence & ctxt, bool train) { return CalcProb(in,ctxt,train); }
-  virtual cnn::expr::Expression CalcProbCache(cnn::expr::Expression & in, const Sentence & cache_ids, const std::vector<Sentence> & ctxt, bool train) { return CalcProb(in,ctxt,train); }
-  virtual cnn::expr::Expression CalcLogProbCache(cnn::expr::Expression & in, int cache_id,                       const Sentence & ctxt, bool train) { return CalcLogProb(in,ctxt,train); }
-  virtual cnn::expr::Expression CalcLogProbCache(cnn::expr::Expression & in, const Sentence & cache_ids, const std::vector<Sentence> & ctxt, bool train) { return CalcLogProb(in,ctxt,train); }
+  virtual cnn::expr::Expression CalcProbCache(cnn::expr::Expression & in, cnn::expr::Expression & prior, int cache_id,                       const Sentence & ctxt, bool train) { return CalcProb(in,prior,ctxt,train); }
+  virtual cnn::expr::Expression CalcProbCache(cnn::expr::Expression & in, cnn::expr::Expression & prior, const Sentence & cache_ids, const std::vector<Sentence> & ctxt, bool train) { return CalcProb(in,prior,ctxt,train); }
+  virtual cnn::expr::Expression CalcLogProbCache(cnn::expr::Expression & in, cnn::expr::Expression & prior, int cache_id,                       const Sentence & ctxt, bool train) { return CalcLogProb(in,prior,ctxt,train); }
+  virtual cnn::expr::Expression CalcLogProbCache(cnn::expr::Expression & in, cnn::expr::Expression & prior, const Sentence & cache_ids, const std::vector<Sentence> & ctxt, bool train) { return CalcLogProb(in,prior,ctxt,train); }
 
   // Cache data for the entire training corpus if necessary
   //  data is the data, set_ids is which data set the sentences belong to

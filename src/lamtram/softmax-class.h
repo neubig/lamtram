@@ -23,15 +23,15 @@ public:
   virtual void NewGraph(cnn::ComputationGraph & cg) override;
 
   // Calculate training loss for one word
-  virtual cnn::expr::Expression CalcLoss(cnn::expr::Expression & in, const Sentence & ngram, bool train) override;
+  virtual cnn::expr::Expression CalcLoss(cnn::expr::Expression & in, cnn::expr::Expression & prior, const Sentence & ngram, bool train) override;
   // Calculate training loss for multiple words
-  virtual cnn::expr::Expression CalcLoss(cnn::expr::Expression & in, const std::vector<Sentence> & ngrams, bool train) override;
+  virtual cnn::expr::Expression CalcLoss(cnn::expr::Expression & in, cnn::expr::Expression & prior, const std::vector<Sentence> & ngrams, bool train) override;
   
   // Calculate the full probability distribution
-  virtual cnn::expr::Expression CalcProb(cnn::expr::Expression & in, const Sentence & ctxt, bool train) override;
-  virtual cnn::expr::Expression CalcProb(cnn::expr::Expression & in, const std::vector<Sentence> & ctxt, bool train) override;
-  virtual cnn::expr::Expression CalcLogProb(cnn::expr::Expression & in, const Sentence & ctxt, bool train) override;
-  virtual cnn::expr::Expression CalcLogProb(cnn::expr::Expression & in, const std::vector<Sentence> & ctxt, bool train) override;
+  virtual cnn::expr::Expression CalcProb(cnn::expr::Expression & in, cnn::expr::Expression & prior, const Sentence & ctxt, bool train) override;
+  virtual cnn::expr::Expression CalcProb(cnn::expr::Expression & in, cnn::expr::Expression & prior, const std::vector<Sentence> & ctxt, bool train) override;
+  virtual cnn::expr::Expression CalcLogProb(cnn::expr::Expression & in, cnn::expr::Expression & prior, const Sentence & ctxt, bool train) override;
+  virtual cnn::expr::Expression CalcLogProb(cnn::expr::Expression & in, cnn::expr::Expression & prior, const std::vector<Sentence> & ctxt, bool train) override;
 
 protected:
   std::shared_ptr<cnn::ClassFactoredSoftmaxBuilder> cfsm_builder_;

@@ -115,16 +115,18 @@ void SoftmaxDiff::Cache(const vector<Sentence> & sents, const vector<int> & set_
 }
 
 // Calculate training loss for one word
-Expression SoftmaxDiff::CalcLoss(Expression & in, const Sentence & ngram, bool train) {
+Expression SoftmaxDiff::CalcLoss(Expression & in, Expression & prior, const Sentence & ngram, bool train) {
+  assert(prior.pg == nullptr);
   // Calculate contexts and distributions  
   std::vector<float> ctxt_dist(vocab_size_);
   Sentence ctxt_ngram(ngram); ctxt_ngram.resize(ngram.size()-1);
   CalcAllDists(ctxt_ngram, ctxt_dist);
-  return CalcLossExpr(in, ctxt_dist, *ngram.rbegin(), train);
+  return CalcLossExpr(in, prior, ctxt_dist, *ngram.rbegin(), train);
 }
 
 // Calculate training loss for multiple words
-Expression SoftmaxDiff::CalcLoss(Expression & in, const vector<Sentence> & ngrams, bool train) {
+Expression SoftmaxDiff::CalcLoss(Expression & in, Expression & prior, const vector<Sentence> & ngrams, bool train) {
+  assert(prior.pg == nullptr);
   std::vector<float> ctxt_dist(vocab_size_);
   std::vector<float> ctxt_dist_batch(vocab_size_*ngrams.size());
   vector<unsigned> words(ngrams.size());
@@ -135,14 +137,15 @@ Expression SoftmaxDiff::CalcLoss(Expression & in, const vector<Sentence> & ngram
     memcpy(&ctxt_dist_batch[i*vocab_size_], &ctxt_dist[0], vocab_size_*sizeof(float));
     words[i] = *ngrams[i].rbegin();
   }
-  return CalcLossExpr(in, ctxt_dist_batch, words, train);
+  return CalcLossExpr(in, prior, ctxt_dist_batch, words, train);
 }
 
-Expression SoftmaxDiff::CalcLossCache(Expression & in, int cache_id, const Sentence & ngram, bool train) {
-  return CalcLossExpr(in, cache_[cache_id], *ngram.rbegin(), train);
+Expression SoftmaxDiff::CalcLossCache(Expression & in, Expression & prior, int cache_id, const Sentence & ngram, bool train) {
+  return CalcLossExpr(in, prior, cache_[cache_id], *ngram.rbegin(), train);
 }
 
-Expression SoftmaxDiff::CalcLossCache(Expression & in, const vector<int> & cache_ids, const vector<Sentence> & ngrams, bool train) {
+Expression SoftmaxDiff::CalcLossCache(Expression & in, Expression & prior, const vector<int> & cache_ids, const vector<Sentence> & ngrams, bool train) {
+  assert(prior.pg == nullptr);
   assert(cache_ids.size() == ngrams.size());
   // Set up the context
   std::vector<float> batched_cd(vocab_size_*cache_ids.size());
@@ -152,10 +155,11 @@ Expression SoftmaxDiff::CalcLossCache(Expression & in, const vector<int> & cache
     memcpy(&batched_cd[i*vocab_size_], &cache_[cache_ids[i]][0], vocab_size_*sizeof(float));
     words[i] = *ngrams[i].rbegin();
   }
-  return CalcLossExpr(in, batched_cd, words, train);
+  return CalcLossExpr(in, prior, batched_cd, words, train);
 }
 
-Expression SoftmaxDiff::CalcLossExpr(Expression & in, const std::vector<float> & ctxt_dist, WordId wid, bool train) {
+Expression SoftmaxDiff::CalcLossExpr(Expression & in, Expression & prior, const std::vector<float> & ctxt_dist, WordId wid, bool train) {
+  assert(prior.pg == nullptr);
   // Create expressions
   Expression score = affine_transform({i_sm_b_, i_sm_W_, in});
   uniform_real_distribution<float> float_distribution(0.0, 1.0);
@@ -169,7 +173,8 @@ Expression SoftmaxDiff::CalcLossExpr(Expression & in, const std::vector<float> &
   return pickneglogsoftmax(score, wid);
 }
 
-Expression SoftmaxDiff::CalcLossExpr(Expression & in, const std::vector<float> & ctxt_dist_batched, const vector<unsigned> & wids, bool train) {
+Expression SoftmaxDiff::CalcLossExpr(Expression & in, Expression & prior, const std::vector<float> & ctxt_dist_batched, const vector<unsigned> & wids, bool train) {
+  assert(prior.pg == nullptr);
   Expression score = affine_transform({i_sm_b_, i_sm_W_, in});
   uniform_real_distribution<float> float_distribution(0.0, 1.0);
   if(!(train && (finished_words_ < drop_words_ || float_distribution(*cnn::rndeng) < dropout_))) {
@@ -182,7 +187,8 @@ Expression SoftmaxDiff::CalcLossExpr(Expression & in, const std::vector<float> &
 }
 
 // Calculate the full probability distribution
-Expression SoftmaxDiff::CalcProb(Expression & in, const Sentence & ctxt_ngram, bool train) {
+Expression SoftmaxDiff::CalcProb(Expression & in, Expression & prior, const Sentence & ctxt_ngram, bool train) {
+  assert(prior.pg == nullptr);
   // Calculate the distributions
   std::vector<float> ctxt_dist(vocab_size_);
   CalcAllDists(ctxt_ngram, ctxt_dist);
@@ -195,25 +201,25 @@ Expression SoftmaxDiff::CalcProb(Expression & in, const Sentence & ctxt_ngram, b
   finished_words_++;
   return softmax(score);
 }
-Expression SoftmaxDiff::CalcProb(Expression & in, const vector<Sentence> & ctxt_ngrams, bool train) {
+Expression SoftmaxDiff::CalcProb(Expression & in, Expression & prior, const vector<Sentence> & ctxt_ngrams, bool train) {
   THROW_ERROR("SoftmaxDiff::CalcProb Not implemented yet");
 }
-Expression SoftmaxDiff::CalcLogProb(Expression & in, const Sentence & ctxt_ngram, bool train) {
-  return log(CalcProb(in, ctxt_ngram, train));
+Expression SoftmaxDiff::CalcLogProb(Expression & in, Expression & prior, const Sentence & ctxt_ngram, bool train) {
+  return log(CalcProb(in, prior, ctxt_ngram, train));
 }
-Expression SoftmaxDiff::CalcLogProb(Expression & in, const vector<Sentence> & ctxt_ngrams, bool train) {
-  return log(CalcProb(in, ctxt_ngrams, train));
+Expression SoftmaxDiff::CalcLogProb(Expression & in, Expression & prior, const vector<Sentence> & ctxt_ngrams, bool train) {
+  return log(CalcProb(in, prior, ctxt_ngrams, train));
 }
 
-Expression SoftmaxDiff::CalcProbCache(Expression & in, int cache_id,                  const Sentence & ctxt_ngram, bool train) {
+Expression SoftmaxDiff::CalcProbCache(Expression & in, Expression & prior, int cache_id,                  const Sentence & ctxt_ngram, bool train) {
   THROW_ERROR("SoftmaxDiff::CalcProbCache Not implemented yet");
 }
-Expression SoftmaxDiff::CalcProbCache(Expression & in, const Sentence & cache_ids, const vector<Sentence> & ctxt_ngrams, bool train) {
+Expression SoftmaxDiff::CalcProbCache(Expression & in, Expression & prior, const Sentence & cache_ids, const vector<Sentence> & ctxt_ngrams, bool train) {
   THROW_ERROR("SoftmaxDiff::CalcProbCache Not implemented yet");
 }
-Expression SoftmaxDiff::CalcLogProbCache(Expression & in, int cache_id,                   const Sentence & ctxt_ngram, bool train) {
+Expression SoftmaxDiff::CalcLogProbCache(Expression & in, Expression & prior, int cache_id,                   const Sentence & ctxt_ngram, bool train) {
   THROW_ERROR("SoftmaxDiff::CalcProbCache Not implemented yet");
 }
-Expression SoftmaxDiff::CalcLogProbCache(Expression & in, const Sentence & cache_ids,  const vector<Sentence> & ctxt_ngrams, bool train) {
+Expression SoftmaxDiff::CalcLogProbCache(Expression & in, Expression & prior, const Sentence & cache_ids,  const vector<Sentence> & ctxt_ngrams, bool train) {
   THROW_ERROR("SoftmaxDiff::CalcProbCache Not implemented yet");
 }

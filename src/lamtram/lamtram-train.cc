@@ -66,6 +66,7 @@ int LamtramTrain::main(int argc, char** argv) {
     ("attention_type", po::value<string>()->default_value("mlp:100"), "Type of attention score (mlp:NUM/bilin)")
     ("attention_feed", po::value<bool>()->default_value(false), "Whether to perform the input feeding of Luong et al.")
     ("attention_hist", po::value<string>()->default_value("none"), "How to pass information about the attention into the score function (none/sum)")
+    ("attention_lex", po::value<string>()->default_value("none"), "Use a lexicon (e.g. \"prior:file=/path/to/file:alpha=0.001\")")
     ("cnn_mem", po::value<int>()->default_value(512), "How much memory to allocate to cnn")
     ("verbose", po::value<int>()->default_value(0), "How much verbose output to print")
     ;
@@ -184,7 +185,7 @@ inline void CreateMinibatches(const std::vector<Sentence> & train_src,
   sort(train_ids.begin(), train_ids.end(), DoubleLength<OutputType>(train_src, train_trg));
   std::vector<Sentence> train_src_next;
   std::vector<OutputType> train_trg_next, train_cache_next;
-  size_t size = 0, max_len = 0;
+  size_t max_len = 0;
   for(size_t i = 0; i < train_ids.size(); i++) {
     max_len = max(max_len, CalcSize(train_src[train_ids[i]], train_trg[train_ids[i]]));
     train_src_next.push_back(train_src[train_ids[i]]);
@@ -219,7 +220,7 @@ inline void CreateMinibatches(const std::vector<Sentence> & train_trg,
   std::iota(train_ids.begin(), train_ids.end(), 0);
   sort(train_ids.begin(), train_ids.end(), SingleLength(train_trg));
   std::vector<Sentence> train_trg_next, train_cache_next;
-  size_t size = 0, first_size = 0;
+  size_t first_size = 0;
   for(size_t i = 0; i < train_ids.size(); i++) {
     if(train_trg_next.size() == 0)
       first_size = train_trg[train_ids[i]].size();
@@ -492,7 +493,7 @@ void LamtramTrain::TrainEncAtt() {
       if(spec == "rev") enc->SetReverse(true);
       encoders.push_back(enc);
     }
-    ExternAttentionalPtr extatt(new ExternAttentional(encoders, vm_["attention_type"].as<string>(), vm_["attention_hist"].as<string>(), dec_layer_spec.nodes, *model));
+    ExternAttentionalPtr extatt(new ExternAttentional(encoders, vm_["attention_type"].as<string>(), vm_["attention_hist"].as<string>(), dec_layer_spec.nodes, vm_["attention_lex"].as<string>(), vocab_src, vocab_trg, *model));
     decoder.reset(new NeuralLM(vocab_trg, context_, dec_layer_spec.nodes, vm_["attention_feed"].as<bool>(), vm_["wordrep"].as<int>(), dec_layer_spec, vocab_trg->GetUnkId(), softmax_sig_, *model));
     encatt.reset(new EncoderAttentional(extatt, decoder, *model));
   }
@@ -792,7 +793,7 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
       cnn::expr::Expression trg_log_probs = encdec.SampleTrgSentences(train_src[train_ids[loc]], 
                                                                       (include_ref ? &train_trg[train_ids[loc]] : NULL),
                                                                       num_samples, max_len, true, cg, trg_samples);
-      cnn::expr::Expression trg_loss = CalcRisk(train_trg[train_ids[loc]], trg_samples, trg_log_probs, eval, scaling, dedup, cg);
+      /* cnn::expr::Expression trg_loss = */ CalcRisk(train_trg[train_ids[loc]], trg_samples, trg_log_probs, eval, scaling, dedup, cg);
       // Increment
       sent_loc++; curr_sent_loc++;
       epoch_frac += 1.f/train_src.size(); 
@@ -821,7 +822,7 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
           Expression trg_log_probs = encdec.SampleTrgSentences(dev_src[i], 
                                                                (include_ref ? &dev_trg[i] : NULL),
                                                                num_samples, max_len, true, cg, trg_samples);
-          cnn::expr::Expression exp_loss = CalcRisk(dev_trg[i], trg_samples, trg_log_probs, eval, scaling, dedup, cg);
+          /* cnn::expr::Expression exp_loss = */ CalcRisk(dev_trg[i], trg_samples, trg_log_probs, eval, scaling, dedup, cg);
           dev_loss.loss_ += as_scalar(cg.incremental_forward());
           dev_loss.sents_++;
       }

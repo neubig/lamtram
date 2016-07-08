@@ -4,19 +4,23 @@
 #include <cnn/model.h>
 #include <cnn/nodes.h>
 #include <cnn/rnn.h>
+#include <cnn/dict.h>
 #include <boost/range/irange.hpp>
+#include <boost/algorithm/string.hpp>
 #include <ctime>
 #include <fstream>
 
 using namespace std;
 using namespace lamtram;
 
-
 ExternAttentional::ExternAttentional(const std::vector<LinearEncoderPtr> & encoders,
                    const std::string & attention_type, const std::string & attention_hist, int state_size,
+                   const std::string & lex_type,
+                   const DictPtr & vocab_src, const DictPtr & vocab_trg,
                    cnn::Model & mod)
     : ExternCalculator(0), encoders_(encoders),
-      attention_type_(attention_type), attention_hist_(attention_hist), hidden_size_(0), state_size_(state_size) {
+      attention_type_(attention_type), attention_hist_(attention_hist), hidden_size_(0), state_size_(state_size), lex_type_(lex_type) {
+
   for(auto & enc : encoders)
     context_size_ += enc->GetNumNodes();
 
@@ -40,6 +44,42 @@ ExternAttentional::ExternAttentional(const std::vector<LinearEncoderPtr> & encod
   } else if(attention_hist != "none") {
     THROW_ERROR("Illegal attention history type: " << attention_hist);
   }
+
+  // If we're using a lexicon, create it
+  // TODO: Maybe split this into a separate class?
+  if(lex_type_ != "none") {
+    std::vector<string> strs;
+    boost::split(strs, lex_type_, boost::is_any_of(":"));
+    if(strs[0] == "prior") {
+      for(size_t i = 1; i < strs.size(); ++i) {
+        if(strs[i].substr(0,5) == "file=") {
+          lex_file_ = strs[i].substr(5);
+          lex_mapping_.reset(LoadMultipleIdMapping(lex_file_, vocab_src, vocab_trg));
+        } else if(strs[i].substr(0,6) == "alpha=") {
+          lex_alpha_ = stof(strs[i].substr(6));
+          if(lex_alpha_ <= 0) THROW_ERROR("Value alpha for lexicon must be larger than zero");
+        } else {
+          THROW_ERROR("Illegal lexicon type: " << lex_type_);
+        }
+        assert(lex_mapping_.get() != nullptr);
+      }
+      // Do post-processing
+      lex_size_ = vocab_trg->size();
+      for(auto & lex_val : *lex_mapping_)
+        for(auto & kv : lex_val.second)
+          kv.second = log(kv.second + lex_alpha_);
+      lex_alpha_ = log(lex_alpha_);
+    } else {
+      THROW_ERROR("Illegal lexicon type: " << lex_type_);
+    }
+  }
+
+}
+
+
+cnn::expr::Expression ExternAttentional::CalcPrior(
+                      const cnn::expr::Expression & align_vec) const {
+  return (i_lexicon_.pg != nullptr ? i_lexicon_ * align_vec : cnn::expr::Expression());
 }
 
 
@@ -59,28 +99,29 @@ void ExternAttentional::NewGraph(cnn::ComputationGraph & cg) {
   curr_graph_ = &cg;
 }
 
-ExternAttentional* ExternAttentional::Read(std::istream & in, cnn::Model & model) {
+ExternAttentional* ExternAttentional::Read(std::istream & in, const DictPtr & vocab_src, const DictPtr & vocab_trg, cnn::Model & model) {
   int num_encoders, state_size;
-  string version_id, attention_type, attention_hist, line;
+  string version_id, attention_type, attention_hist = "none", lex_type = "none", line;
   if(!getline(in, line))
     THROW_ERROR("Premature end of model file when expecting ExternAttentional");
   istringstream iss(line);
   iss >> version_id;
   if(version_id == "extatt_002") {
     iss >> num_encoders >> attention_type >> state_size;
-    attention_hist = "none";
   } else if (version_id == "extatt_003") {
     iss >> num_encoders >> attention_type >> attention_hist >> state_size;
+  } else if (version_id == "extatt_004") {
+    iss >> num_encoders >> attention_type >> attention_hist >> lex_type >> state_size;
   } else {
-    THROW_ERROR("Expecting a ExternAttentional of version extatt_002 or extatt_003, but got something different:" << endl << line);
+    THROW_ERROR("Expecting a ExternAttentional of version extatt_002-extatt_004, but got something different:" << endl << line);
   }
   vector<LinearEncoderPtr> encoders;
   while(num_encoders-- > 0)
     encoders.push_back(LinearEncoderPtr(LinearEncoder::Read(in, model)));
-  return new ExternAttentional(encoders, attention_type, attention_hist, state_size, model);
+  return new ExternAttentional(encoders, attention_type, attention_hist, state_size, lex_type, vocab_src, vocab_trg, model);
 }
 void ExternAttentional::Write(std::ostream & out) {
-  out << "extatt_003 " << encoders_.size() << " " << attention_type_ << " " << attention_hist_ << " " << state_size_ << endl;
+  out << "extatt_004 " << encoders_.size() << " " << attention_type_ << " " << attention_hist_ << " " << lex_type_ << " " << state_size_ << endl;
   for(auto & enc : encoders_) enc->Write(out);
 }
 
@@ -108,10 +149,6 @@ void ExternAttentional::InitializeSentence(
       hs_comb.push_back(concatenate(vars));
     }
   }
-  if(hs_comb.size() >= 512) {
-    cg.PrintGraphviz();
-    THROW_ERROR("Oversized sentence combination (size="<<hs_comb.size()<<"): " << sent_src);
-  }
   i_h_ = concatenate_cols(hs_comb);
   i_h_last_ = *hs_comb.rbegin();
 
@@ -126,6 +163,23 @@ void ExternAttentional::InitializeSentence(
     i_ehid_hpart_ = transpose(i_ehid_h_W_*i_h_);
   } else {
     THROW_ERROR("Bad attention type " << attention_type_);
+  }
+
+  // If we're using a lexicon, create the values
+  if(lex_type_ != "none") {
+    vector<float> lex_data;
+    vector<unsigned int> lex_ids;
+    unsigned int start = 0;
+    for(size_t i = 0; i < sent_len_; ++i, start += lex_size_) {
+      auto it = lex_mapping_->find(sent_src[i]);
+      if(it != lex_mapping_->end()) {
+        for(auto & kv : it->second) {
+          lex_ids.push_back(start + kv.first);
+          lex_data.push_back(kv.second);
+        }
+      }
+    }
+    i_lexicon_ = input(cg, {(unsigned int)lex_size_, (unsigned int)sent_len_}, lex_ids, lex_data, lex_alpha_);
   }
 
 }
@@ -153,10 +207,6 @@ void ExternAttentional::InitializeSentence(
       hs_comb.push_back(concatenate(vars));
     }
   }
-  if(hs_comb.size() >= 512) {
-    cg.PrintGraphviz();
-    THROW_ERROR("Oversized sentence combination (size="<<hs_comb.size()<<"): " << sent_src);
-  }
   i_h_ = concatenate_cols(hs_comb);
   i_h_last_ = *hs_comb.rbegin();
 
@@ -171,6 +221,22 @@ void ExternAttentional::InitializeSentence(
     i_ehid_hpart_ = transpose(i_ehid_h_W_*i_h_);
   } else {
     THROW_ERROR("Bad attention type " << attention_type_);
+  }
+
+  // If we're using a lexicon, create it
+  if(lex_type_ != "none") {
+    vector<float> prior_val(lex_size_*sent_len_*sent_src.size(), lex_alpha_);
+    size_t start = 0;
+    for(size_t j = 0; j < sent_src.size(); ++j) {
+      for(size_t i = 0; i < sent_len_; ++i, start += lex_size_) {
+        if(sent_src[j][i] == 0 && sent_src[j][i-1] == 0) continue;
+        auto it = lex_mapping_->find(sent_src[j][i]);
+        if(it != lex_mapping_->end())
+          for(auto & kv : it->second)
+            prior_val[start + kv.first] = kv.second;
+      }
+    }
+    i_lexicon_ = input(cg, cnn::Dim({(unsigned int)lex_size_, (unsigned int)sent_len_}, (unsigned int)sent_src.size()), prior_val);
   }
 
 }
@@ -256,7 +322,6 @@ void EncoderAttentional::NewGraph(cnn::ComputationGraph & cg) {
 
 template <class SentData>
 std::vector<cnn::expr::Expression> EncoderAttentional::GetEncodedState(const SentData & sent_src, bool train, cnn::ComputationGraph & cg) {
-  int here = 0;
   extern_calc_->InitializeSentence(sent_src, train, cg);
   cnn::expr::Expression i_decin = affine_transform({i_enc2dec_b_, i_enc2dec_W_, extern_calc_->GetState()});
   // Perform transformation
@@ -325,7 +390,7 @@ EncoderAttentional* EncoderAttentional::Read(const DictPtr & vocab_src, const Di
   iss >> version_id;
   if(version_id != "encatt_001")
     THROW_ERROR("Expecting a EncoderAttentional of version encatt_001, but got something different:" << endl << line);
-  ExternAttentionalPtr extern_calc(ExternAttentional::Read(in, model));
+  ExternAttentionalPtr extern_calc(ExternAttentional::Read(in, vocab_src, vocab_trg, model));
   NeuralLMPtr decoder(NeuralLM::Read(vocab_trg, in, model));
   return new EncoderAttentional(extern_calc, decoder, model);
 }

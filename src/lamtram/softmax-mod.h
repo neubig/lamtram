@@ -4,7 +4,7 @@
 #include <lamtram/softmax-base.h>
 #include <lamtram/dist-base.h>
 
-namespace cnn { class Parameter; }
+namespace cnn { struct Parameter; }
 
 namespace lamtram {
 
@@ -24,23 +24,23 @@ public:
   virtual void NewGraph(cnn::ComputationGraph & cg) override;
 
   // Calculate training loss for one word
-  virtual cnn::expr::Expression CalcLoss(cnn::expr::Expression & in, const Sentence & ngram, bool train) override;
+  virtual cnn::expr::Expression CalcLoss(cnn::expr::Expression & in, cnn::expr::Expression & prior, const Sentence & ngram, bool train) override;
   // Calculate training loss for multiple words
-  virtual cnn::expr::Expression CalcLoss(cnn::expr::Expression & in, const std::vector<Sentence> & ngrams, bool train) override;
+  virtual cnn::expr::Expression CalcLoss(cnn::expr::Expression & in, cnn::expr::Expression & prior, const std::vector<Sentence> & ngrams, bool train) override;
 
   // Calculate loss using cached info
-  virtual cnn::expr::Expression CalcLossCache(cnn::expr::Expression & in, int cache_id, const Sentence & ngram, bool train) override;
-  virtual cnn::expr::Expression CalcLossCache(cnn::expr::Expression & in, const std::vector<int> & cache_ids, const std::vector<Sentence> & ngrams, bool train) override;
+  virtual cnn::expr::Expression CalcLossCache(cnn::expr::Expression & in, cnn::expr::Expression & prior, int cache_id, const Sentence & ngram, bool train) override;
+  virtual cnn::expr::Expression CalcLossCache(cnn::expr::Expression & in, cnn::expr::Expression & prior, const std::vector<int> & cache_ids, const std::vector<Sentence> & ngrams, bool train) override;
   
   // Calculate the full probability distribution
-  virtual cnn::expr::Expression CalcProb(cnn::expr::Expression & in, const Sentence & ctxt, bool train) override;
-  virtual cnn::expr::Expression CalcProb(cnn::expr::Expression & in, const std::vector<Sentence> & ctxt, bool train) override;
-  virtual cnn::expr::Expression CalcLogProb(cnn::expr::Expression & in, const Sentence & ctxt, bool train) override;
-  virtual cnn::expr::Expression CalcLogProb(cnn::expr::Expression & in, const std::vector<Sentence> & ctxt, bool train) override;
-  virtual cnn::expr::Expression CalcProbCache(cnn::expr::Expression & in, int cache_id,               const Sentence & ctxt, bool train) override;
-  virtual cnn::expr::Expression CalcProbCache(cnn::expr::Expression & in, const Sentence & cache_ids, const std::vector<Sentence> & ctxt, bool train) override;
-  virtual cnn::expr::Expression CalcLogProbCache(cnn::expr::Expression & in, int cache_id,               const Sentence & ctxt, bool train) override;
-  virtual cnn::expr::Expression CalcLogProbCache(cnn::expr::Expression & in, const Sentence & cache_ids, const std::vector<Sentence> & ctxt, bool train) override;
+  virtual cnn::expr::Expression CalcProb(cnn::expr::Expression & in, cnn::expr::Expression & prior, const Sentence & ctxt, bool train) override;
+  virtual cnn::expr::Expression CalcProb(cnn::expr::Expression & in, cnn::expr::Expression & prior, const std::vector<Sentence> & ctxt, bool train) override;
+  virtual cnn::expr::Expression CalcLogProb(cnn::expr::Expression & in, cnn::expr::Expression & prior, const Sentence & ctxt, bool train) override;
+  virtual cnn::expr::Expression CalcLogProb(cnn::expr::Expression & in, cnn::expr::Expression & prior, const std::vector<Sentence> & ctxt, bool train) override;
+  virtual cnn::expr::Expression CalcProbCache(cnn::expr::Expression & in, cnn::expr::Expression & prior, int cache_id,               const Sentence & ctxt, bool train) override;
+  virtual cnn::expr::Expression CalcProbCache(cnn::expr::Expression & in, cnn::expr::Expression & prior, const Sentence & cache_ids, const std::vector<Sentence> & ctxt, bool train) override;
+  virtual cnn::expr::Expression CalcLogProbCache(cnn::expr::Expression & in, cnn::expr::Expression & prior, int cache_id,               const Sentence & ctxt, bool train) override;
+  virtual cnn::expr::Expression CalcLogProbCache(cnn::expr::Expression & in, cnn::expr::Expression & prior, const Sentence & cache_ids, const std::vector<Sentence> & ctxt, bool train) override;
 
   virtual void Cache(const std::vector<Sentence> & sents, const std::vector<int> & set_ids, std::vector<Sentence> & cache_ids) override;
 
@@ -48,8 +48,8 @@ public:
 
 protected:
 
-  cnn::expr::Expression CalcLossExpr(cnn::expr::Expression & in, const CtxtDist & ctxt_dist, WordId wid, bool train);
-  cnn::expr::Expression CalcLossExpr(cnn::expr::Expression & in, const CtxtDist & ctxt_dist_batched, const std::vector<unsigned> & wids, bool train);
+  cnn::expr::Expression CalcLossExpr(cnn::expr::Expression & in, cnn::expr::Expression & prior, const CtxtDist & ctxt_dist, WordId wid, bool train);
+  cnn::expr::Expression CalcLossExpr(cnn::expr::Expression & in, cnn::expr::Expression & prior, const CtxtDist & ctxt_dist_batched, const std::vector<unsigned> & wids, bool train);
 
   void LoadDists(int id);
 

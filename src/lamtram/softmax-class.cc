@@ -19,25 +19,26 @@ void SoftmaxClass::NewGraph(cnn::ComputationGraph & cg) {
 }
 
 // Calculate training loss for one word
-cnn::expr::Expression SoftmaxClass::CalcLoss(cnn::expr::Expression & in, const Sentence & ngram, bool train) {
+cnn::expr::Expression SoftmaxClass::CalcLoss(cnn::expr::Expression & in, cnn::expr::Expression & prior, const Sentence & ngram, bool train) {
+  assert(prior.pg == nullptr);
   return cfsm_builder_->neg_log_softmax(in, *ngram.rbegin());
 }
 // Calculate training loss for multiple words
-cnn::expr::Expression SoftmaxClass::CalcLoss(cnn::expr::Expression & in, const std::vector<Sentence> & ngrams, bool train) {
+cnn::expr::Expression SoftmaxClass::CalcLoss(cnn::expr::Expression & in, cnn::expr::Expression & prior, const std::vector<Sentence> & ngrams, bool train) {
   THROW_ERROR("SoftmaxClass::CalcLoss Not implemented for batches yet");
 }
 
 // Calculate the full probability distribution
-cnn::expr::Expression SoftmaxClass::CalcProb(cnn::expr::Expression & in, const Sentence & ctxt, bool train) {
+cnn::expr::Expression SoftmaxClass::CalcProb(cnn::expr::Expression & in, cnn::expr::Expression & prior, const Sentence & ctxt, bool train) {
   THROW_ERROR("SoftmaxClass::CalcProb Not implemented yet");
 }
-cnn::expr::Expression SoftmaxClass::CalcProb(cnn::expr::Expression & in, const vector<Sentence> & ctxt, bool train) {
+cnn::expr::Expression SoftmaxClass::CalcProb(cnn::expr::Expression & in, cnn::expr::Expression & prior, const vector<Sentence> & ctxt, bool train) {
   THROW_ERROR("SoftmaxClass::CalcProb Not implemented yet");
 }
-cnn::expr::Expression SoftmaxClass::CalcLogProb(cnn::expr::Expression & in, const Sentence & ctxt, bool train) {
+cnn::expr::Expression SoftmaxClass::CalcLogProb(cnn::expr::Expression & in, cnn::expr::Expression & prior, const Sentence & ctxt, bool train) {
   THROW_ERROR("SoftmaxClass::CalcLogProb Not implemented yet");
 }
-cnn::expr::Expression SoftmaxClass::CalcLogProb(cnn::expr::Expression & in, const vector<Sentence> & ctxt, bool train) {
+cnn::expr::Expression SoftmaxClass::CalcLogProb(cnn::expr::Expression & in, cnn::expr::Expression & prior, const vector<Sentence> & ctxt, bool train) {
   THROW_ERROR("SoftmaxClass::CalcLogProb Not implemented yet");
 }
 
