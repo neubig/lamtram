@@ -314,7 +314,6 @@ void LamtramTrain::TrainLM() {
         float val = (epoch_frac-scheduled_samp_)/scheduled_samp_;
         samp_prob = 1/(1+exp(val));
       }
-      cerr << "epoch_frac=" << epoch_frac << ", samp_prob=" << samp_prob << endl;
       cnn::ComputationGraph cg;
       nlm->NewGraph(cg);
       nlm->BuildSentGraph(train_trg_minibatch[train_ids[loc]], (train_cache_minibatch.size() ? train_cache_minibatch[train_ids[loc]] : empty_minibatch), NULL, empty_hist, samp_prob, true, cg, train_ll);
