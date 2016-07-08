@@ -384,6 +384,7 @@ void LamtramTrain::TrainEncDec() {
   NeuralLMPtr decoder;
   if(model_in_file_.size()) {
     encdec.reset(ModelUtils::LoadBilingualModel<EncoderDecoder>(model_in_file_, model, vocab_src, vocab_trg));
+    decoder = encdec->GetDecoderPtr();
   } else {
     vocab_src.reset(CreateNewDict());
     vocab_trg.reset(CreateNewDict());
@@ -453,6 +454,7 @@ void LamtramTrain::TrainEncAtt() {
   NeuralLMPtr decoder;
   if(model_in_file_.size()) {
     encatt.reset(ModelUtils::LoadBilingualModel<EncoderAttentional>(model_in_file_, model, vocab_src, vocab_trg));
+    decoder = encatt->GetDecoderPtr();
   } else {
     vocab_src.reset(CreateNewDict());
     vocab_trg.reset(CreateNewDict());
