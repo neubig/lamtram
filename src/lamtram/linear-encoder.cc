@@ -41,8 +41,9 @@ cnn::expr::Expression LinearEncoder::BuildSentGraph(const Sentence & sent, bool 
       word_states_[t] = i_h_t;
     }
   }
-  if(add)
+  if(add) {
     *word_states_.rbegin() = i_h_t = builder_->add_input(lookup(cg, p_wr_W_, (unsigned)0));
+  }
   return i_h_t;
 }
 
@@ -53,9 +54,8 @@ cnn::expr::Expression LinearEncoder::BuildSentGraph(const vector<Sentence> & sen
   // Get the max size
   size_t max_len = sent[0].size();
   for(size_t i = 1; i < sent.size(); i++) max_len = max(max_len, sent[i].size());
-  if(add) ++max_len;
   // Create the word states
-  word_states_.resize(max_len);
+  word_states_.resize(max_len + (add ? 1 : 0));
   builder_->start_new_sequence();
   // First get all the word representations
   cnn::expr::Expression i_wr_t, i_h_t;

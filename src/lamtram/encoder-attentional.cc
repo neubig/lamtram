@@ -13,6 +13,13 @@
 using namespace std;
 using namespace lamtram;
 
+inline std::string print_vec(const std::vector<float> & vec) {
+  ostringstream oss;
+  if(vec.size() > 0) oss << vec[0];
+  for(size_t i = 1; i < vec.size(); ++i) oss << ' ' << vec[i];
+  return oss.str();
+}
+
 ExternAttentional::ExternAttentional(const std::vector<LinearEncoderPtr> & encoders,
                    const std::string & attention_type, const std::string & attention_hist, int state_size,
                    const std::string & lex_type,
@@ -171,7 +178,7 @@ void ExternAttentional::InitializeSentence(
     vector<unsigned int> lex_ids;
     unsigned int start = 0;
     for(size_t i = 0; i < sent_len_; ++i, start += lex_size_) {
-      auto it = lex_mapping_->find(sent_src[i]);
+      auto it = lex_mapping_->find(i < sent_src.size() ? sent_src[i] : 0);
       if(it != lex_mapping_->end()) {
         for(auto & kv : it->second) {
           lex_ids.push_back(start + kv.first);
@@ -229,8 +236,8 @@ void ExternAttentional::InitializeSentence(
     size_t start = 0;
     for(size_t j = 0; j < sent_src.size(); ++j) {
       for(size_t i = 0; i < sent_len_; ++i, start += lex_size_) {
-        if(sent_src[j][i] == 0 && sent_src[j][i-1] == 0) continue;
-        auto it = lex_mapping_->find(sent_src[j][i]);
+        if(i > sent_src[j].size()) continue;
+        auto it = lex_mapping_->find(i < sent_src[j].size() ? sent_src[j][i] : 0);
         if(it != lex_mapping_->end())
           for(auto & kv : it->second)
             prior_val[start + kv.first] = kv.second;

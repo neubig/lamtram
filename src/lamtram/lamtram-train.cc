@@ -182,7 +182,8 @@ inline void CreateMinibatches(const std::vector<Sentence> & train_src,
                               std::vector<std::vector<OutputType> > & train_cache_minibatch) {
   std::vector<int> train_ids(train_trg.size());
   std::iota(train_ids.begin(), train_ids.end(), 0);
-  sort(train_ids.begin(), train_ids.end(), DoubleLength<OutputType>(train_src, train_trg));
+  if(max_size > 1)
+    sort(train_ids.begin(), train_ids.end(), DoubleLength<OutputType>(train_src, train_trg));
   std::vector<Sentence> train_src_next;
   std::vector<OutputType> train_trg_next, train_cache_next;
   size_t max_len = 0;
@@ -218,7 +219,8 @@ inline void CreateMinibatches(const std::vector<Sentence> & train_trg,
                               std::vector<std::vector<Sentence> > & train_cache_minibatch) {
   std::vector<int> train_ids(train_trg.size());
   std::iota(train_ids.begin(), train_ids.end(), 0);
-  sort(train_ids.begin(), train_ids.end(), SingleLength(train_trg));
+  if(max_size > 1)
+    sort(train_ids.begin(), train_ids.end(), SingleLength(train_trg));
   std::vector<Sentence> train_trg_next, train_cache_next;
   size_t first_size = 0;
   for(size_t i = 0; i < train_ids.size(); i++) {
@@ -277,7 +279,8 @@ void LamtramTrain::TrainLM() {
   vector<vector<Sentence> > train_trg_minibatch, train_cache_minibatch, dev_trg_minibatch, dev_cache_minibatch;
   vector<Sentence> empty_minibatch;
   CreateMinibatches(train_trg, train_cache, vm_["minibatch_size"].as<int>(), train_trg_minibatch, train_cache_minibatch);
-  CreateMinibatches(dev_trg, empty_minibatch, vm_["minibatch_size"].as<int>(), dev_trg_minibatch, dev_cache_minibatch);
+  // CreateMinibatches(dev_trg, empty_minibatch, vm_["minibatch_size"].as<int>(), dev_trg_minibatch, dev_cache_minibatch);
+  CreateMinibatches(dev_trg, empty_minibatch, 1, dev_trg_minibatch, dev_cache_minibatch);
   
   // TODO: Learning rate
   cnn::real learning_rate = vm_["learning_rate"].as<float>();
@@ -587,7 +590,8 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
   vector<Sentence> empty_minibatch;
   std::vector<OutputType> empty_cache;
   CreateMinibatches(train_src, train_trg, train_cache, vm_["minibatch_size"].as<int>(), train_src_minibatch, train_trg_minibatch, train_cache_minibatch);
-  CreateMinibatches(dev_src, dev_trg, empty_cache, vm_["minibatch_size"].as<int>(), dev_src_minibatch, dev_trg_minibatch, dev_cache_minibatch);
+  // CreateMinibatches(dev_src, dev_trg, empty_cache, vm_["minibatch_size"].as<int>(), dev_src_minibatch, dev_trg_minibatch, dev_cache_minibatch);
+  CreateMinibatches(dev_src, dev_trg, empty_cache, 1, dev_src_minibatch, dev_trg_minibatch, dev_cache_minibatch);
 
   TrainerPtr trainer = GetTrainer(vm_["trainer"].as<string>(), vm_["learning_rate"].as<float>(), model);
   
