@@ -178,8 +178,10 @@ void ExternAttentional::InitializeSentence(
     vector<unsigned int> lex_ids;
     unsigned int start = 0;
     for(size_t i = 0; i < sent_len_; ++i, start += lex_size_) {
-      auto it = lex_mapping_->find(i < sent_src.size() ? sent_src[i] : 0);
+      WordId wid = (i < sent_src.size() ? sent_src[i] : 0);
+      auto it = lex_mapping_->find(wid);
       if(it != lex_mapping_->end()) {
+        cerr << "Found mapping for word " << i << " (" << wid <<  ") in sent" << endl;
         for(auto & kv : it->second) {
           lex_ids.push_back(start + kv.first);
           lex_data.push_back(kv.second);
@@ -237,8 +239,11 @@ void ExternAttentional::InitializeSentence(
     unsigned int start = 0;
     for(size_t j = 0; j < sent_src.size(); ++j) {
       for(size_t i = 0; i < sent_len_; ++i, start += lex_size_) {
-        auto it = lex_mapping_->find(sent_src[j][i]);
+        if(i > sent_src[j].size()) continue;
+        WordId wid = (i < sent_src[j].size() ? sent_src[j][i] : 0);
+        auto it = lex_mapping_->find(wid);
         if(it != lex_mapping_->end()) {
+          cerr << "Found mapping for word " << i << " (" << wid << ") in sent " << j << " of batch" << endl;
           for(auto & kv : it->second) {
             lex_ids.push_back(start + kv.first);
             lex_data.push_back(kv.second);
