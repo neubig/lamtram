@@ -246,6 +246,25 @@ void ExternAttentional::InitializeSentence(
     i_lexicon_ = input(cg, cnn::Dim({(unsigned int)lex_size_, (unsigned int)sent_len_}, (unsigned int)sent_src.size()), prior_val);
   }
 
+  // If we're using a lexicon, create it
+  if(lex_type_ != "none") {
+    vector<float> lex_data;
+    vector<unsigned int> lex_ids;
+    unsigned int start = 0;
+    for(size_t j = 0; j < sent_src.size(); ++j) {
+      for(size_t i = 0; i < sent_len_; ++i, start += lex_size_) {
+        auto it = lex_mapping_->find(sent_src[j][i]);
+        if(it != lex_mapping_->end()) {
+          for(auto & kv : it->second) {
+            lex_ids.push_back(start + kv.first);
+            lex_data.push_back(kv.second);
+          }
+        }
+      }
+    }
+    i_lexicon_ = input(cg, cnn::Dim({(unsigned int)lex_size_, (unsigned int)sent_len_}, (unsigned int)sent_src.size()), lex_ids, lex_data, lex_alpha_);
+  }
+
 }
 
 cnn::expr::Expression ExternAttentional::GetEmptyContext(cnn::ComputationGraph & cg) const {
