@@ -13,7 +13,8 @@
 using namespace std;
 using namespace lamtram;
 
-inline std::string print_vec(const std::vector<float> & vec) {
+template <class T>
+inline std::string print_vec(const std::vector<T> & vec) {
   ostringstream oss;
   if(vec.size() > 0) oss << vec[0];
   for(size_t i = 1; i < vec.size(); ++i) oss << ' ' << vec[i];
@@ -72,9 +73,14 @@ ExternAttentional::ExternAttentional(const std::vector<LinearEncoderPtr> & encod
       }
       // Do post-processing
       lex_size_ = vocab_trg->size();
-      for(auto & lex_val : *lex_mapping_)
+      for(auto & lex_val : *lex_mapping_) {
+        map<WordId,float> prob_map;
         for(auto & kv : lex_val.second)
-          kv.second = log(kv.second + lex_alpha_);
+          prob_map[kv.first] += kv.second;
+        lex_val.second.clear();
+        for(auto & kv : prob_map)
+          lex_val.second.push_back(make_pair(kv.first, log(kv.second + lex_alpha_)));
+      }
       lex_alpha_ = log(lex_alpha_);
     } else {
       THROW_ERROR("Illegal lexicon type: " << lex_type_);
