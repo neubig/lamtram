@@ -181,7 +181,6 @@ void ExternAttentional::InitializeSentence(
       WordId wid = (i < sent_src.size() ? sent_src[i] : 0);
       auto it = lex_mapping_->find(wid);
       if(it != lex_mapping_->end()) {
-        cerr << "Found mapping for word " << i << " (" << wid <<  ") in sent" << endl;
         for(auto & kv : it->second) {
           lex_ids.push_back(start + kv.first);
           lex_data.push_back(kv.second);
@@ -243,7 +242,6 @@ void ExternAttentional::InitializeSentence(
         WordId wid = (i < sent_src[j].size() ? sent_src[j][i] : 0);
         auto it = lex_mapping_->find(wid);
         if(it != lex_mapping_->end()) {
-          cerr << "Found mapping for word " << i << " (" << wid << ") in sent " << j << " of batch" << endl;
           for(auto & kv : it->second) {
             lex_ids.push_back(start + kv.first);
             lex_data.push_back(kv.second);
@@ -296,7 +294,6 @@ cnn::expr::Expression ExternAttentional::CreateContext(
     // // DEBUG
     // cnn::Tensor align_sum_tens = align_sum_in.value();
     // vector<float> align_sum_val = as_vector(align_sum_in.value());
-    // cerr << "align_sum_in:"; for(size_t i = 0; i < align_sum_tens.d.rows(); ++i) cerr << ' ' << align_sum_val[i]; cerr << endl;
   } else {
     i_alpha = softmax(i_e);
   }
