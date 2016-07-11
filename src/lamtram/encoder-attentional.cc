@@ -232,22 +232,6 @@ void ExternAttentional::InitializeSentence(
 
   // If we're using a lexicon, create it
   if(lex_type_ != "none") {
-    vector<float> prior_val(lex_size_*sent_len_*sent_src.size(), lex_alpha_);
-    size_t start = 0;
-    for(size_t j = 0; j < sent_src.size(); ++j) {
-      for(size_t i = 0; i < sent_len_; ++i, start += lex_size_) {
-        if(i > sent_src[j].size()) continue;
-        auto it = lex_mapping_->find(i < sent_src[j].size() ? sent_src[j][i] : 0);
-        if(it != lex_mapping_->end())
-          for(auto & kv : it->second)
-            prior_val[start + kv.first] = kv.second;
-      }
-    }
-    i_lexicon_ = input(cg, cnn::Dim({(unsigned int)lex_size_, (unsigned int)sent_len_}, (unsigned int)sent_src.size()), prior_val);
-  }
-
-  // If we're using a lexicon, create it
-  if(lex_type_ != "none") {
     vector<float> lex_data;
     vector<unsigned int> lex_ids;
     unsigned int start = 0;
