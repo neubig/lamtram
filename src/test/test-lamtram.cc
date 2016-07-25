@@ -8,7 +8,7 @@ struct CnnSetup {
     CnnSetup()   { 
         int zero = 0;
         char** null = NULL;
-        cnn::Initialize(zero, null);
+        cnn::initialize(zero, null);
     }
     ~CnnSetup()  { /* shutdown your allocator/check memory leaks here */ }
 };

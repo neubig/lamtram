@@ -25,8 +25,8 @@ struct TestEncoderAttentional {
     sent_trg2_ = {1, 4, 3, 0};
 
     // Create the vocab
-    vocab_src_ = DictPtr(CreateNewDict()); vocab_src_->Convert("a"); vocab_src_->Convert("b"); vocab_src_->Convert("c");
-    vocab_trg_ = DictPtr(CreateNewDict()); vocab_trg_->Convert("x"); vocab_trg_->Convert("y"); vocab_trg_->Convert("z");
+    vocab_src_ = DictPtr(CreateNewDict()); vocab_src_->convert("a"); vocab_src_->convert("b"); vocab_src_->convert("c");
+    vocab_trg_ = DictPtr(CreateNewDict()); vocab_trg_->convert("x"); vocab_trg_->convert("y"); vocab_trg_->convert("z");
 
   }
   ~TestEncoderAttentional() { }
@@ -135,8 +135,8 @@ BOOST_FIXTURE_TEST_SUITE(encoder_attentional, TestEncoderAttentional)
 BOOST_AUTO_TEST_CASE(TestWriteRead) {
   // Create a randomized lm
   shared_ptr<cnn::Model> act_mod(new cnn::Model), exp_mod(new cnn::Model);
-  DictPtr exp_src_vocab(CreateNewDict()); exp_src_vocab->Convert("hola");
-  DictPtr exp_trg_vocab(CreateNewDict()); exp_trg_vocab->Convert("hello");
+  DictPtr exp_src_vocab(CreateNewDict()); exp_src_vocab->convert("hola");
+  DictPtr exp_trg_vocab(CreateNewDict()); exp_trg_vocab->convert("hello");
   NeuralLMPtr exp_lm(new NeuralLM(exp_trg_vocab, 2, 2, false, 3, BuilderSpec("rnn:2:1"), -1, "full", *exp_mod));
   vector<LinearEncoderPtr> exp_encs(1, LinearEncoderPtr(new LinearEncoder(3, 2, BuilderSpec("rnn:2:1"), -1, *exp_mod)));
   ExternAttentionalPtr exp_ext(new ExternAttentional(exp_encs, "mlp:2", "none", 3, "none", vocab_src_, vocab_trg_, *exp_mod));

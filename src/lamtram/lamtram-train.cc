@@ -263,13 +263,13 @@ void LamtramTrain::TrainLM() {
     LoadFile(train_files_trg_[i], true, *vocab_trg, train_trg);
     train_trg_ids.resize(train_trg.size(), i);
   }
-  if(!vocab_trg->is_frozen()) { vocab_trg->Freeze(); vocab_trg->SetUnk("<unk>"); }
+  if(!vocab_trg->is_frozen()) { vocab_trg->freeze(); vocab_trg->set_unk("<unk>"); }
   if(dev_file_trg_.size()) LoadFile(dev_file_trg_, true, *vocab_trg, dev_trg);
   if(eval_every_ == -1) eval_every_ = train_trg.size();
 
   // Create the model
   if(model_in_file_.size() == 0)
-    nlm.reset(new NeuralLM(vocab_trg, context_, 0, false, vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_trg->GetUnkId(), softmax_sig_, *model));
+    nlm.reset(new NeuralLM(vocab_trg, context_, 0, false, vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_trg->get_unk_id(), softmax_sig_, *model));
   TrainerPtr trainer = GetTrainer(vm_["trainer"].as<string>(), vm_["learning_rate"].as<float>(), *model);
 
   // If necessary, cache the softmax
@@ -402,13 +402,13 @@ void LamtramTrain::TrainEncDec() {
     LoadFile(train_files_trg_[i], true, *vocab_trg, train_trg);
     train_trg_ids.resize(train_trg.size(), i);
   }
-  if(!vocab_trg->is_frozen()) { vocab_trg->Freeze(); vocab_trg->SetUnk("<unk>"); }
+  if(!vocab_trg->is_frozen()) { vocab_trg->freeze(); vocab_trg->set_unk("<unk>"); }
   if(dev_file_trg_.size()) LoadFile(dev_file_trg_, true, *vocab_trg, dev_trg);
   for(size_t i = 0; i < train_files_src_.size(); i++) {
     LoadFile(train_files_src_[i], false, *vocab_src, train_src);
     train_src_ids.resize(train_src.size(), i);
   }
-  if(!vocab_src->is_frozen()) { vocab_src->Freeze(); vocab_src->SetUnk("<unk>"); }
+  if(!vocab_src->is_frozen()) { vocab_src->freeze(); vocab_src->set_unk("<unk>"); }
   if(dev_file_src_.size()) LoadFile(dev_file_src_, false, *vocab_src, dev_src);
   if(eval_every_ == -1) eval_every_ = train_trg.size();
 
@@ -422,13 +422,13 @@ void LamtramTrain::TrainEncDec() {
       THROW_ERROR("The number of nodes in the decoder (" << dec_layer_spec.nodes << ") must be divisible by the number of encoders (" << encoder_types.size() << ")");
     BuilderSpec enc_layer_spec(dec_layer_spec); enc_layer_spec.nodes /= encoder_types.size();
     for(auto & spec : encoder_types) {
-      LinearEncoderPtr enc(new LinearEncoder(vocab_src->size(), vm_["wordrep"].as<int>(), enc_layer_spec, vocab_src->GetUnkId(), *model));
+      LinearEncoderPtr enc(new LinearEncoder(vocab_src->size(), vm_["wordrep"].as<int>(), enc_layer_spec, vocab_src->get_unk_id(), *model));
       if(spec == "for") { }
       else if(spec == "rev") { enc->SetReverse(true); }
       else { THROW_ERROR("Illegal encoder type: " << spec); }
       encoders.push_back(enc);
     }
-    decoder.reset(new NeuralLM(vocab_trg, context_, 0, false, vm_["wordrep"].as<int>(), dec_layer_spec, vocab_trg->GetUnkId(), softmax_sig_, *model));
+    decoder.reset(new NeuralLM(vocab_trg, context_, 0, false, vm_["wordrep"].as<int>(), dec_layer_spec, vocab_trg->get_unk_id(), softmax_sig_, *model));
     encdec.reset(new EncoderDecoder(encoders, decoder, *model));
   }
 
@@ -471,13 +471,13 @@ void LamtramTrain::TrainEncAtt() {
     LoadFile(train_files_trg_[i], true, *vocab_trg, train_trg);
     train_trg_ids.resize(train_trg.size(), i);
   }
-  if(!vocab_trg->is_frozen()) { vocab_trg->Freeze(); vocab_trg->SetUnk("<unk>"); }
+  if(!vocab_trg->is_frozen()) { vocab_trg->freeze(); vocab_trg->set_unk("<unk>"); }
   if(dev_file_trg_.size()) LoadFile(dev_file_trg_, true, *vocab_trg, dev_trg);
   for(size_t i = 0; i < train_files_src_.size(); i++) {
     LoadFile(train_files_src_[i], false, *vocab_src, train_src);
     train_src_ids.resize(train_src.size(), i);
   }
-  if(!vocab_src->is_frozen()) { vocab_src->Freeze(); vocab_src->SetUnk("<unk>"); }
+  if(!vocab_src->is_frozen()) { vocab_src->freeze(); vocab_src->set_unk("<unk>"); }
   if(dev_file_src_.size()) LoadFile(dev_file_src_, false, *vocab_src, dev_src);
   if(eval_every_ == -1) eval_every_ = train_trg.size();
 
@@ -491,12 +491,12 @@ void LamtramTrain::TrainEncAtt() {
       THROW_ERROR("The number of nodes in the decoder (" << dec_layer_spec.nodes << ") must be divisible by the number of encoders (" << encoder_types.size() << ")");
     BuilderSpec enc_layer_spec(dec_layer_spec); enc_layer_spec.nodes /= encoder_types.size();
     for(auto & spec : encoder_types) {
-      LinearEncoderPtr enc(new LinearEncoder(vocab_src->size(), vm_["wordrep"].as<int>(), enc_layer_spec, vocab_src->GetUnkId(), *model));
+      LinearEncoderPtr enc(new LinearEncoder(vocab_src->size(), vm_["wordrep"].as<int>(), enc_layer_spec, vocab_src->get_unk_id(), *model));
       if(spec == "rev") enc->SetReverse(true);
       encoders.push_back(enc);
     }
     ExternAttentionalPtr extatt(new ExternAttentional(encoders, vm_["attention_type"].as<string>(), vm_["attention_hist"].as<string>(), dec_layer_spec.nodes, vm_["attention_lex"].as<string>(), vocab_src, vocab_trg, *model));
-    decoder.reset(new NeuralLM(vocab_trg, context_, dec_layer_spec.nodes, vm_["attention_feed"].as<bool>(), vm_["wordrep"].as<int>(), dec_layer_spec, vocab_trg->GetUnkId(), softmax_sig_, *model));
+    decoder.reset(new NeuralLM(vocab_trg, context_, dec_layer_spec.nodes, vm_["attention_feed"].as<bool>(), vm_["wordrep"].as<int>(), dec_layer_spec, vocab_trg->get_unk_id(), softmax_sig_, *model));
     encatt.reset(new EncoderAttentional(extatt, decoder, *model));
   }
 
@@ -539,13 +539,13 @@ void LamtramTrain::TrainEncCls() {
     LoadLabels(train_files_trg_[i], *vocab_trg, train_trg);
     train_trg_ids.resize(train_trg.size(), i);
   }
-  vocab_trg->Freeze();
+  vocab_trg->freeze();
   if(dev_file_trg_.size()) LoadLabels(dev_file_trg_, *vocab_trg, dev_trg);
   for(size_t i = 0; i < train_files_src_.size(); i++) {
     LoadFile(train_files_src_[i], false, *vocab_src, train_src);
     train_src_ids.resize(train_src.size(), i);
   }
-  if(!vocab_src->is_frozen()) { vocab_src->Freeze(); vocab_src->SetUnk("<unk>"); }
+  if(!vocab_src->is_frozen()) { vocab_src->freeze(); vocab_src->set_unk("<unk>"); }
   if(dev_file_src_.size()) LoadFile(dev_file_src_, false, *vocab_src, dev_src);
   if(eval_every_ == -1) eval_every_ = train_trg.size();
 
@@ -555,7 +555,7 @@ void LamtramTrain::TrainEncCls() {
     vector<string> encoder_types;
     boost::algorithm::split(encoder_types, vm_["encoder_types"].as<string>(), boost::is_any_of("|"));
     for(auto & spec : encoder_types) {
-      LinearEncoderPtr enc(new LinearEncoder(vocab_src->size(), vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_src->GetUnkId(), *model));
+      LinearEncoderPtr enc(new LinearEncoder(vocab_src->size(), vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_src->get_unk_id(), *model));
       if(spec == "rev") enc->SetReverse(true);
       encoders.push_back(enc);
     }
@@ -881,7 +881,7 @@ void LamtramTrain::LoadLabels(const std::string filename, cnn::Dict & vocab, std
   if(!iftrain) THROW_ERROR("Could not find training file: " << filename);
   string line;
   while(getline(iftrain, line))
-    labs.push_back(vocab.Convert(line));
+    labs.push_back(vocab.convert(line));
   iftrain.close();
 }
 

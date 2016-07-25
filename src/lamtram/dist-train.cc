@@ -51,9 +51,9 @@ int DistTrain::main(int argc, char** argv) {
     if(!(getline(vocab_file, line) && line == "<s>" && getline(vocab_file, line) && line == "<unk>"))
     THROW_ERROR("First two lines of a vocabulary file must be <s> and <unk>");
     while(getline(vocab_file, line))
-    dict->Convert(line);
-    dict->Freeze();
-    dict->SetUnk("<unk>");
+    dict->convert(line);
+    dict->freeze();
+    dict->set_unk("<unk>");
   }
 
   // Create the model

@@ -91,7 +91,7 @@ void Counts::write(DictPtr dict, std::ostream & out) const {
     std::string prev = "";
     assert(cnt.second.get() != NULL);
     for(const auto & kv : cnt.second->cnts) {
-      out << prev << dict->Convert(kv.first) << ' ' << kv.second; 
+      out << prev << dict->convert(kv.first) << ' ' << kv.second; 
       prev = " ";
     }
     out << std::endl;
@@ -113,7 +113,7 @@ void Counts::read(DictPtr dict, std::istream & in) {
     assert(words.size() % 2 == 0);
     for(size_t i = 0; i < words.size(); i += 2) {
       int cnt = stoi(words[i+1]);
-      ptr->add_word(dict->Convert(words[i]), cnt, mod_cnt(cnt));
+      ptr->add_word(dict->convert(words[i]), cnt, mod_cnt(cnt));
     }
   }
 }

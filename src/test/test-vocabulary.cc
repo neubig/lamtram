@@ -46,8 +46,8 @@ BOOST_AUTO_TEST_CASE(TestReadWrite) {
     WriteDict(*vocab_exp, out);
     DictPtr vocab_act(ReadDict(out));
     BOOST_CHECK_EQUAL_COLLECTIONS(
-        vocab_exp->GetWords().begin(), vocab_exp->GetWords().end(),
-        vocab_act->GetWords().begin(), vocab_act->GetWords().end());
+        vocab_exp->get_words().begin(), vocab_exp->get_words().end(),
+        vocab_act->get_words().begin(), vocab_act->get_words().end());
 }
 
 

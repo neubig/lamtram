@@ -85,9 +85,9 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
       lms.push_back(shared_ptr<NeuralLM>(lm));
     }
     // Sanity check
-    if(vocab_trg.get() && vocab_trg_temp->GetWords() != vocab_trg->GetWords())
+    if(vocab_trg.get() && vocab_trg_temp->get_words() != vocab_trg->get_words())
       THROW_ERROR("Target vocabularies for translation/language models are not equal.");
-    if(vocab_src.get() && vocab_src_temp.get() && vocab_src_temp->GetWords() != vocab_src->GetWords())
+    if(vocab_src.get() && vocab_src_temp.get() && vocab_src_temp->get_words() != vocab_src->get_words())
       THROW_ERROR("Source vocabularies for translation/language models are not equal.");
     models.push_back(mod_temp);
     vocab_trg = vocab_trg_temp;
@@ -261,9 +261,9 @@ int Lamtram::ClassifierOperation(const boost::program_options::variables_map & v
     EncoderClassifier * tm = ModelUtils::LoadBilingualModel<EncoderClassifier>(file, mod_temp, vocab_src_temp, vocab_trg_temp);
     encclss.push_back(shared_ptr<EncoderClassifier>(tm));
     // Sanity check
-    if(vocab_trg.get() && vocab_trg_temp->GetWords() != vocab_trg->GetWords())
+    if(vocab_trg.get() && vocab_trg_temp->get_words() != vocab_trg->get_words())
       THROW_ERROR("Target vocabularies for translation/language models are not equal.");
-    if(vocab_src.get() && vocab_src_temp.get() && vocab_src_temp->GetWords() != vocab_src->GetWords())
+    if(vocab_src.get() && vocab_src_temp.get() && vocab_src_temp->get_words() != vocab_src->get_words())
       THROW_ERROR("Target vocabularies for translation/language models are not equal.");
     models.push_back(mod_temp);
     vocab_trg = vocab_trg_temp;
@@ -293,7 +293,7 @@ int Lamtram::ClassifierOperation(const boost::program_options::variables_map & v
       LLStats sent_ll(vocab_size);
       // Get the target, and if it exists, source sentences
       if(GlobalVars::verbose > 0) { cerr << "ClsEval trg: " << line << endl; }
-      trg = vocab_trg->Convert(line);
+      trg = vocab_trg->convert(line);
       if(!getline(*src_in, line))
         THROW_ERROR("Source and target files don't match");
       if(GlobalVars::verbose > 0) { cerr << "ClsEval src: " << line << endl; }
@@ -309,7 +309,7 @@ int Lamtram::ClassifierOperation(const boost::program_options::variables_map & v
     while(getline(*src_in, line)) {
       sent_src = ParseWords(*vocab_src, line, false);
       trg = ensemble.Predict(sent_src);
-      cout << vocab_trg->Convert(trg) << endl;
+      cout << vocab_trg->convert(trg) << endl;
     }
   } else {
     THROW_ERROR("Illegal operation " << operation);

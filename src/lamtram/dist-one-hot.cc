@@ -68,7 +68,7 @@ void DistOneHot::calc_word_dists(const Sentence & ngram,
 void DistOneHot::write(DictPtr dict, std::ostream & out) const {
   out << DIST_ONEHOT_VERSION << endl;
   for(auto i : back_mapping_)
-    out << dict->Convert(i) << endl;
+    out << dict->convert(i) << endl;
   out << endl;
 }
 void DistOneHot::read(DictPtr dict, std::istream & in) {
@@ -77,7 +77,7 @@ void DistOneHot::read(DictPtr dict, std::istream & in) {
     THROW_ERROR("Bad format in DistOneHot");
   while(getline(in, line)) {
     if(line == "") break;
-    WordId id = dict->Convert(line);
+    WordId id = dict->convert(line);
     if(id == -1) THROW_ERROR("Out-of-vocabulary word found in one hot model: " << line);
     mapping_[id] = back_mapping_.size();
     back_mapping_.push_back(id);

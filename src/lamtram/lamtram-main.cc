@@ -5,7 +5,7 @@
 using namespace lamtram;
 
 int main(int argc, char** argv) {
-    cnn::Initialize(argc, argv);
+    cnn::initialize(argc, argv);
     Lamtram lamtram;
     return lamtram.main(argc, argv);
 }

@@ -48,7 +48,7 @@ MultipleIdMapping* LoadMultipleIdMapping(istream & map_in, const DictPtr & vocab
     if(strs.size() != 3)
       THROW_ERROR("Invalid line in mapping file: " << line);
     float my_score = stof(strs[2]);
-    (*ret)[vocab_src->Convert(strs[0])].push_back(make_pair(vocab_trg->Convert(strs[1]), my_score));
+    (*ret)[vocab_src->convert(strs[0])].push_back(make_pair(vocab_trg->convert(strs[1]), my_score));
   }
   return ret;
 }

@@ -119,7 +119,6 @@ inline Sentence get_next_ctxt(Sentence sent) {
 }
 
 void DistNgram::finalize_stats() {
-  int here = 0;
   // Add the counts to the denominator
   if(smoothing_ != SMOOTH_MKN || ngram_len_ == 1) {
     for(const auto & ngram : mapping_) {
@@ -306,7 +305,6 @@ void DistNgram::calc_all_word_dists(const Sentence & ctxt_ngram,
   size_t ngram_len = (ctxt_pos_.size()+1);
   size_t data_len = ngram_len*vocab_size;
   vector<float> temp_vec(heuristics_?data_len:0);
-  int temp_offset = 0;
   float *write_ptr = (heuristics_?&temp_vec[0]:&trg_dense[dense_offset]);
   memset(write_ptr, 0, data_len*sizeof(float));
   // Loop through all the contexts
@@ -442,7 +440,6 @@ void DistNgram::read(DictPtr dict, std::istream & in) {
       if(strs.size() != 2) THROW_ERROR("Expecting two columns: " << line << endl);
       words = Tokenize(strs[0], " ");
       Sentence ngram = ParseWords(*dict, words, false);
-      bool ok = true;
       for(pos1 = 0; pos1 < (int)words.size() && (ngram[pos1] != 1 || words[pos1] == "<unk>"); pos1++);
       if(pos1 != words.size()) continue;
       if(mapping_.find(ngram) != mapping_.end())

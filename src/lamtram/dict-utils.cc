@@ -28,7 +28,7 @@ Sentence ParseWords(cnn::Dict & sd, const std::string& line, bool add_end) {
   while(in) {
     in >> word;
     if (!in || word.empty()) break;
-    res.push_back(sd.Convert(word));
+    res.push_back(sd.convert(word));
   }
   if(add_end && (res.size() == 0 || *res.rbegin() != 0))
     res.push_back(0);
@@ -38,7 +38,7 @@ Sentence ParseWords(cnn::Dict & sd, const std::string& line, bool add_end) {
 Sentence ParseWords(cnn::Dict & sd, const std::vector<std::string>& line, bool add_end) {
   Sentence res;
   for(const std::string & word : line)
-    res.push_back(sd.Convert(word));
+    res.push_back(sd.convert(word));
   if(add_end && (res.size() == 0 || *res.rbegin() != 0))
     res.push_back(0);
   return res;
@@ -47,9 +47,9 @@ Sentence ParseWords(cnn::Dict & sd, const std::vector<std::string>& line, bool a
 std::string PrintWords(cnn::Dict & sd, const Sentence & sent) {
   ostringstream oss;
   if(sent.size())
-    oss << sd.Convert(sent[0]);
+    oss << sd.convert(sent[0]);
   for(size_t i = 1; i < sent.size(); i++)
-    oss << ' ' << sd.Convert(sent[i]);
+    oss << ' ' << sd.convert(sent[i]);
   return oss.str();
 }
 std::string PrintWords(const std::vector<std::string> & sent) {
@@ -65,7 +65,7 @@ vector<string> ConvertWords(cnn::Dict & sd, const Sentence & sent, bool sentend)
   vector<string> ret;
   for(WordId wid : sent) {
     if(sentend || wid != 0)
-      ret.push_back(sd.Convert(wid));
+      ret.push_back(sd.convert(wid));
   }
   return ret;
 }
@@ -77,7 +77,7 @@ void WriteDict(const cnn::Dict & dict, const std::string & file) {
 }
 void WriteDict(const cnn::Dict & dict, std::ostream & out) {
   out << "dict_v001" << '\n';
-  for(const auto & str : dict.GetWords())
+  for(const auto & str : dict.get_words())
     out << str << '\n';
   out << endl;
 }
@@ -93,19 +93,19 @@ cnn::Dict* ReadDict(std::istream & in) {
     THROW_ERROR("Expecting dictionary version dict_v001, but got: " << line);
   while(getline(in, line)) {
     if(line == "") break;
-    dict->Convert(line);
+    dict->convert(line);
   }
-  bool has_unk = dict->Convert("<unk>") == 1;
-  dict->Freeze();
+  bool has_unk = dict->convert("<unk>") == 1;
+  dict->freeze();
   if(has_unk)
-    dict->SetUnk("<unk>");
+    dict->set_unk("<unk>");
   return dict;
 }
 cnn::Dict * CreateNewDict(bool add_tokens) {
   cnn::Dict * ret = new cnn::Dict;
   if(add_tokens) {
-    ret->Convert("<s>");
-    ret->Convert("<unk>");
+    ret->convert("<s>");
+    ret->convert("<unk>");
   }
   return ret;
 }
