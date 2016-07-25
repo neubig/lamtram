@@ -13,7 +13,8 @@
 using namespace std;
 using namespace lamtram;
 
-inline std::string print_vec(const std::vector<float> & vec) {
+template <class T>
+inline std::string print_vec(const std::vector<T> & vec) {
   ostringstream oss;
   if(vec.size() > 0) oss << vec[0];
   for(size_t i = 1; i < vec.size(); ++i) oss << ' ' << vec[i];
@@ -72,9 +73,14 @@ ExternAttentional::ExternAttentional(const std::vector<LinearEncoderPtr> & encod
       }
       // Do post-processing
       lex_size_ = vocab_trg->size();
-      for(auto & lex_val : *lex_mapping_)
+      for(auto & lex_val : *lex_mapping_) {
+        map<WordId,float> prob_map;
         for(auto & kv : lex_val.second)
-          kv.second = log(kv.second + lex_alpha_);
+          prob_map[kv.first] += kv.second;
+        lex_val.second.clear();
+        for(auto & kv : prob_map)
+          lex_val.second.push_back(make_pair(kv.first, log(kv.second + lex_alpha_)));
+      }
       lex_alpha_ = log(lex_alpha_);
     } else {
       THROW_ERROR("Illegal lexicon type: " << lex_type_);
@@ -178,7 +184,8 @@ void ExternAttentional::InitializeSentence(
     vector<unsigned int> lex_ids;
     unsigned int start = 0;
     for(size_t i = 0; i < sent_len_; ++i, start += lex_size_) {
-      auto it = lex_mapping_->find(i < sent_src.size() ? sent_src[i] : 0);
+      WordId wid = (i < sent_src.size() ? sent_src[i] : 0);
+      auto it = lex_mapping_->find(wid);
       if(it != lex_mapping_->end()) {
         for(auto & kv : it->second) {
           lex_ids.push_back(start + kv.first);
@@ -237,7 +244,9 @@ void ExternAttentional::InitializeSentence(
     unsigned int start = 0;
     for(size_t j = 0; j < sent_src.size(); ++j) {
       for(size_t i = 0; i < sent_len_; ++i, start += lex_size_) {
-        auto it = lex_mapping_->find(sent_src[j][i]);
+        if(i > sent_src[j].size()) continue;
+        WordId wid = (i < sent_src[j].size() ? sent_src[j][i] : 0);
+        auto it = lex_mapping_->find(wid);
         if(it != lex_mapping_->end()) {
           for(auto & kv : it->second) {
             lex_ids.push_back(start + kv.first);
@@ -291,7 +300,6 @@ cnn::expr::Expression ExternAttentional::CreateContext(
     // // DEBUG
     // cnn::Tensor align_sum_tens = align_sum_in.value();
     // vector<float> align_sum_val = as_vector(align_sum_in.value());
-    // cerr << "align_sum_in:"; for(size_t i = 0; i < align_sum_tens.d.rows(); ++i) cerr << ' ' << align_sum_val[i]; cerr << endl;
   } else {
     i_alpha = softmax(i_e);
   }
