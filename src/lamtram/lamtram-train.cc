@@ -50,12 +50,12 @@ int LamtramTrain::main(int argc, char** argv) {
     ("learning_rate", po::value<float>()->default_value(0.1), "Learning rate")
     ("learning_criterion", po::value<string>()->default_value("ml"), "The criterion to use for learning (ml/minrisk)")
     ("dropout", po::value<float>()->default_value(0.0), "Dropout rate during training")
-    ("minrisk_num_samples", po::value<int>()->default_value(10), "The number of samples to perform for minimum risk training")
-    ("minrisk_scaling", po::value<float>()->default_value(1.0), "The scaling factor for min risk training")
-    ("minrisk_include_ref", po::value<bool>()->default_value(true), "Whether to include the reference in every sample for min risk training")
+    ("minrisk_num_samples", po::value<int>()->default_value(50), "The number of samples to perform for minimum risk training")
+    ("minrisk_scaling", po::value<float>()->default_value(0.005), "The scaling factor for min risk training")
+    ("minrisk_include_ref", po::value<bool>()->default_value(false), "Whether to include the reference in every sample for min risk training")
     ("minrisk_dedup", po::value<bool>()->default_value(true), "Whether to deduplicate samples for min risk training")
     ("eval_meas", po::value<string>()->default_value("bleu:smooth=1"), "The evaluation measure to use for minimum risk training (default: BLEU+1)")
-    ("encoder_types", po::value<string>()->default_value("for"), "The type of encoder, multiple separated by a pipe (for=forward, rev=reverse)")
+    ("encoder_types", po::value<string>()->default_value("for|rev"), "The type of encoder, multiple separated by a pipe (for=forward, rev=reverse)")
     ("context", po::value<int>()->default_value(2), "Amount of context information to use")
     ("minibatch_size", po::value<int>()->default_value(1), "Number of words per mini-batch")
     ("max_len", po::value<int>()->default_value(200), "Limit on the max length of sentences")
@@ -63,8 +63,8 @@ int LamtramTrain::main(int argc, char** argv) {
     ("layers", po::value<string>()->default_value("lstm:100:1"), "Descriptor for hidden layers, type:num_units:num_layers")
     ("cls_layers", po::value<string>()->default_value(""), "Descriptor for classifier layers, nodes1:nodes2:...")
     ("wildcards", po::value<string>()->default_value(""), "Wildcards to be used in loading training files")
-    ("attention_type", po::value<string>()->default_value("mlp:100"), "Type of attention score (mlp:NUM/bilin)")
-    ("attention_feed", po::value<bool>()->default_value(false), "Whether to perform the input feeding of Luong et al.")
+    ("attention_type", po::value<string>()->default_value("dot"), "Type of attention score (mlp:NUM/bilin/dot)")
+    ("attention_feed", po::value<bool>()->default_value(true), "Whether to perform the input feeding of Luong et al.")
     ("attention_hist", po::value<string>()->default_value("none"), "How to pass information about the attention into the score function (none/sum)")
     ("attention_lex", po::value<string>()->default_value("none"), "Use a lexicon (e.g. \"prior:file=/path/to/file:alpha=0.001\")")
     ("cnn_mem", po::value<int>()->default_value(512), "How much memory to allocate to cnn")
@@ -298,7 +298,7 @@ void LamtramTrain::TrainLM() {
   float epoch_frac = 0.f, samp_prob = 0.f;
   int epoch = 0;
   std::shuffle(train_ids.begin(), train_ids.end(), *cnn::rndeng);
-  while(epoch < epochs_) {
+  while(true) {
     // Start the training
     LLStats train_ll(nlm->GetVocabSize()), dev_ll(nlm->GetVocabSize());
     train_ll.is_likelihood_ = is_likelihood; dev_ll.is_likelihood_ = is_likelihood;
@@ -312,6 +312,7 @@ void LamtramTrain::TrainLM() {
         sent_loc = 0;
         last_print = 0;
         ++epoch;
+        if(epoch >= epochs_) return;
       }
       if(scheduled_samp_) {
         float val = (epoch_frac-scheduled_samp_)/scheduled_samp_;
@@ -363,8 +364,7 @@ void LamtramTrain::TrainLM() {
       // Open the output stream
       ofstream out(model_out_file_.c_str());
       if(!out) THROW_ERROR("Could not open output file: " << model_out_file_);
-      // Rescale parameters before writing
-      trainer->rescale_and_reset_weight_decay();
+      cerr << "*** Found the best model yet! Printing model to " << model_out_file_ << endl;
       // Write the model (TODO: move this to a separate file?)
       WriteDict(*vocab_trg, out);
       // vocab_trg->Write(out);
@@ -610,7 +610,7 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
   int loc = 0, epoch = 0, sent_loc = 0, last_print = 0;
   float epoch_frac = 0.f, samp_prob = 0.f;
   std::shuffle(train_ids.begin(), train_ids.end(), *cnn::rndeng);
-  while(epoch < epochs_) {
+  while(true) {
     // Start the training
     LLStats train_ll(vocab_trg.size()), dev_ll(vocab_trg.size());
     train_ll.is_likelihood_ = is_likelihood; dev_ll.is_likelihood_ = is_likelihood;
@@ -624,6 +624,7 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
         sent_loc = 0;
         last_print = 0;
         ++epoch;
+        if(epoch >= epochs_) return;
       }
       cnn::ComputationGraph cg;
       encdec.NewGraph(cg);
@@ -677,8 +678,7 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
     if(best_loss > my_loss) {
       ofstream out(model_out_file_.c_str());
       if(!out) THROW_ERROR("Could not open output file: " << model_out_file_);
-      // Rescale parameters before writing
-      trainer->rescale_and_reset_weight_decay();
+      cerr << "*** Found the best model yet! Printing model to " << model_out_file_ << endl;
       // Write the model (TODO: move this to a separate file?)
       WriteDict(vocab_src, out);
       WriteDict(vocab_trg, out);
@@ -772,7 +772,7 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
   bool do_dev = dev_src.size() != 0;
   int loc = train_ids.size(), epoch = -1, sent_loc = 0, last_print = 0;
   float epoch_frac = 0.f;
-  while(epoch < epochs_) {
+  while(true) {
     // Start the training
     LossStats train_loss, dev_loss;
     Timer time;
@@ -786,6 +786,7 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
         last_print = 0;
         sent_loc = 0;
         ++epoch;
+        if(epoch >= epochs_) return;
       }
       // Create the graph
       cnn::ComputationGraph cg;
@@ -846,8 +847,7 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
     if(best_loss > my_loss) {
       ofstream out(model_out_file_.c_str());
       if(!out) THROW_ERROR("Could not open output file: " << model_out_file_);
-      // Rescale parameters before writing
-      trainer->rescale_and_reset_weight_decay();
+      cerr << "*** Found the best model yet! Printing model to " << model_out_file_ << endl;
       // Write the model (TODO: move this to a separate file?)
       WriteDict(vocab_src, out);
       WriteDict(vocab_trg, out);
