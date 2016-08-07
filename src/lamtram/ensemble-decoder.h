@@ -47,16 +47,16 @@ public:
                     const std::vector<NeuralLMPtr> & lms);
     ~EnsembleDecoder() {}
 
-    template <class OutSent, class OutLL>
-    void CalcSentLL(const Sentence & sent_src, const OutSent & sent_trg, OutLL & ll);
+    template <class OutSent, class OutLL, class OutWords>
+    void CalcSentLL(const Sentence & sent_src, const OutSent & sent_trg, OutLL & ll, OutWords & words);
 
     EnsembleDecoderHypPtr Generate(const Sentence & sent_src);
     std::vector<EnsembleDecoderHypPtr> GenerateNbest(const Sentence & sent_src, int nbest);
 
     std::vector<std::vector<cnn::expr::Expression> > GetInitialStates(const Sentence & sent_src, cnn::ComputationGraph & cg);
     
-    template <class Sent, class Stat>
-    void AddLik(const Sent & sent, const cnn::expr::Expression & expr, Stat & ll);
+    template <class Sent, class Stat, class WordLik>
+    void AddLik(const Sent & sent, const cnn::expr::Expression & expr, const std::vector<cnn::expr::Expression> & exprs, Stat & ll, WordLik & wordll);
 
     // Ensemble together probabilities or log probabilities for a single word
     cnn::expr::Expression EnsembleProbs(const std::vector<cnn::expr::Expression> & in, cnn::ComputationGraph & cg);

@@ -129,12 +129,16 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
   
   // Perform operation
   string operation = vm["operation"].as<std::string>();
+  string wpout_file = vm["wordprob_out"].as<std::string>();
   Sentence sent_src, sent_trg;
   vector<string> str_src, str_trg;
   Sentence align;
   int last_id = -1;
   bool do_sent = false;
   if(operation == "ppl") {
+    shared_ptr<ofstream> wpout;
+    if(wpout_file != "")
+      wpout.reset(new ofstream(wpout_file));
     LLStats corpus_ll(vocab_size);
     Timer time;
     while(getline(cin, line)) { 
@@ -151,9 +155,16 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
       // If we're inside the range, do it
       if(last_id >= sent_range.first && last_id < sent_range.second) {
         LLStats sent_ll(vocab_size);
-        decoder.CalcSentLL<Sentence,LLStats>(sent_src, sent_trg, sent_ll);
+        vector<float> word_lls;
+        decoder.CalcSentLL<Sentence,LLStats,vector<float> >(sent_src, sent_trg, sent_ll, word_lls);
         if(GlobalVars::verbose >= 1) { cout << "ll=" << -sent_ll.CalcUnkLoss() << " unk=" << sent_ll.unk_  << endl; }
         corpus_ll += sent_ll;
+        // Write word probabilities if necessary
+        if(wpout.get()) {
+          if(word_lls.size()) *wpout << -word_lls[0];
+          for(size_t i = 1; i < word_lls.size(); i++) *wpout << ' ' << -word_lls[i];
+          *wpout << endl;
+        }
       }
     }
     double elapsed = time.Elapsed();
@@ -171,10 +182,11 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
       // If we've finished the current source, print
       if((my_id != last_id || curr_words+sents_trg.size() > max_minibatch_size) && sents_trg.size() > 0) {
         vector<LLStats> sents_ll(sents_trg.size(), LLStats(vocab_size));
+        vector<vector<float> > word_lls(sents_trg.size());
         if(sents_trg.size() > 1)
-          decoder.CalcSentLL<vector<Sentence>,vector<LLStats> >(sent_src, sents_trg, sents_ll);
+          decoder.CalcSentLL<vector<Sentence>,vector<LLStats>,vector<vector<float> > >(sent_src, sents_trg, sents_ll, word_lls);
         else
-          decoder.CalcSentLL<Sentence,LLStats>(sent_src, sents_trg[0], sents_ll[0]);
+          decoder.CalcSentLL<Sentence,LLStats,vector<float> >(sent_src, sents_trg[0], sents_ll[0], word_lls[0]);
         for(auto & sent_ll : sents_ll)
           cout << "ll=" << -sent_ll.CalcUnkLoss() << " unk=" << sent_ll.unk_  << endl;
         sents_trg.resize(0);
@@ -201,7 +213,8 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
     }
     if(do_sent) {
       vector<LLStats> sents_ll(sents_trg.size(), LLStats(vocab_size));
-      decoder.CalcSentLL<vector<Sentence>,vector<LLStats> >(sent_src, sents_trg, sents_ll);
+      vector<vector<float> > word_lls;
+      decoder.CalcSentLL<vector<Sentence>,vector<LLStats>, vector<vector<float> > >(sent_src, sents_trg, sents_ll, word_lls);
       for(auto & sent_ll : sents_ll)
         cout << "ll=" << -sent_ll.CalcUnkLoss() << " unk=" << sent_ll.unk_  << endl;
       double elapsed = time.Elapsed();
@@ -326,6 +339,7 @@ int Lamtram::main(int argc, char** argv) {
     ("beam", po::value<int>()->default_value(1), "Number of hypotheses to expand")
     ("cnn_mem", po::value<int>()->default_value(512), "How much memory to allocate to cnn")
     ("ensemble_op", po::value<string>()->default_value("sum"), "The operation to use when ensembling probabilities (sum/logsum)")
+    ("wordprob_out", po::value<string>()->default_value(""), "Output word log probabilities during perplexity calculation")
     ("map_in", po::value<string>()->default_value(""), "A file containing a mapping table (\"src trg prob\" format)")
     ("minibatch_size", po::value<int>()->default_value(1), "Max size of a minibatch in words (may be exceeded if there are longer sentences)")
     ("models_in", po::value<string>()->default_value(""), "Model files in format \"{encdec,encatt,nlm}=filename\" with encdec for encoder-decoders, encatt for attentional models, nlm for language models. When multiple, separate by a pipe.")

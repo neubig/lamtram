@@ -129,23 +129,30 @@ Expression EnsembleDecoder::EnsembleSingleLogProb(const std::vector<Expression> 
 }
 
 template <>
-void EnsembleDecoder::AddLik<Sentence,LLStats>(const Sentence & sent, const cnn::expr::Expression & exp, LLStats & ll) {
+void EnsembleDecoder::AddLik<Sentence,LLStats,vector<float> >(const Sentence & sent, const cnn::expr::Expression & exp, const std::vector<cnn::expr::Expression> & exps, LLStats & ll, vector<float> & wordll) {
   ll.loss_ -= as_scalar(exp.value());
   ll.words_ += sent.size();
-  for(unsigned t = 0; t < sent.size(); t++)
+  for(unsigned t = 0; t < sent.size(); t++) {
     if(sent[t] == unk_id_)
       ++ll.unk_;
+    wordll.push_back(cnn::as_scalar(exps[t].value()));
+  }
 }
 template <>
-void EnsembleDecoder::AddLik<vector<Sentence>,vector<LLStats> >(const vector<Sentence> & sent, const cnn::expr::Expression & exp, std::vector<LLStats> & ll) {
+void EnsembleDecoder::AddLik<vector<Sentence>,vector<LLStats>,vector<vector<float> > >(const vector<Sentence> & sent, const cnn::expr::Expression & exp, const std::vector<cnn::expr::Expression> & exps, std::vector<LLStats> & ll, std::vector<std::vector<float> > & wordll) {
   vector<float> ret = as_vector(exp.value());
   assert(ret.size() == ll.size());
+  vector<vector<float> > exp_floats;
+  for(size_t i = 0; i < exps.size(); i++)
+    exp_floats.push_back(cnn::as_vector(exps[i].value()));
   for(size_t i = 0; i < ret.size(); i++) {
     ll[i].loss_ -= ret[i];
     ll[i].words_ += sent[i].size();
-    for(unsigned t = 0; t < sent[i].size(); t++)
+    for(unsigned t = 0; t < sent[i].size(); t++) {
       if(sent[i][t] == unk_id_)
         ++ll[i].unk_;
+      wordll[i].push_back(exp_floats[t][i]);
+    }
   }
 }
 }
@@ -160,8 +167,8 @@ inline int MaxLen(const vector<Sentence> & sent) {
 inline int GetWord(const vector<Sentence> & vec, int t) { return vec[0][t]; }
 inline int GetWord(const Sentence & vec, int t) { return vec[t]; }
 
-template <class Sent, class Stat>
-void EnsembleDecoder::CalcSentLL(const Sentence & sent_src, const Sent & sent_trg, Stat & ll) {
+template <class Sent, class Stat, class WordStat>
+void EnsembleDecoder::CalcSentLL(const Sentence & sent_src, const Sent & sent_trg, Stat & ll, WordStat & wordll) {
   // First initialize states and do encoding as necessary
   cnn::ComputationGraph cg;
   for(auto & tm : encdecs_) tm->NewGraph(cg);
@@ -195,14 +202,14 @@ void EnsembleDecoder::CalcSentLL(const Sentence & sent_src, const Sent & sent_tr
     last_extern = next_extern;
   }
   Expression err = sum(errs);
-  cg.forward();
-  AddLik(sent_trg, err, ll);
+  cg.incremental_forward();
+  AddLik(sent_trg, err, errs, ll, wordll);
 }                    
 
 template
-void EnsembleDecoder::CalcSentLL<Sentence,LLStats>(const Sentence & sent_src, const Sentence & sent_trg, LLStats & ll);
+void EnsembleDecoder::CalcSentLL<Sentence,LLStats,vector<float> >(const Sentence & sent_src, const Sentence & sent_trg, LLStats & ll, vector<float> & wordll);
 template
-void EnsembleDecoder::CalcSentLL<vector<Sentence>,vector<LLStats> >(const Sentence & sent_src, const vector<Sentence> & sent_trg, vector<LLStats> & ll);
+void EnsembleDecoder::CalcSentLL<vector<Sentence>,vector<LLStats>,vector<vector<float> > >(const Sentence & sent_src, const vector<Sentence> & sent_trg, vector<LLStats> & ll, vector<vector<float> > & wordll);
 
 EnsembleDecoderHypPtr EnsembleDecoder::Generate(const Sentence & sent_src) {
   auto nbest = GenerateNbest(sent_src, 1);

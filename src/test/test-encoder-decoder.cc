@@ -100,7 +100,8 @@ BOOST_AUTO_TEST_CASE(TestLLScores) {
     encdec_->BuildSentGraph(sent_src_, sent_trg_, cache_, 0.f, false, cg, train_stat);
     train_stat.loss_ += as_scalar(cg.incremental_forward());
   }
-  ensdec_->CalcSentLL(sent_src_, sent_trg_, test_stat);
+  vector<float> test_wordll;
+  ensdec_->CalcSentLL(sent_src_, sent_trg_, test_stat, test_wordll);
   BOOST_CHECK_CLOSE(train_stat.CalcPPL(), test_stat.CalcPPL(), 0.1);
 }
 
