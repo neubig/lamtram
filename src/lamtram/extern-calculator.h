@@ -29,6 +29,10 @@ public:
         cnn::ComputationGraph & cg,
         std::vector<cnn::expr::Expression> & align_out,
         cnn::expr::Expression & align_sum_out) const = 0;
+    
+    virtual cnn::expr::Expression CalcContext(
+        const cnn::expr::Expression & state_in
+        )const = 0;    
 
     // Calculate the prior over the inputs
     virtual cnn::expr::Expression CalcPrior(

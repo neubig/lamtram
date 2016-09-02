@@ -20,9 +20,11 @@ struct RNNBuilder;
 namespace lamtram {
 
 class ExternCalculator;
+typedef std::shared_ptr<ExternCalculator> ExternCalculatorPtr;
 
 // A class for feed-forward neural network LMs
 class NeuralLM {
+    friend class EncoderAttentional;
 
 public:
 
@@ -42,6 +44,13 @@ public:
              int wordrep_size, const BuilderSpec & hidden_spec, int unk_id,
              const std::string & softmax_sig,
              cnn::Model & model);
+
+    NeuralLM(const DictPtr & vocab, int ngram_context, int extern_context,
+             bool extern_feed,
+             int wordrep_size, const BuilderSpec & hidden_spec, int unk_id,
+             const std::string & softmax_sig,
+             cnn::Model & model, ExternCalculatorPtr & att);
+
     ~NeuralLM() { }
 
     // Build the computation graph for the sentence including loss
@@ -143,6 +152,7 @@ protected:
     int ngram_context_, extern_context_;
     bool extern_feed_;
     int wordrep_size_, unk_id_;
+    bool intermediate_att;
     BuilderSpec hidden_spec_;
 
     // Pointers to the parameters

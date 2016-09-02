@@ -37,7 +37,8 @@ LIBCPP = \
     eval-measure-ribes.cc \
     eval-measure-wer.cc \
     eval-measure-interp.cc \
-    eval-measure.cc
+    eval-measure.cc \
+    gru-cond.cc 
 
 AM_CXXFLAGS = $(BOOST_CPPFLAGS) $(EIGEN_CPPFLAGS) $(CNN_CPPFLAGS) $(OPENMP_CXXFLAGS) -I$(srcdir)/..
 
@@ -49,6 +50,7 @@ liblamtram_la_LDFLAGS = -version-info 0:0:0
 ####### Binary info
 
 LDADD=liblamtram.la \
+    ../cnpy/libcnpy.la \
     $(CNN_LDFLAGS) \
     $(BOOST_LDFLAGS) \
     $(BOOST_SYSTEM_LIB) \

@@ -1,1 +1,1 @@
-SUBDIRS = lamtram test
+SUBDIRS = cnpy lamtram test

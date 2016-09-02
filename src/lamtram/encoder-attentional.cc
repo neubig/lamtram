@@ -133,6 +133,7 @@ ExternAttentional* ExternAttentional::Read(std::istream & in, const DictPtr & vo
     encoders.push_back(LinearEncoderPtr(LinearEncoder::Read(in, model)));
   return new ExternAttentional(encoders, attention_type, attention_hist, state_size, lex_type, vocab_src, vocab_trg, model);
 }
+
 void ExternAttentional::Write(std::ostream & out) {
   out << "extatt_004 " << encoders_.size() << " " << attention_type_ << " " << attention_hist_ << " " << lex_type_ << " " << state_size_ << endl;
   for(auto & enc : encoders_) enc->Write(out);
@@ -317,6 +318,16 @@ cnn::expr::Expression ExternAttentional::CreateContext(
   return i_h_ * i_alpha; 
 }
 
+//Create Context during calculation of hidden state as in gru-cond
+
+cnn::expr::Expression ExternAttentional::CalcContext(
+        const cnn::expr::Expression & state_in
+        ) const {
+          return state_in;
+          
+        }
+
+
 EncoderAttentional::EncoderAttentional(
            const ExternAttentionalPtr & extern_calc,
            const NeuralLMPtr & decoder,
@@ -412,6 +423,70 @@ EncoderAttentional* EncoderAttentional::Read(const DictPtr & vocab_src, const Di
   NeuralLMPtr decoder(NeuralLM::Read(vocab_trg, in, model));
   return new EncoderAttentional(extern_calc, decoder, model);
 }
+EncoderAttentional* EncoderAttentional::Convert(const DictPtr & vocab_src, const DictPtr & vocab_trg, const std::string & file, const boost::property_tree::ptree & json, cnn::Model & model) {
+  
+  
+  vector<LinearEncoderPtr> encoders;
+
+  int wordrep= json.get_child("dim_word").get_value<int>();
+  int dim= json.get_child("dim").get_value<int>();
+  std::stringstream s;
+  s << "gru:" << dim << ":1";
+
+  BuilderSpec enc_layer_spec(s.str());
+
+  std::string attention_type = "dot";
+  std::string attention_hist = "none";
+  std::string attention_lex = "none";
+  bool attention_feed = false;
+  //bool attention_feed = true;
+  //int context=2;
+  int context=1;
+  std:string softmax_sig = "full";
+
+  LinearEncoderPtr enc(new LinearEncoder(vocab_src->size(), wordrep, enc_layer_spec, vocab_src->get_unk_id(), model));
+  encoders.push_back(enc);
+  LinearEncoderPtr revenc(new LinearEncoder(vocab_src->size(), wordrep, enc_layer_spec, vocab_src->get_unk_id(), model));
+  revenc->SetReverse(true);
+  encoders.push_back(revenc);
+
+  //BuilderSpec dec_layer_spec(enc_layer_spec); dec_layer_spec.nodes *= encoders.size();
+  s << "gru-cond:" << dim << ":1";
+  BuilderSpec dec_layer_spec(s.str());
+
+
+  ExternAttentionalPtr extatt(new ExternAttentional(encoders, attention_type, attention_hist, dec_layer_spec.nodes, attention_lex, vocab_src, vocab_trg, model));
+  
+  NeuralLMPtr decoder(new NeuralLM(vocab_trg, context, dec_layer_spec.nodes, attention_feed, wordrep, dec_layer_spec, vocab_trg->get_unk_id(), softmax_sig, model));
+  EncoderAttentional * encatt = new EncoderAttentional(extatt, decoder, model);
+  
+  //convert weights
+  
+  cout << "Loading npz file: \"" << file << "\"" << endl;
+  cnpy::npz_t npz_model(cnpy::npz_load(file));
+  
+  CnpyUtils::copyWeight("Wemb",npz_model,enc->p_wr_W_);
+  CnpyUtils::copyWeight("Wemb",npz_model,revenc->p_wr_W_);
+  
+  CnpyUtils::copyWeight("Wemb_dec",npz_model,decoder->p_wr_W_);
+
+  CnpyUtils::copyGRUWeight("encoder_",npz_model,enc->builder_);
+  CnpyUtils::copyGRUWeight("encoder_r_",npz_model,revenc->builder_);
+
+  CnpyUtils::copyGRUCondWeight("decoder_",npz_model,decoder->builder_);
+  
+  
+  for(auto const &e : npz_model) {
+    cout << e.first << endl;
+    cout << e.second.shape[0] << " " << e.second.shape[1] << endl;
+  }
+  
+  cout << "Done" << endl;
+  return encatt;
+}
+
+
+
 void EncoderAttentional::Write(std::ostream & out) {
   out << "encatt_001" << endl;
   extern_calc_->Write(out);

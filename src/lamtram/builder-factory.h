@@ -11,6 +11,10 @@ struct RNNBuilder;
 
 namespace lamtram {
 
+class ExternCalculator;
+typedef std::shared_ptr<ExternCalculator> ExternCalculatorPtr;
+
+
 class BuilderSpec {
 public:
     BuilderSpec(const std::string & str);
@@ -25,6 +29,7 @@ typedef std::shared_ptr<cnn::RNNBuilder> BuilderPtr;
 class BuilderFactory {
 public:
     static BuilderPtr CreateBuilder(const BuilderSpec & spec, int input_dim, cnn::Model & model);
+    static BuilderPtr CreateBuilder(const BuilderSpec & spec, int input_dim, cnn::Model & model,ExternCalculatorPtr & att);
 };
 
 }

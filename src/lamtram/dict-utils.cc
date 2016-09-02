@@ -101,6 +101,34 @@ cnn::Dict* ReadDict(std::istream & in) {
     dict->set_unk("<unk>");
   return dict;
 }
+
+cnn::Dict* ConvertDict(const std::string & file, int size) {
+  ifstream in(file);
+  if(!in) THROW_ERROR("Could not open file: " << file);
+
+  cnn::Dict * dict = new cnn::Dict;
+  
+  std::vector<std::string> voc;
+  voc.resize(size);
+  
+  boost::property_tree::ptree pt;
+  read_json(file, pt);
+  for (auto & property: pt) {
+    int index = property.second.get_value < int > ();
+    if(index < size) {
+      voc[index] = property.first;
+    }
+  }
+  for(int i = 0; i < voc.size(); i++) {
+    dict->convert(voc[i]);
+  }
+  dict->freeze();
+  dict->set_unk("UNK");
+
+  return dict;
+}
+
+
 cnn::Dict * CreateNewDict(bool add_tokens) {
   cnn::Dict * ret = new cnn::Dict;
   if(add_tokens) {

@@ -9,6 +9,11 @@
 #include <cnn/cnn.h>
 #include <vector>
 #include <iostream>
+#include <cnpy/cnpy.h>
+#include <cnpy/cnpy-utils.h>
+#include <lamtram/gru-cond.h>
+
+#include "boost/property_tree/ptree.hpp"
 
 namespace cnn {
 class Model;
@@ -46,6 +51,10 @@ public:
         cnn::ComputationGraph & cg,
         std::vector<cnn::expr::Expression> & align_out,
         cnn::expr::Expression & align_sum_out) const override;
+        
+    virtual cnn::expr::Expression CalcContext(
+        const cnn::expr::Expression & state_in
+        )const override;
 
     // Calculate the prior
     cnn::expr::Expression CalcPrior(
@@ -63,6 +72,7 @@ public:
     // Reading/writing functions
     static ExternAttentional* Read(std::istream & in, const DictPtr & vocab_src, const DictPtr & vocab_trg, cnn::Model & model);
     void Write(std::ostream & out);
+
 
     // Setters
     void SetDropout(float dropout) {
@@ -148,6 +158,9 @@ public:
     // Reading/writing functions
     static EncoderAttentional* Read(const DictPtr & vocab_src, const DictPtr & vocab_trg, std::istream & in, cnn::Model & model);
     void Write(std::ostream & out);
+
+    //Read from pkz
+    static EncoderAttentional* Convert(const DictPtr & vocab_src, const DictPtr & vocab_trg, const std::string & file, const boost::property_tree::ptree & json, cnn::Model & model);
 
     // Index the parameters in a computation graph
     void NewGraph(cnn::ComputationGraph & cg);

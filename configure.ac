@@ -9,6 +9,7 @@ AC_CONFIG_FILES([
     Makefile
     src/Makefile
     src/lamtram/Makefile
+    src/cnpy/Makefile
     src/test/Makefile
 ])
 

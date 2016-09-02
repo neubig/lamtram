@@ -19,6 +19,7 @@ namespace lamtram {
 
 // A class for feed-forward neural network LMs
 class LinearEncoder {
+    friend class EncoderAttentional;
 
 public:
 
@@ -67,6 +68,7 @@ protected:
 
     // Pointers to the parameters
     cnn::LookupParameter p_wr_W_; // Wordrep weights
+
 
     // The RNN builder
     BuilderPtr builder_;

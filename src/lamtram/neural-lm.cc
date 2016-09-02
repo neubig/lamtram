@@ -26,7 +26,7 @@ NeuralLM::NeuralLM(const DictPtr & vocab, int ngram_context, int extern_context,
            cnn::Model & model) :
       vocab_(vocab), ngram_context_(ngram_context),
       extern_context_(extern_context), extern_feed_(extern_feed), wordrep_size_(wordrep_size),
-      unk_id_(unk_id), hidden_spec_(hidden_spec), curr_graph_(NULL) {
+      unk_id_(unk_id), hidden_spec_(hidden_spec), curr_graph_(NULL),intermediate_att(false) {
   // Hidden layers
   builder_ = BuilderFactory::CreateBuilder(hidden_spec_,
                        ngram_context*wordrep_size + (extern_feed ? extern_context : 0),
@@ -38,6 +38,26 @@ NeuralLM::NeuralLM(const DictPtr & vocab, int ngram_context, int extern_context,
   // Create the softmax
   softmax_ = SoftmaxFactory::CreateSoftmax(softmax_sig, hidden_spec_.nodes + extern_context, vocab, model);
 }
+
+NeuralLM::NeuralLM(const DictPtr & vocab, int ngram_context, int extern_context, bool extern_feed,
+           int wordrep_size, const BuilderSpec & hidden_spec, int unk_id, const std::string & softmax_sig,
+           cnn::Model & model,ExternCalculatorPtr & att) :
+      vocab_(vocab), ngram_context_(ngram_context),
+      extern_context_(extern_context), extern_feed_(extern_feed), wordrep_size_(wordrep_size),
+      unk_id_(unk_id), hidden_spec_(hidden_spec), curr_graph_(NULL),intermediate_att(true) {
+  // Hidden layers
+  builder_ = BuilderFactory::CreateBuilder(hidden_spec_,
+                       ngram_context*wordrep_size ,
+                       model,att);
+  // Word representations
+  assert(wordrep_size > 0);
+  p_wr_W_ = model.add_lookup_parameters(vocab->size(), {(unsigned int)wordrep_size}); 
+
+  // Create the softmax
+  softmax_ = SoftmaxFactory::CreateSoftmax(softmax_sig, hidden_spec_.nodes + extern_context, vocab, model);
+}
+
+
 
 cnn::expr::Expression NeuralLM::BuildSentGraph(
                       const Sentence & sent,
@@ -89,7 +109,7 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
     cnn::expr::Expression i_h_t = builder_->add_input(i_wr_t);
     cnn::expr::Expression i_prior;
     // Calculate the extern if existing
-    if(extern_context_ > 0) {
+    if(extern_context_ > 0 && !intermediate_att) {
       extern_in = extern_calc->CreateContext(builder_->final_h(), align_sum, train, cg, aligns, align_sum);
       i_h_t = concatenate({i_h_t, extern_in});
       i_prior = extern_calc->CalcPrior(*aligns.rbegin());
@@ -162,7 +182,7 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
     vector<cnn::expr::Expression> i_wrs_t;
     for(auto hist : boost::irange(t - ngram_context_, t))
       i_wrs_t.push_back(hist >= 0 ? i_wr[hist] : i_wr_start);
-    if(extern_context_ > 0 && extern_feed_)
+    if(extern_context_ > 0 && extern_feed_ && !intermediate_att)
       i_wrs_t.push_back(extern_in);
     // Concatenate the inputs if necessary
     cnn::expr::Expression i_wr_t;
@@ -176,7 +196,7 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
     cnn::expr::Expression i_h_t = builder_->add_input(i_wr_t);
     cnn::expr::Expression i_prior;
     // Calculate the extern if existing
-    if(extern_context_ > 0) {
+    if(extern_context_ > 0 && !intermediate_att) {
       extern_in = extern_calc->CreateContext(builder_->final_h(), align_sum, train, cg, aligns, align_sum);
       i_h_t = concatenate({i_h_t, extern_in});
       i_prior = extern_calc->CalcPrior(*aligns.rbegin());
@@ -271,7 +291,7 @@ Expression NeuralLM::SampleTrgSentences(
     vector<cnn::expr::Expression> i_wrs_t;
     for(auto hist : boost::irange(t - ngram_context_, t))
       i_wrs_t.push_back(hist >= 0 ? i_wr[hist] : i_wr_start);
-    if(extern_context_ > 0 && extern_feed_)
+    if(extern_context_ > 0 && extern_feed_ && !intermediate_att)
       i_wrs_t.push_back(extern_in);
     // Concatenate the inputs if necessary
     cnn::expr::Expression i_wr_t;
@@ -285,7 +305,7 @@ Expression NeuralLM::SampleTrgSentences(
     cnn::expr::Expression i_h_t = builder_->add_input(i_wr_t);
     // Calculate the extern if existing
     cnn::expr::Expression i_prior;
-    if(extern_context_ > 0) {
+    if(extern_context_ > 0 && !intermediate_att) {
       extern_in = extern_calc->CreateContext(builder_->final_h(), align_sum, train, cg, aligns, align_sum);
       i_h_t = concatenate({i_h_t, extern_in});
       i_prior = extern_calc->CalcPrior(*aligns.rbegin());
@@ -383,6 +403,7 @@ cnn::expr::Expression NeuralLM::Forward(const Sent & sent, int t,
                    std::vector<cnn::expr::Expression> & align_out) {
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
+    
   // Start a new sequence if necessary
   if(layer_in.size())
     builder_->start_new_sequence(layer_in);
@@ -405,7 +426,7 @@ cnn::expr::Expression NeuralLM::Forward(const Sent & sent, int t,
   cnn::expr::Expression i_h_t = builder_->add_input(i_wr_t);
   cnn::expr::Expression i_prior;
   // Calculate the extern if existing
-  if(extern_context_ > 0) {
+  if(extern_context_ > 0 && !intermediate_att) {
     extern_out = extern_calc->CreateContext(builder_->final_h(), align_sum_in, false, cg, align_out, align_sum_out);
     i_h_t = concatenate({i_h_t, extern_out});
     i_prior = extern_calc->CalcPrior(*align_out.rbegin());
