@@ -42,6 +42,16 @@ ExternAttentional::ExternAttentional(const std::vector<LinearEncoderPtr> & encod
     p_ehid_h_W_ = mod.add_parameters({(unsigned int)hidden_size_, (unsigned int)context_size_});
     p_ehid_state_W_ = mod.add_parameters({(unsigned int)hidden_size_, (unsigned int)state_size_});
     p_e_ehid_W_ = mod.add_parameters({1, (unsigned int)hidden_size_});
+    use_bias_ = false;
+  } else if(attention_type_.substr(0,6) == "mlp_b:") {
+    hidden_size_ = stoi(attention_type_.substr(6));
+    assert(hidden_size_ != 0);
+    p_ehid_h_b_ = mod.add_parameters({(unsigned int)hidden_size_, 1});
+    p_ehid_h_W_ = mod.add_parameters({(unsigned int)hidden_size_, (unsigned int)context_size_});
+    p_ehid_state_W_ = mod.add_parameters({(unsigned int)hidden_size_, (unsigned int)state_size_});
+    p_e_ehid_W_ = mod.add_parameters({1, (unsigned int)hidden_size_});
+    p_e_ehid_b_ = mod.add_parameters({1, 1});
+    use_bias_ = true;
   } else {
     THROW_ERROR("Illegal attention type: " << attention_type);
   }
@@ -105,6 +115,8 @@ void ExternAttentional::NewGraph(cnn::ComputationGraph & cg) {
   if(hidden_size_) {
     i_ehid_state_W_ = parameter(cg, p_ehid_state_W_);
     i_e_ehid_W_ = parameter(cg, p_e_ehid_W_);
+    i_ehid_h_b_ = parameter(cg, p_ehid_h_b_);
+    i_e_ehid_b_ = parameter(cg, p_e_ehid_b_);
   }
   if(attention_hist_ == "sum") {
     i_align_sum_W_ = parameter(cg, p_align_sum_W_);
@@ -168,7 +180,11 @@ void ExternAttentional::InitializeSentence(
 
   // Create an identity with shape
   if(hidden_size_) {
-    i_ehid_hpart_ = i_ehid_h_W_*i_h_;
+    if(use_bias_) {
+      i_ehid_hpart_ = i_ehid_h_b_*i_h_;
+    }else {
+      i_ehid_hpart_ = i_ehid_h_W_*i_h_;
+    }
     sent_values_.resize(sent_len_, 1.0);
     i_sent_len_ = input(cg, {1, (unsigned int)sent_len_}, &sent_values_);
   } else if(attention_type_ == "dot") {
@@ -227,7 +243,11 @@ void ExternAttentional::InitializeSentence(
 
   // Create an identity with shape
   if(hidden_size_) {
-    i_ehid_hpart_ = i_ehid_h_W_*i_h_;
+    if(use_bias_) {
+      i_ehid_hpart_ = i_ehid_h_b_*i_h_;
+    }else {
+      i_ehid_hpart_ = i_ehid_h_W_*i_h_;
+    }
     sent_values_.resize(sent_len_, 1.0);
     i_sent_len_ = input(cg, {1, (unsigned int)sent_len_}, &sent_values_);
   } else if(attention_type_ == "dot") {
@@ -288,7 +308,11 @@ cnn::expr::Expression ExternAttentional::CreateContext(
     // Run through nonlinearity
     cnn::expr::Expression i_ehid_out = tanh({i_ehid});
     // i_e_ehid_W_ is {1, hidden_size}, i_ehid_out is {hidden_size, sent_len}
-    i_e = transpose(i_e_ehid_W_ * i_ehid_out);
+    if(use_bias_) {
+      i_e = transpose(i_e_ehid_W_ * i_ehid_out) + i_e_ehid_b_;
+    }else {
+      i_e = transpose(i_e_ehid_W_ * i_ehid_out);
+    }
   // Bilinear/dot product
   } else {
     assert(state_in.size() > 0);
@@ -323,9 +347,51 @@ cnn::expr::Expression ExternAttentional::CreateContext(
 cnn::expr::Expression ExternAttentional::CalcContext(
         const cnn::expr::Expression & state_in
         ) const {
-          return state_in;
-          
-        }
+  cnn::expr::Expression i_ehid, i_e;
+  // MLP
+  if(hidden_size_) {
+      // i_ehid_state_W_ is {hidden_size, state_size}, state_in is {state_size, 1}
+      cnn::expr::Expression i_ehid_spart = i_ehid_state_W_ * state_in;
+      i_ehid = affine_transform({i_ehid_hpart_, i_ehid_spart, i_sent_len_});
+    // Run through nonlinearity
+    cnn::expr::Expression i_ehid_out = tanh({i_ehid});
+    // i_e_ehid_W_ is {1, hidden_size}, i_ehid_out is {hidden_size, sent_len}
+    if(use_bias_) {
+      i_e = transpose(i_e_ehid_W_ * i_ehid_out) + i_e_ehid_b_;
+    }else {
+      i_e = transpose(i_e_ehid_W_ * i_ehid_out);
+    }
+  // Bilinear/dot product
+  } else {
+    i_e = i_ehid_hpart_ * state_in;
+  }
+  cnn::expr::Expression i_alpha;
+  // Calculate the softmax, adding the previous sum if necessary
+  //not yet supported
+  //if(align_sum_in.pg != nullptr) {
+  //  i_alpha = softmax(i_e + align_sum_in * i_align_sum_W_);
+    // // DEBUG
+    // cnn::Tensor align_sum_tens = align_sum_in.value();
+    // vector<float> align_sum_val = as_vector(align_sum_in.value());
+  //} else {
+    i_alpha = softmax(i_e);
+  //}
+  
+  // Save the alignments and print if necessary not yet supported
+  //align_out.push_back(i_alpha);
+  //if(GlobalVars::verbose >= 2) {
+  //  vector<cnn::real> softmax = as_vector(cg.incremental_forward());
+  //  cerr << "Alignments: " << softmax << endl;
+  //}
+  // Update the sum if necessary -> not supported !!!!!!!!
+  if(attention_hist_ == "sum") {
+    THROW_ERROR("SUM not yet supported with calc context")
+    //align_sum_out = (align_sum_in.pg != nullptr ? align_sum_in + i_alpha : i_alpha);
+  }
+  // i_h_ is {input_size, sent_len}, i_alpha is {sent_len, 1}
+  return i_h_ * i_alpha; 
+
+}
 
 
 EncoderAttentional::EncoderAttentional(
@@ -435,7 +501,9 @@ EncoderAttentional* EncoderAttentional::Convert(const DictPtr & vocab_src, const
 
   BuilderSpec enc_layer_spec(s.str());
 
-  std::string attention_type = "dot";
+  s << "mlp_b:" << dim;
+
+  std::string attention_type = s.str();
   std::string attention_hist = "none";
   std::string attention_lex = "none";
   bool attention_feed = false;
@@ -474,6 +542,7 @@ EncoderAttentional* EncoderAttentional::Convert(const DictPtr & vocab_src, const
   CnpyUtils::copyGRUWeight("encoder_r_",npz_model,revenc->builder_);
 
   CnpyUtils::copyGRUCondWeight("decoder_",npz_model,decoder->builder_);
+  CnpyUtils::copyAttentionWeight("decoder_",npz_model,extatt);
   
   
   for(auto const &e : npz_model) {

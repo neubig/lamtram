@@ -88,6 +88,59 @@ void CnpyUtils::copyGRUCondWeight(const string & prefix,cnpy::npz_t & model,Buil
     
 }
 
+void CnpyUtils::copyAttentionWeight(const string & prefix,cnpy::npz_t & model,ExternAttentionalPtr target) {
+
+
+    float * data = NULL;
+    pair<int,int> size = getData(prefix+"Wc_att",model,data);
+    TensorTools::SetElements(target->p_ehid_state_W_.get()->values,vector<float>(&data[0],&data[size.first*size.second]));
+
+    size = getData(prefix+"W_com_att",model,data);
+    TensorTools::SetElements(target->p_ehid_h_W_.get()->values,vector<float>(&data[0],&data[size.first*size.second]));
+
+    size = getData(prefix+"b_att",model,data);
+    TensorTools::SetElements(target->p_ehid_h_b_.get()->values,vector<float>(&data[0],&data[size.first*size.second]));
+
+    size = getData(prefix+"U_att",model,data);
+    TensorTools::SetElements(target->p_e_ehid_W_.get()->values,vector<float>(&data[0],&data[size.first*size.second]));
+
+    size = getData(prefix+"c_tt",model,data);
+    TensorTools::SetElements(target->p_e_ehid_b_.get()->values,vector<float>(&data[0],&data[size.first*size.second]));
+
+/*
+
+    vector<float> f1;
+    vector<float> f2;
+
+     size = getData(prefix+"Wc",model,data);
+    splitData(data, f1, f2, size);
+    target->init_parameters(0,0,f2);
+    target->init_parameters(0,3,f1);
+
+    size = getData(prefix+"U_nl",model,data);
+    splitData(data, f1, f2, size);
+    target->init_parameters(0,1,f2);
+    target->init_parameters(0,4,f1);
+
+    size = getData(prefix+"b_nl",model,data);
+    assert(size.first % 2 == 0);
+    target->init_parameters(0,2,vector<float>(&data[size.first/2],&data[size.first]));
+    target->init_parameters(0,5,vector<float>(&data[0],&data[size.first/2]));
+
+    size = getData(prefix+"Wcx",model,data);
+    target->init_parameters(0,6,vector<float>(&data[0],&data[size.first*size.second]));
+    
+    size = getData(prefix+"Ux_nl",model,data);
+    target->init_parameters(0,7,vector<float>(&data[0],&data[size.first*size.second]));
+    
+    size = getData(prefix+"bx_nl",model,data);
+    target->init_parameters(0,8,vector<float>(&data[0],&data[size.first]));
+
+    */
+    
+}
+
+
 
 
 void CnpyUtils::splitData(const float * data, vector<float> & f1, vector<float> & f2, const pair<int,int> & size) {

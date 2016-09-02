@@ -12,7 +12,6 @@
 #include <cnpy/cnpy.h>
 #include <cnpy/cnpy-utils.h>
 #include <lamtram/gru-cond.h>
-
 #include "boost/property_tree/ptree.hpp"
 
 namespace cnn {
@@ -26,6 +25,7 @@ namespace lamtram {
 
 // A class to calculate extern_calcal context
 class ExternAttentional : public ExternCalculator {
+    friend class CnpyUtils;
 public:
 
     ExternAttentional(const std::vector<LinearEncoderPtr> & encoders,
@@ -92,14 +92,19 @@ protected:
 
     // Parameters
     cnn::Parameter p_ehid_h_W_;
+    cnn::Parameter p_ehid_h_b_;
     cnn::Parameter p_ehid_state_W_;
     cnn::Parameter p_e_ehid_W_;
+    cnn::Parameter p_e_ehid_b_;
     cnn::Parameter p_align_sum_W_;
+    
 
     // Interned parameters
     cnn::expr::Expression i_ehid_h_W_;
+    cnn::expr::Expression i_ehid_h_b_;
     cnn::expr::Expression i_ehid_state_W_;
     cnn::expr::Expression i_e_ehid_W_;
+    cnn::expr::Expression i_e_ehid_b_;
     cnn::expr::Expression i_align_sum_W_;
 
     // Temporary variables
@@ -119,6 +124,7 @@ private:
     std::vector<cnn::real> sent_values_;
 
     int sent_len_;
+    bool use_bias_;
 
 };
 
