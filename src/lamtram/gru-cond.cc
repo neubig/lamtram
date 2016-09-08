@@ -18,9 +18,13 @@ enum { X2Z, H2Z, BZ, X2R, H2R, BR, X2H, H2H, BH, X2Z2, H2Z2, BZ2, X2R2, H2R2, BR
 
 GRUCONDBuilder::GRUCONDBuilder(unsigned layers,
                        unsigned input_dim,
+                       unsigned input_2_dim,
                        unsigned hidden_dim,
                        Model* model,ExternCalculatorPtr & att) : hidden_dim(hidden_dim), layers(layers), att_(att) {
   unsigned layer_input_dim = input_dim;
+  unsigned layer_input_2_dim = input_2_dim;
+  cout << "Input 2 dim:" << input_2_dim << endl;
+  assert(layers == 1);
   for (unsigned i = 0; i < layers; ++i) {
     // z
     Parameter p_x2z = model->add_parameters({hidden_dim, layer_input_dim});
@@ -39,22 +43,23 @@ GRUCONDBuilder::GRUCONDBuilder(unsigned layers,
 
     //and the second step after attention
     // z
-    Parameter p_x2z_2 = model->add_parameters({hidden_dim, layer_input_dim});
+    Parameter p_x2z_2 = model->add_parameters({hidden_dim, layer_input_2_dim});
     Parameter p_h2z_2 = model->add_parameters({hidden_dim, hidden_dim});
     Parameter p_bz_2 = model->add_parameters({hidden_dim});
 
     // r
-    Parameter p_x2r_2 = model->add_parameters({hidden_dim, layer_input_dim});
+    Parameter p_x2r_2 = model->add_parameters({hidden_dim, layer_input_2_dim});
     Parameter p_h2r_2 = model->add_parameters({hidden_dim, hidden_dim});
     Parameter p_br_2 = model->add_parameters({hidden_dim});
 
     // h
-    Parameter p_x2h_2 = model->add_parameters({hidden_dim, layer_input_dim});
+    Parameter p_x2h_2 = model->add_parameters({hidden_dim, layer_input_2_dim});
     Parameter p_h2h_2 = model->add_parameters({hidden_dim, hidden_dim});
     Parameter p_bh_2 = model->add_parameters({hidden_dim});
 
 
     layer_input_dim = hidden_dim;  // output (hidden) from 1st layer is input to next
+    
 
     vector<Parameter> ps = {p_x2z, p_h2z, p_bz, p_x2r, p_h2r, p_br, p_x2h, p_h2h, p_bh,p_x2z_2, p_h2z_2, p_bz_2, p_x2r_2, p_h2r_2, p_br_2, p_x2h_2, p_h2h_2, p_bh_2};
     params.push_back(ps);
@@ -99,7 +104,7 @@ void GRUCONDBuilder::new_graph_impl(ComputationGraph& cg) {
     Expression bh_2 = parameter(cg,p[BH2]);
 
 
-    vector<Expression> vars = {x2z_2, h2z_2, bz_2, x2r_2, h2r_2, br_2, x2h_2, h2h_2, bh_2};
+    vector<Expression> vars = {x2z, h2z, bz, x2r, h2r, br, x2h, h2h, bh,x2z_2, h2z_2, bz_2, x2r_2, h2r_2, br_2, x2h_2, h2h_2, bh_2};
     param_vars.push_back(vars);
   }
 }

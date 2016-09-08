@@ -24,6 +24,7 @@ LIBCPP = \
     softmax-diff.cc \
     softmax-class.cc \
     softmax-factory.cc \
+    softmax-multilayer.cc \
     dict-utils.cc \
     dist-base.cc \
     dist-factory.cc \

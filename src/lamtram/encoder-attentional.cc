@@ -46,9 +46,9 @@ ExternAttentional::ExternAttentional(const std::vector<LinearEncoderPtr> & encod
   } else if(attention_type_.substr(0,6) == "mlp_b:") {
     hidden_size_ = stoi(attention_type_.substr(6));
     assert(hidden_size_ != 0);
-    p_ehid_h_b_ = mod.add_parameters({(unsigned int)hidden_size_, 1});
     p_ehid_h_W_ = mod.add_parameters({(unsigned int)hidden_size_, (unsigned int)context_size_});
     p_ehid_state_W_ = mod.add_parameters({(unsigned int)hidden_size_, (unsigned int)state_size_});
+    p_ehid_h_b_ = mod.add_parameters({(unsigned int)hidden_size_, 1});
     p_e_ehid_W_ = mod.add_parameters({1, (unsigned int)hidden_size_});
     p_e_ehid_b_ = mod.add_parameters({1, 1});
     use_bias_ = true;
@@ -115,8 +115,10 @@ void ExternAttentional::NewGraph(cnn::ComputationGraph & cg) {
   if(hidden_size_) {
     i_ehid_state_W_ = parameter(cg, p_ehid_state_W_);
     i_e_ehid_W_ = parameter(cg, p_e_ehid_W_);
-    i_ehid_h_b_ = parameter(cg, p_ehid_h_b_);
-    i_e_ehid_b_ = parameter(cg, p_e_ehid_b_);
+    if(use_bias_) {
+      i_ehid_h_b_ = parameter(cg, p_ehid_h_b_);
+      i_e_ehid_b_ = parameter(cg, p_e_ehid_b_);
+    }
   }
   if(attention_hist_ == "sum") {
     i_align_sum_W_ = parameter(cg, p_align_sum_W_);
@@ -181,7 +183,8 @@ void ExternAttentional::InitializeSentence(
   // Create an identity with shape
   if(hidden_size_) {
     if(use_bias_) {
-      i_ehid_hpart_ = i_ehid_h_b_*i_h_;
+      i_ehid_hpart_ = i_ehid_h_W_ *  i_h_;
+      i_ehid_hpart_ = colwise_add(i_ehid_hpart_,i_ehid_h_b_);
     }else {
       i_ehid_hpart_ = i_ehid_h_W_*i_h_;
     }
@@ -244,7 +247,8 @@ void ExternAttentional::InitializeSentence(
   // Create an identity with shape
   if(hidden_size_) {
     if(use_bias_) {
-      i_ehid_hpart_ = i_ehid_h_b_*i_h_;
+      i_ehid_hpart_ = i_ehid_h_W_ *  i_h_;
+      i_ehid_hpart_ = colwise_add(i_ehid_hpart_,i_ehid_h_b_);
     }else {
       i_ehid_hpart_ = i_ehid_h_W_*i_h_;
     }
@@ -309,7 +313,7 @@ cnn::expr::Expression ExternAttentional::CreateContext(
     cnn::expr::Expression i_ehid_out = tanh({i_ehid});
     // i_e_ehid_W_ is {1, hidden_size}, i_ehid_out is {hidden_size, sent_len}
     if(use_bias_) {
-      i_e = transpose(i_e_ehid_W_ * i_ehid_out) + i_e_ehid_b_;
+      i_e = transpose(colwise_add(i_e_ehid_W_ * i_ehid_out,i_e_ehid_b_));
     }else {
       i_e = transpose(i_e_ehid_W_ * i_ehid_out);
     }
@@ -346,7 +350,7 @@ cnn::expr::Expression ExternAttentional::CreateContext(
 
 cnn::expr::Expression ExternAttentional::CalcContext(
         const cnn::expr::Expression & state_in
-        ) const {
+        ) {
   cnn::expr::Expression i_ehid, i_e;
   // MLP
   if(hidden_size_) {
@@ -357,7 +361,7 @@ cnn::expr::Expression ExternAttentional::CalcContext(
     cnn::expr::Expression i_ehid_out = tanh({i_ehid});
     // i_e_ehid_W_ is {1, hidden_size}, i_ehid_out is {hidden_size, sent_len}
     if(use_bias_) {
-      i_e = transpose(i_e_ehid_W_ * i_ehid_out) + i_e_ehid_b_;
+      i_e = transpose(colwise_add(i_e_ehid_W_ * i_ehid_out,i_e_ehid_b_));
     }else {
       i_e = transpose(i_e_ehid_W_ * i_ehid_out);
     }
@@ -389,7 +393,8 @@ cnn::expr::Expression ExternAttentional::CalcContext(
     //align_sum_out = (align_sum_in.pg != nullptr ? align_sum_in + i_alpha : i_alpha);
   }
   // i_h_ is {input_size, sent_len}, i_alpha is {sent_len, 1}
-  return i_h_ * i_alpha; 
+  lastContext = i_h_ * i_alpha;
+  return lastContext; 
 
 }
 
@@ -487,6 +492,7 @@ EncoderAttentional* EncoderAttentional::Read(const DictPtr & vocab_src, const Di
     THROW_ERROR("Expecting a EncoderAttentional of version encatt_001, but got something different:" << endl << line);
   ExternAttentionalPtr extern_calc(ExternAttentional::Read(in, vocab_src, vocab_trg, model));
   NeuralLMPtr decoder(NeuralLM::Read(vocab_trg, in, model));
+  decoder->SetAttention(extern_calc);
   return new EncoderAttentional(extern_calc, decoder, model);
 }
 EncoderAttentional* EncoderAttentional::Convert(const DictPtr & vocab_src, const DictPtr & vocab_trg, const std::string & file, const boost::property_tree::ptree & json, cnn::Model & model) {
@@ -500,32 +506,41 @@ EncoderAttentional* EncoderAttentional::Convert(const DictPtr & vocab_src, const
   s << "gru:" << dim << ":1";
 
   BuilderSpec enc_layer_spec(s.str());
+  s.str(std::string());
 
-  s << "mlp_b:" << dim;
+  s << "mlp_b:" << 2*dim;
 
   std::string attention_type = s.str();
+  s.str(std::string());
   std::string attention_hist = "none";
   std::string attention_lex = "none";
   bool attention_feed = false;
   //bool attention_feed = true;
   //int context=2;
   int context=1;
-  std:string softmax_sig = "full";
+  
+  s << "multilayer:" << wordrep << ":full";
+  std:string softmax_sig = s.str();
+  s.str(std::string());
 
   LinearEncoderPtr enc(new LinearEncoder(vocab_src->size(), wordrep, enc_layer_spec, vocab_src->get_unk_id(), model));
   encoders.push_back(enc);
   LinearEncoderPtr revenc(new LinearEncoder(vocab_src->size(), wordrep, enc_layer_spec, vocab_src->get_unk_id(), model));
+  cout << "Source voc size:" << vocab_src->size() << endl;
   revenc->SetReverse(true);
   encoders.push_back(revenc);
 
   //BuilderSpec dec_layer_spec(enc_layer_spec); dec_layer_spec.nodes *= encoders.size();
   s << "gru-cond:" << dim << ":1";
   BuilderSpec dec_layer_spec(s.str());
+  s.str(std::string());
 
+  int ctxdim = 2*dim;
 
-  ExternAttentionalPtr extatt(new ExternAttentional(encoders, attention_type, attention_hist, dec_layer_spec.nodes, attention_lex, vocab_src, vocab_trg, model));
+  ExternAttentionalPtr extatt(new ExternAttentional(encoders, attention_type, attention_hist, dim, attention_lex, vocab_src, vocab_trg, model));
   
-  NeuralLMPtr decoder(new NeuralLM(vocab_trg, context, dec_layer_spec.nodes, attention_feed, wordrep, dec_layer_spec, vocab_trg->get_unk_id(), softmax_sig, model));
+  ExternCalculatorPtr p = extatt;
+  NeuralLMPtr decoder(new NeuralLM(vocab_trg, context, ctxdim, attention_feed, wordrep, dec_layer_spec, vocab_trg->get_unk_id(), softmax_sig, true, p, model));
   EncoderAttentional * encatt = new EncoderAttentional(extatt, decoder, model);
   
   //convert weights
@@ -544,11 +559,12 @@ EncoderAttentional* EncoderAttentional::Convert(const DictPtr & vocab_src, const
   CnpyUtils::copyGRUCondWeight("decoder_",npz_model,decoder->builder_);
   CnpyUtils::copyAttentionWeight("decoder_",npz_model,extatt);
   
+  CnpyUtils::copySoftmaxWeight("ff_",npz_model,decoder->softmax_,vocab_trg->size());
   
-  for(auto const &e : npz_model) {
-    cout << e.first << endl;
-    cout << e.second.shape[0] << " " << e.second.shape[1] << endl;
-  }
+  //for(auto const &e : npz_model) {
+    //cout << e.first << endl;
+    //cout << e.second.shape[0] << " " << e.second.shape[1] << endl;
+  //}
   
   cout << "Done" << endl;
   return encatt;

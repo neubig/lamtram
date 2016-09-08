@@ -11,6 +11,9 @@
 #include <cnn/tensor.h>
 #include <lamtram/builder-factory.h>
 #include <lamtram/encoder-attentional.h>
+#include <lamtram/softmax-base.h>
+#include <lamtram/softmax-full.h>
+#include <lamtram/softmax-multilayer.h>
 
 namespace cnn {
 struct LookupParameter;
@@ -27,6 +30,7 @@ public:
     static void copyGRUWeight(const std::string & prefix,cnpy::npz_t & model,BuilderPtr target);
     static void copyGRUCondWeight(const std::string & prefix,cnpy::npz_t & model,BuilderPtr target);
     static void copyAttentionWeight(const std::string & prefix,cnpy::npz_t & model,ExternAttentionalPtr target);
+    static void copySoftmaxWeight(const std::string & prefix,cnpy::npz_t & model,SoftmaxPtr target,int vocSize);
     static std::pair<int,int> getData(const std::string & name, cnpy::npz_t & model, float * & data);
     static void splitData(const float * data, std::vector<float> & f1, std::vector<float> & f2, const std::pair<int,int> & size);
 };

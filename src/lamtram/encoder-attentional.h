@@ -54,7 +54,7 @@ public:
         
     virtual cnn::expr::Expression CalcContext(
         const cnn::expr::Expression & state_in
-        )const override;
+        ) override;
 
     // Calculate the prior
     cnn::expr::Expression CalcPrior(
@@ -73,6 +73,8 @@ public:
     static ExternAttentional* Read(std::istream & in, const DictPtr & vocab_src, const DictPtr & vocab_trg, cnn::Model & model);
     void Write(std::ostream & out);
 
+    virtual cnn::expr::Expression GetLastContext() const {return cnn::expr::Expression(lastContext);};
+
 
     // Setters
     void SetDropout(float dropout) {
@@ -83,12 +85,17 @@ protected:
     std::vector<LinearEncoderPtr> encoders_;
     std::string attention_type_, attention_hist_;
     int hidden_size_, state_size_;
+    
+    bool use_bias_;
+    
 
     // Lexical type
     std::string lex_type_, lex_file_;
     MultipleIdMappingPtr lex_mapping_;
     float lex_alpha_;
     size_t lex_size_;
+    
+    cnn::expr::Expression lastContext;
 
     // Parameters
     cnn::Parameter p_ehid_h_W_;
@@ -124,7 +131,6 @@ private:
     std::vector<cnn::real> sent_values_;
 
     int sent_len_;
-    bool use_bias_;
 
 };
 

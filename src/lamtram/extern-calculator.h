@@ -32,7 +32,7 @@ public:
     
     virtual cnn::expr::Expression CalcContext(
         const cnn::expr::Expression & state_in
-        )const = 0;    
+        ) = 0;    
 
     // Calculate the prior over the inputs
     virtual cnn::expr::Expression CalcPrior(
@@ -41,6 +41,8 @@ public:
     virtual cnn::expr::Expression GetEmptyContext(cnn::ComputationGraph & cg) const = 0;
 
     int GetSize() const { return context_size_; }
+
+    virtual cnn::expr::Expression GetLastContext() const = 0;
 
 protected:
     int context_size_;

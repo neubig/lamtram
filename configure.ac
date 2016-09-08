@@ -30,8 +30,8 @@ AC_ARG_WITH(cnn,
 	[AC_HELP_STRING([--with-cnn=DIR], [cnn in DIR])],
 	[cnn_dir="${withval}"], [cnn_dir=''])
 if test "x$cnn_dir" != "x"; then
-  CNN_CPPFLAGS="-I${cnn_dir}"
-  CNN_LDFLAGS="${cnn_dir}/build/cnn/libcnn.a"
+  CNN_CPPFLAGS="-I${cnn_dir}/include/"
+  CNN_LDFLAGS="${cnn_dir}/lib/libcnn.a"
 else
   AS_ERROR("Must specify --with-cnn=[CNN_DIR]")
 fi
@@ -41,8 +41,8 @@ AC_ARG_WITH(cuda,
 	[AC_HELP_STRING([--with-cuda=DIR], [cuda in DIR])],
 	[cuda_dir="${withval}"], [cuda_dir=''])
 if test "x$cuda_dir" != "x"; then
-  CNN_CPPFLAGS="-I${cnn_dir} -I${cuda_dir}/include -DHAVE_CUDA -DEIGEN_USE_GPU -DEIGEN_HAS_CUDA_FP16"
-  CNN_LDFLAGS="${cnn_dir}/build/cnn/libcnn.a ${cnn_dir}/build/cnn/libcnncuda.a -L${cuda_dir}/lib -lcudart -lcublas"
+  CNN_CPPFLAGS="-I${cnn_dir}/include/ -I${cuda_dir}/include -DHAVE_CUDA -DEIGEN_USE_GPU -DEIGEN_HAS_CUDA_FP16"
+  CNN_LDFLAGS="${cnn_dir}/lib/libcnn.a ${cnn_dir}/lib/libcnncuda.a -L${cuda_dir}/lib -lcudart -lcublas"
 fi
 AC_SUBST(CNN_CPPFLAGS)
 AC_SUBST(CNN_LDFLAGS)

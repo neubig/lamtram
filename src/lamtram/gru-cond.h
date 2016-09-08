@@ -21,6 +21,7 @@ struct GRUCONDBuilder : public RNNBuilder {
   GRUCONDBuilder() = default;
   explicit GRUCONDBuilder(unsigned layers,
                       unsigned input_dim,
+                      unsigned input_2_dim,
                       unsigned hidden_dim,
                       cnn::Model* model,ExternCalculatorPtr & att);
   Expression back() const override { return (cur == -1? h0.back() : h[cur].back()); }
@@ -32,6 +33,8 @@ struct GRUCONDBuilder : public RNNBuilder {
   void copy(const RNNBuilder & params) override;
 
   void init_parameters(int layer,int index, const std::vector<float>& vec);
+  
+  void SetAttention(ExternCalculatorPtr att) {att_ = att;};
 
  protected:
   void new_graph_impl(ComputationGraph& cg) override;

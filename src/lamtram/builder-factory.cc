@@ -38,11 +38,12 @@ BuilderPtr BuilderFactory::CreateBuilder(const BuilderSpec & spec, int input_dim
 }
 
 
-BuilderPtr BuilderFactory::CreateBuilder(const BuilderSpec & spec, int input_dim, cnn::Model & model,ExternCalculatorPtr & att) {
+BuilderPtr BuilderFactory::CreateBuilder(const BuilderSpec & spec, int input_dim, int input_2_dim, cnn::Model & model,ExternCalculatorPtr & att) {
      cerr << "BuilderFactor::CreateBuilder(" << spec << ", " << input_dim << ", " << (long)&model << ")" << endl;
     if(spec.type == "gru-cond") {
         //THROW_ERROR("GRU spec.nodes are not supported yet.");
-        return BuilderPtr(new GRUCONDBuilder(spec.layers, input_dim, spec.nodes, &model, att));
+        cout << "Create GRU cond with dim 2" << input_2_dim << endl;
+        return BuilderPtr(new GRUCONDBuilder(spec.layers, input_dim, input_2_dim, spec.nodes, &model, att));
     } else {
         THROW_ERROR("Unknown layer type " << spec.type);
     }

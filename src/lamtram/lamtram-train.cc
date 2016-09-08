@@ -61,12 +61,14 @@ int LamtramTrain::main(int argc, char** argv) {
     ("max_len", po::value<int>()->default_value(200), "Limit on the max length of sentences")
     ("wordrep", po::value<int>()->default_value(100), "Size of the word representations")
     ("layers", po::value<string>()->default_value("lstm:100:1"), "Descriptor for hidden layers, type:num_units:num_layers")
+    ("encoder_layers", po::value<string>()->default_value(""), "Descriptor for hidden layers, type:num_units:num_layers")
     ("cls_layers", po::value<string>()->default_value(""), "Descriptor for classifier layers, nodes1:nodes2:...")
     ("wildcards", po::value<string>()->default_value(""), "Wildcards to be used in loading training files")
     ("attention_type", po::value<string>()->default_value("dot"), "Type of attention score (mlp:NUM/bilin/dot)")
     ("attention_feed", po::value<bool>()->default_value(true), "Whether to perform the input feeding of Luong et al.")
     ("attention_hist", po::value<string>()->default_value("none"), "How to pass information about the attention into the score function (none/sum)")
     ("attention_lex", po::value<string>()->default_value("none"), "Use a lexicon (e.g. \"prior:file=/path/to/file:alpha=0.001\")")
+    ("word_embedding_in_softmax", po::value<bool>()->default_value("false"), "Use word embedding directly in output softmax (default:false")
     ("cnn_mem", po::value<int>()->default_value(512), "How much memory to allocate to cnn")
     ("verbose", po::value<int>()->default_value(0), "How much verbose output to print")
     ;
@@ -269,7 +271,7 @@ void LamtramTrain::TrainLM() {
 
   // Create the model
   if(model_in_file_.size() == 0)
-    nlm.reset(new NeuralLM(vocab_trg, context_, 0, false, vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_trg->get_unk_id(), softmax_sig_, *model));
+    nlm.reset(new NeuralLM(vocab_trg, context_, 0, false, vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_trg->get_unk_id(), softmax_sig_, vm_["word_embedding_in_softmax"].as<bool>(), *model));
   TrainerPtr trainer = GetTrainer(vm_["trainer"].as<string>(), vm_["learning_rate"].as<float>(), *model);
 
   // If necessary, cache the softmax
@@ -428,7 +430,7 @@ void LamtramTrain::TrainEncDec() {
       else { THROW_ERROR("Illegal encoder type: " << spec); }
       encoders.push_back(enc);
     }
-    decoder.reset(new NeuralLM(vocab_trg, context_, 0, false, vm_["wordrep"].as<int>(), dec_layer_spec, vocab_trg->get_unk_id(), softmax_sig_, *model));
+    decoder.reset(new NeuralLM(vocab_trg, context_, 0, false, vm_["wordrep"].as<int>(), dec_layer_spec, vocab_trg->get_unk_id(), softmax_sig_, vm_["word_embedding_in_softmax"].as<bool>(),*model));
     encdec.reset(new EncoderDecoder(encoders, decoder, *model));
   }
 
@@ -487,16 +489,27 @@ void LamtramTrain::TrainEncAtt() {
     vector<string> encoder_types;
     boost::algorithm::split(encoder_types, vm_["encoder_types"].as<string>(), boost::is_any_of("|"));
     BuilderSpec dec_layer_spec(vm_["layers"].as<string>());
-    if(dec_layer_spec.nodes % encoder_types.size() != 0)
-      THROW_ERROR("The number of nodes in the decoder (" << dec_layer_spec.nodes << ") must be divisible by the number of encoders (" << encoder_types.size() << ")");
-    BuilderSpec enc_layer_spec(dec_layer_spec); enc_layer_spec.nodes /= encoder_types.size();
+    string enc_layer_string = vm_["encoder_layers"].as<string>();
+    BuilderSpec enc_layer_spec(dec_layer_spec);
+    if(enc_layer_string != "") {
+      enc_layer_spec = BuilderSpec(enc_layer_string);
+    }else {
+      if(dec_layer_spec.nodes % encoder_types.size() != 0)
+        THROW_ERROR("The number of nodes in the decoder (" << dec_layer_spec.nodes << ") must be divisible by the number of encoders (" << encoder_types.size() << ")");
+      enc_layer_spec.nodes /= encoder_types.size();
+    }
     for(auto & spec : encoder_types) {
       LinearEncoderPtr enc(new LinearEncoder(vocab_src->size(), vm_["wordrep"].as<int>(), enc_layer_spec, vocab_src->get_unk_id(), *model));
       if(spec == "rev") enc->SetReverse(true);
       encoders.push_back(enc);
     }
     ExternAttentionalPtr extatt(new ExternAttentional(encoders, vm_["attention_type"].as<string>(), vm_["attention_hist"].as<string>(), dec_layer_spec.nodes, vm_["attention_lex"].as<string>(), vocab_src, vocab_trg, *model));
-    decoder.reset(new NeuralLM(vocab_trg, context_, dec_layer_spec.nodes, vm_["attention_feed"].as<bool>(), vm_["wordrep"].as<int>(), dec_layer_spec, vocab_trg->get_unk_id(), softmax_sig_, *model));
+    if(dec_layer_spec.type == "gru-cond") {
+      ExternCalculatorPtr p = extatt;
+      decoder.reset(new NeuralLM(vocab_trg, context_, dec_layer_spec.nodes, vm_["attention_feed"].as<bool>(), vm_["wordrep"].as<int>(), dec_layer_spec, vocab_trg->get_unk_id(), softmax_sig_, vm_["word_embedding_in_softmax"].as<bool>(),p,*model));
+    }else {
+      decoder.reset(new NeuralLM(vocab_trg, context_, dec_layer_spec.nodes, vm_["attention_feed"].as<bool>(), vm_["wordrep"].as<int>(), dec_layer_spec, vocab_trg->get_unk_id(), softmax_sig_, vm_["word_embedding_in_softmax"].as<bool>(),*model));
+    }
     encatt.reset(new EncoderAttentional(extatt, decoder, *model));
   }
 

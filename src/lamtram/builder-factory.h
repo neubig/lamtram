@@ -29,7 +29,7 @@ typedef std::shared_ptr<cnn::RNNBuilder> BuilderPtr;
 class BuilderFactory {
 public:
     static BuilderPtr CreateBuilder(const BuilderSpec & spec, int input_dim, cnn::Model & model);
-    static BuilderPtr CreateBuilder(const BuilderSpec & spec, int input_dim, cnn::Model & model,ExternCalculatorPtr & att);
+    static BuilderPtr CreateBuilder(const BuilderSpec & spec, int input_dim, int input2_dim, cnn::Model & model,ExternCalculatorPtr & att);
 };
 
 }

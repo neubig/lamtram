@@ -81,6 +81,7 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
       EncoderAttentional * tm = ModelUtils::LoadBilingualModel<EncoderAttentional>(file, mod_temp, vocab_src_temp, vocab_trg_temp);
       encatts.push_back(shared_ptr<EncoderAttentional>(tm));
     } else if(type == "nematus") {
+      cout << "Loading nematus" << endl;
       EncoderAttentional * tm = ModelUtils::ConvertBilingualModel<EncoderAttentional>(file, mod_temp, vocab_src_temp, vocab_trg_temp);
       encatts.push_back(shared_ptr<EncoderAttentional>(tm));
     } else if(type == "nlm") {

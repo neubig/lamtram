@@ -42,14 +42,15 @@ public:
     NeuralLM(const DictPtr & vocab, int ngram_context, int extern_context,
              bool extern_feed,
              int wordrep_size, const BuilderSpec & hidden_spec, int unk_id,
-             const std::string & softmax_sig,
+             const std::string & softmax_sig, bool word_embedding_in_softmax,
              cnn::Model & model);
 
     NeuralLM(const DictPtr & vocab, int ngram_context, int extern_context,
              bool extern_feed,
              int wordrep_size, const BuilderSpec & hidden_spec, int unk_id,
-             const std::string & softmax_sig,
-             cnn::Model & model, ExternCalculatorPtr & att);
+             const std::string & softmax_sig,bool word_embedding_in_softmax,
+             ExternCalculatorPtr & att,
+             cnn::Model & model);
 
     ~NeuralLM() { }
 
@@ -142,6 +143,7 @@ public:
 
     // Setters
     void SetDropout(float dropout);
+    void SetAttention(ExternCalculatorPtr att);
 
 protected:
 
@@ -153,6 +155,7 @@ protected:
     bool extern_feed_;
     int wordrep_size_, unk_id_;
     bool intermediate_att;
+    bool word_embedding_in_softmax;
     BuilderSpec hidden_spec_;
 
     // Pointers to the parameters
