@@ -85,7 +85,7 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
   // Initialize the previous extern
   cnn::expr::Expression extern_in;
   assert(extern_context_ == 0 || extern_calc != nullptr);
-  if(extern_context_ != 0 && extern_feed_) extern_in = extern_calc->GetEmptyContext(cg);
+  if(extern_context_ != 0 && extern_feed_ && !intermediate_att) extern_in = extern_calc->GetEmptyContext(cg);
   // Next, do the computation
   vector<cnn::expr::Expression> errs, aligns;
   cnn::expr::Expression align_sum;
@@ -188,7 +188,7 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
   std::bernoulli_distribution samp_dist(samp_prob);
   // Initialize the previous extern
   cnn::expr::Expression extern_in;
-  if(extern_context_ != 0 && extern_feed_) extern_in = extern_calc->GetEmptyContext(cg);
+  if(extern_context_ != 0 && extern_feed_ && !intermediate_att) extern_in = extern_calc->GetEmptyContext(cg);
   // Next, do the computation
   vector<cnn::expr::Expression> errs, aligns;
   cnn::expr::Expression align_sum;
@@ -313,7 +313,7 @@ Expression NeuralLM::SampleTrgSentences(
   vector<cnn::expr::Expression> i_wr;
   // Initialize the previous extern
   cnn::expr::Expression extern_in;
-  if(extern_context_ != 0 && extern_feed_) extern_in = extern_calc->GetEmptyContext(cg);
+  if(extern_context_ != 0 && extern_feed_ && !intermediate_att) extern_in = extern_calc->GetEmptyContext(cg);
   // Next, do the computation
   vector<cnn::expr::Expression> log_probs, aligns;
   cnn::expr::Expression align_sum;
@@ -473,7 +473,7 @@ cnn::expr::Expression NeuralLM::Forward(const Sent & sent, int t,
   }
 
 
-  if(extern_feed_)
+  if(extern_feed_ && !intermediate_att)
     i_wrs_t.push_back(extern_in.pg == nullptr ? extern_calc->GetEmptyContext(cg) : extern_in);
   // Concatenate the inputs if necessary
   cnn::expr::Expression i_wr_t;
@@ -563,11 +563,10 @@ NeuralLM* NeuralLM::Read(const DictPtr & vocab, std::istream & in, cnn::Model & 
   }
   assert(vocab->size() == vocab_size);
   if(intermediate_att) {
-    return new NeuralLM(vocab, ngram_context, extern_context, extern_feed, wordrep_size, hidden_spec, unk_id, softmax_sig, word_embedding_in_softmax,model);
-  }else{
     std::shared_ptr<ExternCalculator> p;
     return new NeuralLM(vocab, ngram_context, extern_context, extern_feed, wordrep_size, hidden_spec, unk_id, softmax_sig, word_embedding_in_softmax,p,model);
-    
+  }else{
+    return new NeuralLM(vocab, ngram_context, extern_context, extern_feed, wordrep_size, hidden_spec, unk_id, softmax_sig, word_embedding_in_softmax,model);
   }
     
 }
@@ -582,9 +581,6 @@ void NeuralLM::SetAttention(ExternCalculatorPtr att)
   if(hidden_spec_.type == "gru-cond") {
     GRUCONDBuilder * b = (GRUCONDBuilder *) builder_.get();
     b->SetAttention(att);
-  }else {
-    cerr << "No attention needed for Hidden type:" << hidden_spec_.type << endl;
-    exit(-1);
   }
 }
 

@@ -23,7 +23,7 @@ GRUCONDBuilder::GRUCONDBuilder(unsigned layers,
                        Model* model,ExternCalculatorPtr & att) : hidden_dim(hidden_dim), layers(layers), att_(att) {
   unsigned layer_input_dim = input_dim;
   unsigned layer_input_2_dim = input_2_dim;
-  cout << "Input 2 dim:" << input_2_dim << endl;
+  
   assert(layers == 1);
   for (unsigned i = 0; i < layers; ++i) {
     // z
@@ -170,6 +170,7 @@ Expression GRUCONDBuilder::add_input_impl(int prev, const Expression& x) {
       hs = crt + nwt;
     }
     
+
     //get context;
     Expression c = att_->CalcContext(hs);
     

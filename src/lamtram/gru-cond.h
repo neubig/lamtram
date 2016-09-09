@@ -57,7 +57,7 @@ struct GRUCONDBuilder : public RNNBuilder {
   unsigned hidden_dim;
   unsigned layers;
   
-  ExternCalculatorPtr & att_;
+  ExternCalculatorPtr att_;
 };
 
 } // namespace lamtram
