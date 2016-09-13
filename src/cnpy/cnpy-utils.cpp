@@ -4,19 +4,25 @@
 using namespace std;
 using namespace lamtram;
 
-void CnpyUtils::copyWeight(const string & name,cnpy::npz_t & model,cnn::LookupParameter & target) {
+void CnpyUtils::copyWeight(const string & name,cnpy::npz_t & model,cnn::LookupParameter & target,float dropoutProb) {
     auto it = model.find(name);
     if(it != model.end()) {
         int vocSize = it->second.shape[0];
         int hSize = it->second.shape[1];
         float * data = ((float*)it->second.data);
+        vector<float> emb;
+        emb.resize(hSize);
         for (int i = 0; i < vocSize && i < target.get()->all_dim.cols(); i++) {
-            vector<float> s(&data[i * hSize],&data[(i+1)*hSize]);
-            target.initialize(i,s);
+            for(int j = 0; j < hSize; j++) {
+                int index = i*hSize + j;
+                emb[j] = data[index] * dropoutProb;
+            }
+            target.initialize(i,emb);
         }
     }else {
         std::cerr << "Missing " << name << " in npz model" << std::endl;
     }
+    cout << "Done" << endl;
 
 }
 

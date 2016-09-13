@@ -26,7 +26,7 @@ typedef std::shared_ptr<ExternAttentional> ExternAttentionalPtr;
 
 class CnpyUtils {
 public:
-    static void copyWeight(const std::string & name,cnpy::npz_t & model,cnn::LookupParameter & target);
+    static void copyWeight(const std::string & name,cnpy::npz_t & model,cnn::LookupParameter & target,float dropoutProb);
     static void copyGRUWeight(const std::string & prefix,cnpy::npz_t & model,BuilderPtr target);
     static void copyGRUCondWeight(const std::string & prefix,cnpy::npz_t & model,BuilderPtr target);
     static void copyAttentionWeight(const std::string & prefix,cnpy::npz_t & model,ExternAttentionalPtr target);

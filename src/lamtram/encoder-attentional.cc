@@ -547,11 +547,18 @@ EncoderAttentional* EncoderAttentional::Convert(const DictPtr & vocab_src, const
   
   cout << "Loading npz file: \"" << file << "\"" << endl;
   cnpy::npz_t npz_model(cnpy::npz_load(file));
+
+
+  bool dropOut = json.get_child("use_dropout").get_value<bool>();
+  float dropoutProb = 1;
+  if(dropOut) {
+    dropoutProb = 1 - json.get_child("dropout_source").get_value<float>();
+  }
+
+  CnpyUtils::copyWeight("Wemb",npz_model,enc->p_wr_W_,dropoutProb);
+  CnpyUtils::copyWeight("Wemb",npz_model,revenc->p_wr_W_,dropoutProb);
   
-  CnpyUtils::copyWeight("Wemb",npz_model,enc->p_wr_W_);
-  CnpyUtils::copyWeight("Wemb",npz_model,revenc->p_wr_W_);
-  
-  CnpyUtils::copyWeight("Wemb_dec",npz_model,decoder->p_wr_W_);
+  CnpyUtils::copyWeight("Wemb_dec",npz_model,decoder->p_wr_W_,1);
 
   CnpyUtils::copyGRUWeight("encoder_",npz_model,enc->builder_);
   CnpyUtils::copyGRUWeight("encoder_r_",npz_model,revenc->builder_);
