@@ -10,6 +10,8 @@
 
 namespace lamtram {
 
+#define EOS 0
+
 class EnsembleDecoderHyp {
 public:
     EnsembleDecoderHyp(float score, const std::vector<std::vector<cnn::expr::Expression> > & states, const std::vector<cnn::expr::Expression> & externs, const std::vector<cnn::expr::Expression> & sums, const Sentence & sent, const Sentence & align) :
@@ -50,8 +52,8 @@ public:
     template <class OutSent, class OutLL, class OutWords>
     void CalcSentLL(const Sentence & sent_src, const OutSent & sent_trg, OutLL & ll, OutWords & words);
 
-    EnsembleDecoderHypPtr Generate(const Sentence & sent_src);
-    std::vector<EnsembleDecoderHypPtr> GenerateNbest(const Sentence & sent_src, int nbest);
+    EnsembleDecoderHypPtr Generate(const Sentence & sent_src,int length);
+    std::vector<EnsembleDecoderHypPtr> GenerateNbest(const Sentence & sent_src, int nbest,int length);
 
     std::vector<std::vector<cnn::expr::Expression> > GetInitialStates(const Sentence & sent_src, cnn::ComputationGraph & cg);
     
@@ -79,6 +81,7 @@ public:
     void SetBeamSize(int beam_size) { beam_size_ = beam_size; }
     int GetSizeLimit() const { return size_limit_; }
     void SetSizeLimit(int size_limit) { size_limit_ = size_limit; }
+    void SetUseFixedLength(bool use_fixed_length) { fix_length_ = use_fixed_length; }
 
 protected:
     std::vector<EncoderDecoderPtr> encdecs_;
@@ -91,6 +94,8 @@ protected:
     int size_limit_;
     int beam_size_;
     std::string ensemble_operation_;
+    
+    bool fix_length_;
 
 };
 

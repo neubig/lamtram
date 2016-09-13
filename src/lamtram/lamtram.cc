@@ -111,6 +111,8 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
     if(!*src_in)
       THROW_ERROR("Could not find src_in file " << vm["src_in"].as<std::string>());
   }
+
+
   
   // Find the range
   pair<size_t,size_t> sent_range(0,INT_MAX);
@@ -129,6 +131,20 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
   decoder.SetEnsembleOperation(vm["ensemble_op"].as<string>());
   decoder.SetBeamSize(vm["beam"].as<int>());
   decoder.SetSizeLimit(vm["max_len"].as<int>());
+  bool use_fixed_length = false;
+  if(vm["length_file"].as<string>() != "") {
+    decoder.SetUseFixedLength(true);
+    use_fixed_length = true;
+  }
+
+  // Get the target length if necessary
+  shared_ptr<ifstream> length_in;
+  if(use_fixed_length) {
+    length_in.reset(new ifstream(vm["length_file"].as<std::string>()));
+    if(!*src_in)
+      THROW_ERROR("Could not find length_file file " << vm["length_file"].as<std::string>());
+  }
+
 
   
   // Perform operation
@@ -226,14 +242,21 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
     }
   } else if(operation == "gen" || operation == "samp") {
     if(operation == "samp") THROW_ERROR("Sampling not implemented yet");
+    int fix_length = 0;
     for(int i = 0; i < sent_range.second; ++i) {
       if(encdecs.size() + encatts.size() > 0) {
         if(!getline(*src_in, line)) break;
         str_src = SplitWords(line);
         sent_src = ParseWords(*vocab_src, str_src, false);
       }
+      
+      if(use_fixed_length) {
+        if(!getline(*length_in, line)) break;
+        fix_length = atoi(line.c_str());
+        
+      }
       if(i >= sent_range.first) {
-        EnsembleDecoderHypPtr trg_hyp = decoder.Generate(sent_src);
+        EnsembleDecoderHypPtr trg_hyp = decoder.Generate(sent_src,fix_length);
         if(trg_hyp.get() == nullptr) {
           sent_trg.clear();
           align.clear();
@@ -351,6 +374,7 @@ int Lamtram::main(int argc, char** argv) {
     ("sent_range", po::value<string>()->default_value(""), "Optionally specify a comma-delimited range on how many sentences to process")
     ("max_len", po::value<int>()->default_value(200), "Limit on the max length of sentences")
     ("src_in", po::value<string>()->default_value(""), "File to read the source from, if any")
+    ("length_file", po::value<string>()->default_value(""), "File to read the fixed length of every output sentence")
     ("word_pen", po::value<float>()->default_value(0.f), "The \"word penalty\", a larger value favors longer sentences, shorter favors shorter")
     ("unk_pen", po::value<float>()->default_value(0.f), "A penalty for unknown words, larger will create fewer unknown words when decoding")
     ;

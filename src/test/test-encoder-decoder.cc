@@ -111,7 +111,7 @@ BOOST_AUTO_TEST_CASE(TestDecodingScores) {
   Sentence decode_sent;
   // Perform decoding
   {
-    vector<EnsembleDecoderHypPtr> hyps = ensdec_->GenerateNbest(sent_src_, 1);
+    vector<EnsembleDecoderHypPtr> hyps = ensdec_->GenerateNbest(sent_src_, 1,0);
     decode_ll = hyps[0]->GetScore();
     decode_sent = hyps[0]->GetSentence();
   }
@@ -133,7 +133,7 @@ BOOST_AUTO_TEST_CASE(TestBeamDecodingScores) {
   // Perform decoding
   {
     ensdec_->SetBeamSize(5);
-    vector<EnsembleDecoderHypPtr> hyps = ensdec_->GenerateNbest(sent_src_, 1);
+    vector<EnsembleDecoderHypPtr> hyps = ensdec_->GenerateNbest(sent_src_, 1,0);
     ensdec_->SetBeamSize(1);
     decode_ll = hyps[0]->GetScore();
     decode_sent = hyps[0]->GetSentence();

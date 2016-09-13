@@ -108,7 +108,7 @@ struct TestEncoderAttentional {
     Sentence decode_sent;
     // Perform decoding
     {
-      vector<EnsembleDecoderHypPtr> hyps = ensdec->GenerateNbest(sent_src_, 1);
+      vector<EnsembleDecoderHypPtr> hyps = ensdec->GenerateNbest(sent_src_, 1,0);
       decode_ll = hyps[0]->GetScore();
       decode_sent = hyps[0]->GetSentence();
     }
@@ -225,7 +225,7 @@ BOOST_AUTO_TEST_CASE(TestBeamDecodingScores) {
   // Perform decoding
   {
     ensdec->SetBeamSize(5);
-    vector<EnsembleDecoderHypPtr> hyps = ensdec->GenerateNbest(sent_src_, 1);
+    vector<EnsembleDecoderHypPtr> hyps = ensdec->GenerateNbest(sent_src_, 1,0);
     ensdec->SetBeamSize(1);
     decode_ll = hyps[0]->GetScore();
     decode_sent = hyps[0]->GetSentence();
@@ -252,7 +252,7 @@ BOOST_AUTO_TEST_CASE(TestBeamSearchImproves) {
   vector<float> scores(max_beam_size);
   for(size_t i = 0; i < max_beam_size; i++) {
     ensdec->SetBeamSize(i+1);
-    vector<EnsembleDecoderHypPtr> hyps = ensdec->GenerateNbest(sent_src_, 1);
+    vector<EnsembleDecoderHypPtr> hyps = ensdec->GenerateNbest(sent_src_, 1,0);
     scores[i] = hyps[0]->GetScore();
     if(i != 0) BOOST_CHECK_LE(scores[i-1], scores[i]);
   }

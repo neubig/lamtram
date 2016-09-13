@@ -24,7 +24,7 @@ BuilderSpec::BuilderSpec(const std::string & spec) {
 }
 
 BuilderPtr BuilderFactory::CreateBuilder(const BuilderSpec & spec, int input_dim, cnn::Model & model) {
-     cerr << "BuilderFactor::CreateBuilder(" << spec << ", " << input_dim << ", " << (long)&model << ")" << endl;
+     //cerr << "BuilderFactor::CreateBuilder(" << spec << ", " << input_dim << ", " << (long)&model << ")" << endl;
     if(spec.type == "rnn") {
         return BuilderPtr(new cnn::SimpleRNNBuilder(spec.layers, input_dim, spec.nodes, &model));
     } else if(spec.type == "lstm") {
