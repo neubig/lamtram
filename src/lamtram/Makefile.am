@@ -34,6 +34,7 @@ LIBCPP = \
     dist-unk.cc \
     eval-measure-loader.cc \
     eval-measure-bleu.cc \
+    eval-measure-extern.cc \
     eval-measure-ribes.cc \
     eval-measure-wer.cc \
     eval-measure-interp.cc \

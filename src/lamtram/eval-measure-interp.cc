@@ -3,6 +3,8 @@
 #include <lamtram/eval-measure-loader.h>
 #include <lamtram/macros.h>
 
+#include <cnn/dict.h>
+
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
 
@@ -99,14 +101,14 @@ EvalStatsPtr EvalMeasureInterp::ReadStats(const std::string & line) {
     return EvalStatsPtr(new EvalStatsInterp(stats, coeffs_));
 }
 
-EvalMeasureInterp::EvalMeasureInterp(const std::string & config) {
+EvalMeasureInterp::EvalMeasureInterp(const std::string & config, const cnn::Dict & vocab) {
     vector<string> strs;
     boost::algorithm::split(strs, config, boost::is_any_of("|"));
     if(strs.size() == 0 || strs.size() % 2 != 0)
         THROW_ERROR("Bad configuration in interpreted evaluation measure: " << config);
     for(int i = 0; i < (int)strs.size(); i += 2) {
         coeffs_.push_back(boost::lexical_cast<float>(strs[i]));
-        measures_.push_back(std::shared_ptr<EvalMeasure>(EvalMeasureLoader::CreateMeasureFromString(strs[i+1])));
+        measures_.push_back(std::shared_ptr<EvalMeasure>(EvalMeasureLoader::CreateMeasureFromString(strs[i+1], vocab)));
     }
 }
 
