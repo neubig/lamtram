@@ -32,9 +32,9 @@ an issue on the [github page](http://github.com/neubig/lamtram). In addition to 
 usage info below, you can also take a look at the [nmt-tips tutorial](http://github.com/neubig/nmt-tips)
 on building strong neural machine translation systems.
 
-Lamtram is dual-licensed under the LGPLs 2.1 and 3.0, and may be used freely according
-to the conditions specified therein. If you want to use lamtram in your research and
-want a citation, feel free to use the following reference:
+Lamtram is licensed under the LGPL 2.1 and may be used freely according to this, or
+any later versions of the license. If you want to use lamtram in your research and
+we'd appreciate if you use the following reference:
 
     @misc{neubig15lamtram,
     	author = {Graham Neubig},
