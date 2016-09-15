@@ -2,17 +2,19 @@
 
 #include <lamtram/eval-measure.h>
 #include <lamtram/eval-measure-bleu.h>
+#include <lamtram/eval-measure-extern.h>
 #include <lamtram/eval-measure-ribes.h>
 #include <lamtram/eval-measure-wer.h>
 #include <lamtram/eval-measure-interp.h>
 #include <lamtram/macros.h>
+#include <cnn/dict.h>
 
 using namespace std;
 using namespace lamtram;
 
 namespace lamtram {
 
-EvalMeasure * EvalMeasureLoader::CreateMeasureFromString(const string & str) {
+EvalMeasure * EvalMeasureLoader::CreateMeasureFromString(const string & str, const cnn::Dict & vocab) {
     // Get the eval, config substr
     string eval, config;
     size_t eq = str.find(':');
@@ -21,12 +23,14 @@ EvalMeasure * EvalMeasureLoader::CreateMeasureFromString(const string & str) {
     // Create the actual measure
     if(eval == "bleu") 
         return new EvalMeasureBleu(config);
+    else if(eval == "extern")
+        return new EvalMeasureExtern(config, vocab);
     else if(eval == "ribes")
         return new EvalMeasureRibes(config);
     else if(eval == "wer")
         return new EvalMeasureWer(config);
     else if(eval == "interp")
-        return new EvalMeasureInterp(config);
+        return new EvalMeasureInterp(config, vocab);
     else
         THROW_ERROR("Unknown evaluation measure: " << eval);
     return NULL;
