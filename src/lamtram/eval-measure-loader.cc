@@ -5,6 +5,7 @@
 #include <lamtram/eval-measure-ribes.h>
 #include <lamtram/eval-measure-wer.h>
 #include <lamtram/eval-measure-interp.h>
+#include <lamtram/eval-measure-charf.h>
 #include <lamtram/macros.h>
 
 using namespace std;
@@ -25,6 +26,8 @@ EvalMeasure * EvalMeasureLoader::CreateMeasureFromString(const string & str) {
         return new EvalMeasureRibes(config);
     else if(eval == "wer")
         return new EvalMeasureWer(config);
+    else if(eval == "charf")
+        return new EvalMeasureCharF(config,vocab);
     else if(eval == "interp")
         return new EvalMeasureInterp(config);
     else

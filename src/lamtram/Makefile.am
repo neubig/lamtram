@@ -38,6 +38,7 @@ LIBCPP = \
     eval-measure-ribes.cc \
     eval-measure-wer.cc \
     eval-measure-interp.cc \
+    eval-measure-charf.cc \
     eval-measure.cc \
     gru-cond.cc 
 
