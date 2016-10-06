@@ -126,11 +126,22 @@ public:
     ~EncoderAttentional() { }
 
     // Build the computation graph for the sentence including loss
-    template <class SentData>
-    dynet::expr::Expression BuildSentGraph(const SentData & sent_src, const SentData & sent_trg, const SentData & sent_cache,
+    dynet::expr::Expression BuildSentGraph(const Sentence & sent_src,
+                                         const Sentence & sent_trg,
+                                         const Sentence & cache_trg,
+                                         const float * weight,
                                          float samp_percent,
                                          bool train,
-                                         dynet::ComputationGraph & cg, LLStats & ll);
+                                         dynet::ComputationGraph & cg,
+                                         LLStats & ll);
+    dynet::expr::Expression BuildSentGraph(const std::vector<Sentence> & sent_src,
+                                         const std::vector<Sentence> & sent_trg,
+                                         const std::vector<Sentence> & cache_trg,
+                                         const std::vector<float> * weights,
+                                         float samp_percent,
+                                         bool train,
+                                         dynet::ComputationGraph & cg,
+                                         LLStats & ll);
 
     // Sample sentences and return an expression of the vector of probabilities
     dynet::expr::Expression SampleTrgSentences(const Sentence & sent_src,

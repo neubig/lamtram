@@ -42,11 +42,13 @@ NeuralLM::NeuralLM(const DictPtr & vocab, int ngram_context, int extern_context,
 dynet::expr::Expression NeuralLM::BuildSentGraph(
                       const Sentence & sent,
                       const Sentence & cache_ids,
+                      const float * weight,
                       const ExternCalculator * extern_calc,
                       const std::vector<dynet::expr::Expression> & layer_in,
                       float samp_prob,
                       bool train,
-                      dynet::ComputationGraph & cg, LLStats & ll) {
+                      dynet::ComputationGraph & cg,
+                      LLStats & ll) {
   if(samp_prob != 0.f)
     THROW_ERROR("Single-sentence scheduled sampling not implemented yet");
   size_t i;
@@ -110,6 +112,9 @@ dynet::expr::Expression NeuralLM::BuildSentGraph(
   }
   // DEBUG cerr << endl; 
   dynet::expr::Expression i_nerr = sum(errs);
+  // For a single sentence, we can just multiply final error by weight
+  if (weight)
+    i_nerr = i_nerr * (*weight);
   return i_nerr;
 }
 
@@ -130,13 +135,15 @@ inline size_t categorical_dist(std::vector<float>::const_iterator beg, std::vect
 dynet::expr::Expression NeuralLM::BuildSentGraph(
                       const vector<Sentence> & sent,
                       const vector<Sentence> & cache_ids,
+                      const vector<float> * weights,
                       const ExternCalculator * extern_calc,
                       const std::vector<dynet::expr::Expression> & layer_in,
                       float samp_prob,
                       bool train,
-                      dynet::ComputationGraph & cg, LLStats & ll) {
+                      dynet::ComputationGraph & cg,
+                      LLStats & ll) {
   if(sent.size() == 1)
-    return BuildSentGraph(sent[0], (cache_ids.size() ? cache_ids[0] : Sentence()), extern_calc, layer_in, samp_prob, train, cg, ll);
+    return BuildSentGraph(sent[0], (cache_ids.size() ? cache_ids[0] : Sentence()), (weights ? &weights->at(0) : nullptr), extern_calc, layer_in, samp_prob, train, cg, ll);
   size_t nt;
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
@@ -232,6 +239,9 @@ dynet::expr::Expression NeuralLM::BuildSentGraph(
     i_wr.push_back(lookup(cg, p_wr_W_, words));
     if(active_words != sent.size())
       i_err = i_err * input(cg, dynet::Dim({1}, sent.size()), mask);
+    // If using weights, weigh error for each sentence's word by that sentence's weight
+    if (weights)
+      i_err = i_err * input(cg, dynet::Dim({1}, weights->size()), *weights);
     errs.push_back(i_err);
   }
   dynet::expr::Expression i_nerr = sum_batches(sum(errs));

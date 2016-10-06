@@ -36,6 +36,7 @@ int LamtramTrain::main(int argc, char** argv) {
     ("dev_trg", po::value<string>()->default_value(""), "Development files")
     ("train_src", po::value<string>()->default_value(""), "Training source files for TMs, possibly separated by pipes")
     ("dev_src", po::value<string>()->default_value(""), "Development source file for TMs")
+    ("train_weights", po::value<string>()->default_value(""), "Training instance weights for TMs, possibly separated by pipes")
     ("eval_every", po::value<int>()->default_value(-1), "Evaluate every n sentences (-1 for full training set)")
     ("model_out", po::value<string>()->default_value(""), "File to write the model to")
     ("model_in", po::value<string>()->default_value(""), "If resuming training, read the model in")
@@ -110,6 +111,11 @@ int LamtramTrain::main(int argc, char** argv) {
   // Sanity checks for the source
   try { train_files_src_ = TokenizeWildcarded(vm_["train_src"].as<string>(), wildcards_, "|"); } catch(std::exception & e) { }
   try { dev_file_src_ = vm_["dev_src"].as<string>(); } catch(std::exception & e) { }
+  try {
+    string train_weights_string = vm_["train_weights"].as<string>();
+    if (train_weights_string != "")
+      train_files_weights_ = TokenizeWildcarded(vm_["train_weights"].as<string>(), wildcards_, "|");
+  } catch(std::exception & e) { }
   if(use_src && ((!train_files_src_.size()) || (dev_file_trg_.size() && !dev_file_src_.size())))
     THROW_ERROR("The specified model requires a source file to train, specify source files using train_src.");
 
@@ -176,16 +182,19 @@ template <class OutputType>
 inline void CreateMinibatches(const std::vector<Sentence> & train_src,
                               const std::vector<OutputType> & train_trg,
                               const std::vector<OutputType> & train_cache,
+                              const std::vector<float> & train_weights,
                               int max_size,
                               std::vector<std::vector<Sentence> > & train_src_minibatch,
                               std::vector<std::vector<OutputType> > & train_trg_minibatch,
-                              std::vector<std::vector<OutputType> > & train_cache_minibatch) {
+                              std::vector<std::vector<OutputType> > & train_cache_minibatch,
+                              std::vector<std::vector<float> > & train_weights_minibatch) {
   std::vector<int> train_ids(train_trg.size());
   std::iota(train_ids.begin(), train_ids.end(), 0);
   if(max_size > 1)
     sort(train_ids.begin(), train_ids.end(), DoubleLength<OutputType>(train_src, train_trg));
   std::vector<Sentence> train_src_next;
   std::vector<OutputType> train_trg_next, train_cache_next;
+  std::vector<float> train_weights_next;
   size_t max_len = 0;
   for(size_t i = 0; i < train_ids.size(); i++) {
     max_len = max(max_len, CalcSize(train_src[train_ids[i]], train_trg[train_ids[i]]));
@@ -193,6 +202,8 @@ inline void CreateMinibatches(const std::vector<Sentence> & train_src,
     train_trg_next.push_back(train_trg[train_ids[i]]);
     if(train_cache.size())
       train_cache_next.push_back(train_cache[train_ids[i]]);
+    if(train_weights.size())
+      train_weights_next.push_back(train_weights[train_ids[i]]);
     if((train_trg_next.size()+1) * max_len > max_size) {
       train_src_minibatch.push_back(train_src_next);
       train_src_next.clear();
@@ -202,6 +213,10 @@ inline void CreateMinibatches(const std::vector<Sentence> & train_src,
         train_cache_minibatch.push_back(train_cache_next);
         train_cache_next.clear();
       }
+      if(train_weights.size()) {
+        train_weights_minibatch.push_back(train_weights_next);
+        train_weights_next.clear();
+      }
       max_len = 0;
     }
   }
@@ -210,6 +225,7 @@ inline void CreateMinibatches(const std::vector<Sentence> & train_src,
     train_trg_minibatch.push_back(train_trg_next);
   }
   if(train_cache_next.size()) train_cache_minibatch.push_back(train_cache_next);
+  if(train_weights_next.size()) train_weights_minibatch.push_back(train_weights_next);
 }
 
 inline void CreateMinibatches(const std::vector<Sentence> & train_trg,
@@ -265,6 +281,8 @@ void LamtramTrain::TrainLM() {
   }
   if(!vocab_trg->is_frozen()) { vocab_trg->freeze(); vocab_trg->set_unk("<unk>"); }
   if(dev_file_trg_.size()) LoadFile(dev_file_trg_, true, *vocab_trg, dev_trg);
+  if(train_files_weights_.size())
+    THROW_ERROR("Instance weighting only supported for encdec and encatt models")
   if(eval_every_ == -1) eval_every_ = train_trg.size();
 
   // Create the model
@@ -320,7 +338,7 @@ void LamtramTrain::TrainLM() {
       }
       dynet::ComputationGraph cg;
       nlm->NewGraph(cg);
-      dynet::expr::Expression loss_exp = nlm->BuildSentGraph(train_trg_minibatch[train_ids[loc]], (train_cache_minibatch.size() ? train_cache_minibatch[train_ids[loc]] : empty_minibatch), NULL, empty_hist, samp_prob, true, cg, train_ll);
+      dynet::expr::Expression loss_exp = nlm->BuildSentGraph(train_trg_minibatch[train_ids[loc]], (train_cache_minibatch.size() ? train_cache_minibatch[train_ids[loc]] : empty_minibatch), nullptr, NULL, empty_hist, samp_prob, true, cg, train_ll);
       sent_loc += train_trg_minibatch[train_ids[loc]].size();
       curr_sent_loc += train_trg_minibatch[train_ids[loc]].size();
       epoch_frac += 1.f/train_ids.size();
@@ -343,7 +361,7 @@ void LamtramTrain::TrainLM() {
       for(auto & sent : dev_trg_minibatch) {
         dynet::ComputationGraph cg;
         nlm->NewGraph(cg);
-        dynet::expr::Expression loss_exp = nlm->BuildSentGraph(sent, empty_minibatch, NULL, empty_hist, 0.f, false, cg, dev_ll);
+        dynet::expr::Expression loss_exp = nlm->BuildSentGraph(sent, empty_minibatch, nullptr, NULL, empty_hist, 0.f, false, cg, dev_ll);
         dev_ll.loss_ += as_scalar(cg.incremental_forward(loss_exp));
       }
       float elapsed = time.Elapsed();
@@ -398,6 +416,7 @@ void LamtramTrain::TrainEncDec() {
   // Read the training files
   vector<Sentence> train_trg, dev_trg, train_src, dev_src, train_cache_ids;
   vector<int> train_trg_ids, train_src_ids;
+  vector<float> train_weights;
   for(size_t i = 0; i < train_files_trg_.size(); i++) {
     LoadFile(train_files_trg_[i], true, *vocab_trg, train_trg);
     train_trg_ids.resize(train_trg.size(), i);
@@ -410,6 +429,8 @@ void LamtramTrain::TrainEncDec() {
   }
   if(!vocab_src->is_frozen()) { vocab_src->freeze(); vocab_src->set_unk("<unk>"); }
   if(dev_file_src_.size()) LoadFile(dev_file_src_, false, *vocab_src, dev_src);
+  for(size_t i = 0; i < train_files_weights_.size(); i++)
+    LoadWeights(train_files_weights_[i], train_weights);
   if(eval_every_ == -1) eval_every_ = train_trg.size();
 
   // Create the model
@@ -436,7 +457,7 @@ void LamtramTrain::TrainEncDec() {
   if(crit == "ml") {
     // If necessary, cache the softmax
     decoder->GetSoftmax().Cache(train_trg, train_trg_ids, train_cache_ids);
-    BilingualTraining(train_src, train_trg, train_cache_ids, dev_src, dev_trg,
+    BilingualTraining(train_src, train_trg, train_cache_ids, train_weights, dev_src, dev_trg,
                       *vocab_src, *vocab_trg, *model, *encdec);
   } else if(crit == "minrisk") {
     // Get the evaluator
@@ -467,6 +488,7 @@ void LamtramTrain::TrainEncAtt() {
   // Read the training file
   vector<Sentence> train_trg, dev_trg, train_src, dev_src, train_cache_ids;
   vector<int> train_trg_ids, train_src_ids;
+  vector<float> train_weights;
   for(size_t i = 0; i < train_files_trg_.size(); i++) {
     LoadFile(train_files_trg_[i], true, *vocab_trg, train_trg);
     train_trg_ids.resize(train_trg.size(), i);
@@ -479,6 +501,8 @@ void LamtramTrain::TrainEncAtt() {
   }
   if(!vocab_src->is_frozen()) { vocab_src->freeze(); vocab_src->set_unk("<unk>"); }
   if(dev_file_src_.size()) LoadFile(dev_file_src_, false, *vocab_src, dev_src);
+  for(size_t i = 0; i < train_files_weights_.size(); i++)
+    LoadWeights(train_files_weights_[i], train_weights);
   if(eval_every_ == -1) eval_every_ = train_trg.size();
 
   // Create the model
@@ -504,7 +528,7 @@ void LamtramTrain::TrainEncAtt() {
   if(crit == "ml") {
     // If necessary, cache the softmax
     decoder->GetSoftmax().Cache(train_trg, train_trg_ids, train_cache_ids);
-    BilingualTraining(train_src, train_trg, train_cache_ids, dev_src, dev_trg,
+    BilingualTraining(train_src, train_trg, train_cache_ids, train_weights, dev_src, dev_trg,
                       *vocab_src, *vocab_trg, *model, *encatt);
   } else if(crit == "minrisk") {
     // Get the evaluator
@@ -535,6 +559,7 @@ void LamtramTrain::TrainEncCls() {
   vector<Sentence> train_src, dev_src;
   vector<int> train_trg, dev_trg;
   vector<int> train_trg_ids, train_src_ids;
+  vector<float> train_weights;
   for(size_t i = 0; i < train_files_trg_.size(); i++) {
     LoadLabels(train_files_trg_[i], *vocab_trg, train_trg);
     train_trg_ids.resize(train_trg.size(), i);
@@ -547,6 +572,8 @@ void LamtramTrain::TrainEncCls() {
   }
   if(!vocab_src->is_frozen()) { vocab_src->freeze(); vocab_src->set_unk("<unk>"); }
   if(dev_file_src_.size()) LoadFile(dev_file_src_, false, *vocab_src, dev_src);
+  if(train_files_weights_.size())
+    THROW_ERROR("Instance weighting only supported for encdec and encatt models")
   if(eval_every_ == -1) eval_every_ = train_trg.size();
 
   // Create the model
@@ -565,7 +592,7 @@ void LamtramTrain::TrainEncCls() {
   }
 
   vector<int> train_cache_ids(train_trg.size());
-  BilingualTraining(train_src, train_trg, train_cache_ids, dev_src, dev_trg,
+  BilingualTraining(train_src, train_trg, train_cache_ids, train_weights, dev_src, dev_trg,
                     *vocab_src, *vocab_trg, *model, *enccls);
 }
 
@@ -573,6 +600,7 @@ template<class ModelType, class OutputType>
 void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
                                      const vector<OutputType> & train_trg,
                                      const vector<OutputType> & train_cache,
+                                     const vector<float> & train_weights,
                                      const vector<Sentence> & dev_src,
                                      const vector<OutputType> & dev_trg,
                                      const dynet::Dict & vocab_src,
@@ -582,16 +610,19 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
 
   // Sanity checks
   assert(train_src.size() == train_trg.size());
+  assert(!train_weights.size() || train_weights.size() == train_trg.size());
   assert(dev_src.size() == dev_trg.size());
 
   // Create minibatches
   vector<vector<Sentence> > train_src_minibatch, dev_src_minibatch;
   vector<vector<OutputType> > train_trg_minibatch, train_cache_minibatch, dev_trg_minibatch, dev_cache_minibatch;
+  vector<vector<float> > train_weights_minibatch, dev_weights_minibatch;
+  vector<float> dev_weights; // For now, use empty vector to indicate uniform weights for dev set
   vector<Sentence> empty_minibatch;
   std::vector<OutputType> empty_cache;
-  CreateMinibatches(train_src, train_trg, train_cache, vm_["minibatch_size"].as<int>(), train_src_minibatch, train_trg_minibatch, train_cache_minibatch);
+  CreateMinibatches(train_src, train_trg, train_cache, train_weights, vm_["minibatch_size"].as<int>(), train_src_minibatch, train_trg_minibatch, train_cache_minibatch, train_weights_minibatch);
   // CreateMinibatches(dev_src, dev_trg, empty_cache, vm_["minibatch_size"].as<int>(), dev_src_minibatch, dev_trg_minibatch, dev_cache_minibatch);
-  CreateMinibatches(dev_src, dev_trg, empty_cache, 1, dev_src_minibatch, dev_trg_minibatch, dev_cache_minibatch);
+  CreateMinibatches(dev_src, dev_trg, empty_cache, dev_weights, 1, dev_src_minibatch, dev_trg_minibatch, dev_cache_minibatch, dev_weights_minibatch);
 
   TrainerPtr trainer = GetTrainer(vm_["trainer"].as<string>(), vm_["learning_rate"].as<float>(), model);
   
@@ -633,7 +664,15 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
         float val = (epoch_frac-scheduled_samp_)/scheduled_samp_;
         samp_prob = 1/(1+exp(val));
       }
-      dynet::expr::Expression loss_exp = encdec.BuildSentGraph(train_src_minibatch[train_ids[loc]], train_trg_minibatch[train_ids[loc]], (train_cache_minibatch.size() ? train_cache_minibatch[train_ids[loc]] : empty_cache), samp_prob, true, cg, train_ll);
+      dynet::expr::Expression loss_exp = encdec.BuildSentGraph(
+          train_src_minibatch[train_ids[loc]],
+          train_trg_minibatch[train_ids[loc]],
+          (train_cache_minibatch.size() ? train_cache_minibatch[train_ids[loc]] : empty_cache),
+          (train_weights_minibatch.size() ? &train_weights_minibatch[train_ids[loc]] : nullptr),
+          samp_prob,
+          true,
+          cg,
+          train_ll);
       sent_loc += train_trg_minibatch[train_ids[loc]].size();
       curr_sent_loc += train_trg_minibatch[train_ids[loc]].size();
       epoch_frac += 1.f/train_ids.size();
@@ -658,7 +697,7 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
         dynet::ComputationGraph cg;
         encdec.NewGraph(cg);
         // encdec.BuildSentGraph(dev_src[i], dev_trg[i], empty_cache, false, cg, dev_ll);
-        dynet::expr::Expression loss_exp = encdec.BuildSentGraph(dev_src_minibatch[i], dev_trg_minibatch[i], empty_cache, 0.f, false, cg, dev_ll);
+        dynet::expr::Expression loss_exp = encdec.BuildSentGraph(dev_src_minibatch[i], dev_trg_minibatch[i], empty_cache, nullptr, 0.f, false, cg, dev_ll);
         dev_ll.loss_ += as_scalar(cg.incremental_forward(loss_exp));
       }
       float elapsed = time.Elapsed();
@@ -883,6 +922,15 @@ void LamtramTrain::LoadLabels(const std::string filename, dynet::Dict & vocab, s
   while(getline(iftrain, line))
     labs.push_back(vocab.convert(line));
   iftrain.close();
+}
+
+void LamtramTrain::LoadWeights(const std::string filename, std::vector<float> & weights) {
+  ifstream ifweights(filename.c_str());
+  if(!ifweights) THROW_ERROR("Could not find weights file: " << filename);
+  string line;
+  while(getline(ifweights, line))
+    weights.push_back(boost::lexical_cast<float>(line));
+  ifweights.close();
 }
 
 LamtramTrain::TrainerPtr LamtramTrain::GetTrainer(const std::string & trainer_id, const dynet::real learning_rate, dynet::Model & model) {

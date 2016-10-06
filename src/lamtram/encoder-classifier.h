@@ -35,11 +35,22 @@ public:
                       const SentData & sent_src, bool train, dynet::ComputationGraph & cg) const;
 
     // Build the computation graph for the sentence including loss
-    template <class SentData, class OutData>
-    dynet::expr::Expression BuildSentGraph(const SentData & sent_src, const OutData & trg, const OutData & cache,
+    dynet::expr::Expression BuildSentGraph(const Sentence & sent_src,
+                                         const int & trg,
+                                         const int & cache,
+                                         const float * weight,
                                          float samp_percent,
                                          bool train,
-                                         dynet::ComputationGraph & cg, LLStats & ll) const;
+                                         dynet::ComputationGraph & cg,
+                                         LLStats & ll);
+    dynet::expr::Expression BuildSentGraph(const std::vector<Sentence> & sent_src,
+                                         const std::vector<int> & trg,
+                                         const std::vector<int> & cache,
+                                         const std::vector<float> * weights,
+                                         float samp_percent,
+                                         bool train,
+                                         dynet::ComputationGraph & cg,
+                                         LLStats & ll);
 
     // Calculate the probabilities from the model, or predict
     template <class SoftmaxOp>

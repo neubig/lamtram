@@ -68,7 +68,7 @@ struct TestEncoderAttentional {
     for(size_t i = 0; i < 100; ++i) {
       dynet::ComputationGraph cg;
       encatt->NewGraph(cg);
-      dynet::expr::Expression loss_expr = encatt->BuildSentGraph(sent_src_, sent_trg_, cache_, 0.f, false, cg, train_stat);
+      dynet::expr::Expression loss_expr = encatt->BuildSentGraph(sent_src_, sent_trg_, cache_, nullptr, 0.f, false, cg, train_stat);
       cg.forward(loss_expr);
       cg.backward(loss_expr);
       sgd.update(0.1);
@@ -90,7 +90,7 @@ struct TestEncoderAttentional {
     {
       dynet::ComputationGraph cg;
       encatt->NewGraph(cg);
-      dynet::expr::Expression loss_expr = encatt->BuildSentGraph(sent_src_, sent_trg_, cache_, 0.f, false, cg, train_stat);
+      dynet::expr::Expression loss_expr = encatt->BuildSentGraph(sent_src_, sent_trg_, cache_, nullptr, 0.f, false, cg, train_stat);
       train_stat.loss_ += as_scalar(cg.incremental_forward(loss_expr));
     }
     vector<float> test_wordll;
@@ -117,7 +117,7 @@ struct TestEncoderAttentional {
       LLStats train_stat(vocab_trg_->size());
       dynet::ComputationGraph cg;
       encatt->NewGraph(cg);
-      dynet::expr::Expression loss_expr = encatt->BuildSentGraph(sent_src_, decode_sent, cache_, 0.f, false, cg, train_stat);
+      dynet::expr::Expression loss_expr = encatt->BuildSentGraph(sent_src_, decode_sent, cache_, nullptr, 0.f, false, cg, train_stat);
       train_ll = -as_scalar(cg.incremental_forward(loss_expr));
     }
     BOOST_CHECK_CLOSE(train_ll, decode_ll, 0.01);
@@ -184,12 +184,12 @@ BOOST_AUTO_TEST_CASE(TestLLBatchScores) {
   // Do unbatched calculation
   {
     dynet::ComputationGraph cg; encatt->NewGraph(cg);
-    dynet::expr::Expression loss_expr = encatt->BuildSentGraph(sent_src_, sent_trg_, cache_, 0.f, false, cg, unbatch_stat);
+    dynet::expr::Expression loss_expr = encatt->BuildSentGraph(sent_src_, sent_trg_, cache_, nullptr, 0.f, false, cg, unbatch_stat);
     unbatch_stat.loss_ += as_scalar(cg.incremental_forward(loss_expr));
   }
   {
     dynet::ComputationGraph cg; encatt->NewGraph(cg);
-    dynet::expr::Expression loss_expr = encatt->BuildSentGraph(sent_src2_, sent_trg2_, cache_, 0.f, false, cg, unbatch_stat);
+    dynet::expr::Expression loss_expr = encatt->BuildSentGraph(sent_src2_, sent_trg2_, cache_, nullptr, 0.f, false, cg, unbatch_stat);
     unbatch_stat.loss_ += as_scalar(cg.incremental_forward(loss_expr));
   }
   // Do batched calculation
@@ -198,7 +198,7 @@ BOOST_AUTO_TEST_CASE(TestLLBatchScores) {
     std::vector<Sentence> batch_trg(2); batch_trg[0] = sent_trg_; batch_trg[1] = sent_trg2_;
     std::vector<Sentence> batch_cache(2); batch_cache[0] = cache_; batch_cache[1] = cache_;
     dynet::ComputationGraph cg; encatt->NewGraph(cg);
-    dynet::expr::Expression loss_expr = encatt->BuildSentGraph(batch_src, batch_trg, batch_cache, 0.f, false, cg, batch_stat);
+    dynet::expr::Expression loss_expr = encatt->BuildSentGraph(batch_src, batch_trg, batch_cache, nullptr, 0.f, false, cg, batch_stat);
     batch_stat.loss_ += as_scalar(cg.incremental_forward(loss_expr));
   }
   BOOST_CHECK_CLOSE(unbatch_stat.CalcPPL(), batch_stat.CalcPPL(), 0.5);
@@ -235,7 +235,7 @@ BOOST_AUTO_TEST_CASE(TestBeamDecodingScores) {
     LLStats train_stat(vocab_trg_->size());
     dynet::ComputationGraph cg;
     encatt->NewGraph(cg);
-    dynet::expr::Expression loss_expr = encatt->BuildSentGraph(sent_src_, decode_sent, cache_, 0.f, false, cg, train_stat);
+    dynet::expr::Expression loss_expr = encatt->BuildSentGraph(sent_src_, decode_sent, cache_, nullptr, 0.f, false, cg, train_stat);
     train_ll = -as_scalar(cg.incremental_forward(loss_expr));
   }
   BOOST_CHECK_CLOSE(train_ll, decode_ll, 0.01);

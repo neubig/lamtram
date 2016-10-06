@@ -56,19 +56,23 @@ public:
     dynet::expr::Expression BuildSentGraph(
                                    const Sentence & sent,
                                    const Sentence & cache_ids,
+                                   const float * weight,
                                    const ExternCalculator * extern_calc,
                                    const std::vector<dynet::expr::Expression> & layer_in,
                                    float samp_percent,
                                    bool train,
-                                   dynet::ComputationGraph & cg, LLStats & ll);
+                                   dynet::ComputationGraph & cg,
+                                   LLStats & ll);
     dynet::expr::Expression BuildSentGraph(
                                    const std::vector<Sentence> & sent,
                                    const std::vector<Sentence> & cache_ids,
+                                   const std::vector<float> * weights,
                                    const ExternCalculator * extern_calc,
                                    const std::vector<dynet::expr::Expression> & layer_in,
                                    float samp_percent,
                                    bool train,
-                                   dynet::ComputationGraph & cg, LLStats & ll);
+                                   dynet::ComputationGraph & cg,
+                                   LLStats & ll);
 
     // Acquire samples from this sentence and return their log probabilities as a vector
     dynet::expr::Expression SampleTrgSentences(
