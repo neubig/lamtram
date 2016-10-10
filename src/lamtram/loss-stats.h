@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cnn/tensor.h>
+#include <dynet/tensor.h>
 #include <cmath>
 
 namespace lamtram {
@@ -17,12 +17,12 @@ public:
         return *this;
     }
 
-    cnn::real CalcSentLoss() {
+    dynet::real CalcSentLoss() {
         return loss_/sents_;
     }
 
     int sents_; // Number of sents
-    cnn::real loss_;  // Log losselihood
+    dynet::real loss_;  // Log losselihood
 
 };
 

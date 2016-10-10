@@ -7,7 +7,7 @@
 #include <lamtram/encoder-attentional.h>
 #include <lamtram/ensemble-decoder.h>
 #include <lamtram/model-utils.h>
-#include <cnn/dict.h>
+#include <dynet/dict.h>
 
 using namespace std;
 using namespace lamtram;
@@ -29,9 +29,9 @@ BOOST_FIXTURE_TEST_SUITE(neural_lm, TestNeuralLM)
 
 // Test whether reading and writing works.
 // Note that this is just checking if serialized strings is equal,
-// which is a hack for now because cnn::Model doesn't have an equality operator.
+// which is a hack for now because dynet::Model doesn't have an equality operator.
 BOOST_AUTO_TEST_CASE(TestWriteRead) {
-  std::shared_ptr<cnn::Model> act_mod(new cnn::Model), exp_mod(new cnn::Model);
+  std::shared_ptr<dynet::Model> act_mod(new dynet::Model), exp_mod(new dynet::Model);
   // Create a randomized lm
   DictPtr exp_vocab(CreateNewDict()); exp_vocab->convert("hello");
   NeuralLM exp_lm(exp_vocab, 2, 2, false, 3, BuilderSpec("rnn:2:1"), -1, "full", *exp_mod);
@@ -41,7 +41,7 @@ BOOST_AUTO_TEST_CASE(TestWriteRead) {
   exp_lm.Write(out);
   ModelUtils::WriteModelText(out, *exp_mod);
   // Read the LM
-  DictPtr act_src(new cnn::Dict), act_trg(new cnn::Dict);
+  DictPtr act_src(new dynet::Dict), act_trg(new dynet::Dict);
   string first_string = out.str();
   istringstream in(out.str());
   NeuralLMPtr act_lm(ModelUtils::LoadMonolingualModel<NeuralLM>(in, act_mod, act_trg));
@@ -57,7 +57,7 @@ BOOST_AUTO_TEST_CASE(TestWriteRead) {
 
 // Test whether scores during decoding are the same as those during training
 BOOST_AUTO_TEST_CASE(TestDecodingScores) {
-  std::shared_ptr<cnn::Model> mod(new cnn::Model);
+  std::shared_ptr<dynet::Model> mod(new dynet::Model);
   // Create a randomized lm
   DictPtr vocab(CreateNewDict()); vocab->convert("a"); vocab->convert("b"); vocab->convert("c");
   NeuralLMPtr lmptr(new NeuralLM(vocab, 1, 0, false, 3, BuilderSpec("rnn:2:1"), -1, "full", *mod));
@@ -68,9 +68,9 @@ BOOST_AUTO_TEST_CASE(TestDecodingScores) {
   EnsembleDecoder ensdec(encdecs, encatts, lms);
   // Compare the two values
   LLStats train_stat(vocab->size()), test_stat(vocab->size());
-  vector<cnn::expr::Expression> layer_in;
+  vector<dynet::expr::Expression> layer_in;
   {
-    cnn::ComputationGraph cg;
+    dynet::ComputationGraph cg;
     lmptr->NewGraph(cg);
     lmptr->BuildSentGraph(sent_trg_, cache_, nullptr, layer_in, 0.f, false, cg, train_stat);
     train_stat.loss_ += as_scalar(cg.incremental_forward());

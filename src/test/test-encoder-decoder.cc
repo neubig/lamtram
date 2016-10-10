@@ -6,8 +6,8 @@
 #include <lamtram/encoder-attentional.h>
 #include <lamtram/ensemble-decoder.h>
 #include <lamtram/model-utils.h>
-#include <cnn/training.h>
-#include <cnn/dict.h>
+#include <dynet/training.h>
+#include <dynet/dict.h>
 
 using namespace std;
 using namespace lamtram;
@@ -20,7 +20,7 @@ struct TestEncoderDecoder {
     sent_trg_ = {3, 2, 1, 0};
 
     // Create the model
-    mod_ = shared_ptr<cnn::Model>(new cnn::Model);
+    mod_ = shared_ptr<dynet::Model>(new dynet::Model);
     // Create a randomized lm
     vocab_src_ = DictPtr(CreateNewDict()); vocab_src_->convert("a"); vocab_src_->convert("b"); vocab_src_->convert("c");
     vocab_trg_ = DictPtr(CreateNewDict()); vocab_trg_->convert("x"); vocab_trg_->convert("y"); vocab_trg_->convert("z");
@@ -34,10 +34,10 @@ struct TestEncoderDecoder {
     ensdec_ = shared_ptr<EnsembleDecoder>(new EnsembleDecoder(encdecs, encatts, lms));
     ensdec_->SetSizeLimit(100);
     // Perform a few rounds of training
-    cnn::SimpleSGDTrainer sgd(mod_.get());
+    dynet::SimpleSGDTrainer sgd(mod_.get());
     LLStats train_stat(vocab_trg_->size());
     for(size_t i = 0; i < 100; ++i) {
-      cnn::ComputationGraph cg;
+      dynet::ComputationGraph cg;
       encdec_->NewGraph(cg);
       encdec_->BuildSentGraph(sent_src_, sent_trg_, cache_, 0.f, false, cg, train_stat);
       cg.forward();
@@ -51,7 +51,7 @@ struct TestEncoderDecoder {
   DictPtr vocab_src_, vocab_trg_;
   shared_ptr<EnsembleDecoder> ensdec_;
   EncoderDecoderPtr encdec_;
-  shared_ptr<cnn::Model> mod_;
+  shared_ptr<dynet::Model> mod_;
 };
 
 // ****** The tests *******
@@ -59,10 +59,10 @@ BOOST_FIXTURE_TEST_SUITE(encoder_decoder, TestEncoderDecoder)
 
 // Test whether reading and writing works.
 // Note that this is just checking if serialized strings is equal,
-// which is a hack for now because cnn::Model doesn't have an equality operator.
+// which is a hack for now because dynet::Model doesn't have an equality operator.
 BOOST_AUTO_TEST_CASE(TestWriteRead) {
   // Create a randomized lm
-  shared_ptr<cnn::Model> act_mod(new cnn::Model), exp_mod(new cnn::Model);
+  shared_ptr<dynet::Model> act_mod(new dynet::Model), exp_mod(new dynet::Model);
   DictPtr exp_src_vocab(CreateNewDict()); exp_src_vocab->convert("hola");
   DictPtr exp_trg_vocab(CreateNewDict()); exp_trg_vocab->convert("hello");
   NeuralLMPtr exp_lm(new NeuralLM(exp_trg_vocab, 2, 2, false, 3, BuilderSpec("rnn:2:1"), -1, "full", *exp_mod));
@@ -75,7 +75,7 @@ BOOST_AUTO_TEST_CASE(TestWriteRead) {
   exp_encatt.Write(out);
   ModelUtils::WriteModelText(out, *exp_mod);
   // Read the Model
-  DictPtr act_src_vocab(new cnn::Dict), act_trg_vocab(new cnn::Dict);
+  DictPtr act_src_vocab(new dynet::Dict), act_trg_vocab(new dynet::Dict);
   string first_string = out.str();
   istringstream in(out.str());
   EncoderDecoderPtr act_lm(ModelUtils::LoadBilingualModel<EncoderDecoder>(in, act_mod, act_src_vocab, act_trg_vocab));
@@ -95,7 +95,7 @@ BOOST_AUTO_TEST_CASE(TestLLScores) {
   // Compare the two values
   LLStats train_stat(vocab_trg_->size()), test_stat(vocab_trg_->size());
   {
-    cnn::ComputationGraph cg;
+    dynet::ComputationGraph cg;
     encdec_->NewGraph(cg);
     encdec_->BuildSentGraph(sent_src_, sent_trg_, cache_, 0.f, false, cg, train_stat);
     train_stat.loss_ += as_scalar(cg.incremental_forward());
@@ -118,7 +118,7 @@ BOOST_AUTO_TEST_CASE(TestDecodingScores) {
   // Calculate the training likelihood for that value
   {
     LLStats train_stat(vocab_trg_->size());
-    cnn::ComputationGraph cg;
+    dynet::ComputationGraph cg;
     encdec_->NewGraph(cg);
     encdec_->BuildSentGraph(sent_src_, decode_sent, cache_, 0.f, false, cg, train_stat);
     train_ll = -as_scalar(cg.incremental_forward());
@@ -141,7 +141,7 @@ BOOST_AUTO_TEST_CASE(TestBeamDecodingScores) {
   // Calculate the training likelihood for that value
   {
     LLStats train_stat(vocab_trg_->size());
-    cnn::ComputationGraph cg;
+    dynet::ComputationGraph cg;
     encdec_->NewGraph(cg);
     encdec_->BuildSentGraph(sent_src_, decode_sent, cache_, 0.f, false, cg, train_stat);
     train_ll = -as_scalar(cg.incremental_forward());

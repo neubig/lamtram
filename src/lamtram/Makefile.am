@@ -40,7 +40,7 @@ LIBCPP = \
     eval-measure-interp.cc \
     eval-measure.cc
 
-AM_CXXFLAGS = $(BOOST_CPPFLAGS) $(EIGEN_CPPFLAGS) $(CNN_CPPFLAGS) $(OPENMP_CXXFLAGS) -I$(srcdir)/..
+AM_CXXFLAGS = $(BOOST_CPPFLAGS) $(EIGEN_CPPFLAGS) $(DYNET_CPPFLAGS) $(OPENMP_CXXFLAGS) -I$(srcdir)/..
 
 lib_LTLIBRARIES = liblamtram.la
 
@@ -50,7 +50,7 @@ liblamtram_la_LDFLAGS = -version-info 0:0:0
 ####### Binary info
 
 LDADD=liblamtram.la \
-    $(CNN_LDFLAGS) \
+    $(DYNET_LDFLAGS) \
     $(BOOST_LDFLAGS) \
     $(BOOST_SYSTEM_LIB) \
     $(BOOST_PROGRAM_OPTIONS_LIB) \

@@ -1,7 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
-#include <cnn/dict.h>
+#include <dynet/dict.h>
 #include <lamtram/dict-utils.h>
 #include <lamtram/macros.h>
 
@@ -21,7 +21,7 @@ vector<string> SplitWords(const std::string & line) {
   return res;
 }
 
-Sentence ParseWords(cnn::Dict & sd, const std::string& line, bool add_end) {
+Sentence ParseWords(dynet::Dict & sd, const std::string& line, bool add_end) {
   std::istringstream in(line);
   std::string word;
   std::vector<int> res;
@@ -35,7 +35,7 @@ Sentence ParseWords(cnn::Dict & sd, const std::string& line, bool add_end) {
   return res;
 }
 
-Sentence ParseWords(cnn::Dict & sd, const std::vector<std::string>& line, bool add_end) {
+Sentence ParseWords(dynet::Dict & sd, const std::vector<std::string>& line, bool add_end) {
   Sentence res;
   for(const std::string & word : line)
     res.push_back(sd.convert(word));
@@ -44,7 +44,7 @@ Sentence ParseWords(cnn::Dict & sd, const std::vector<std::string>& line, bool a
   return res;
 }
 
-std::string PrintWords(cnn::Dict & sd, const Sentence & sent) {
+std::string PrintWords(dynet::Dict & sd, const Sentence & sent) {
   ostringstream oss;
   if(sent.size())
     oss << sd.convert(sent[0]);
@@ -61,7 +61,7 @@ std::string PrintWords(const std::vector<std::string> & sent) {
   return oss.str();
 }
 
-vector<string> ConvertWords(cnn::Dict & sd, const Sentence & sent, bool sentend) {
+vector<string> ConvertWords(dynet::Dict & sd, const Sentence & sent, bool sentend) {
   vector<string> ret;
   for(WordId wid : sent) {
     if(sentend || wid != 0)
@@ -70,24 +70,24 @@ vector<string> ConvertWords(cnn::Dict & sd, const Sentence & sent, bool sentend)
   return ret;
 }
 
-void WriteDict(const cnn::Dict & dict, const std::string & file) {
+void WriteDict(const dynet::Dict & dict, const std::string & file) {
   ofstream out(file);
   if(!out) THROW_ERROR("Could not open file: " << file);
   WriteDict(dict, out);
 }
-void WriteDict(const cnn::Dict & dict, std::ostream & out) {
+void WriteDict(const dynet::Dict & dict, std::ostream & out) {
   out << "dict_v001" << '\n';
   for(const auto & str : dict.get_words())
     out << str << '\n';
   out << endl;
 }
-cnn::Dict* ReadDict(const std::string & file) {
+dynet::Dict* ReadDict(const std::string & file) {
   ifstream in(file);
   if(!in) THROW_ERROR("Could not open file: " << file);
   return ReadDict(in);
 }
-cnn::Dict* ReadDict(std::istream & in) {
-  cnn::Dict* dict = new cnn::Dict;
+dynet::Dict* ReadDict(std::istream & in) {
+  dynet::Dict* dict = new dynet::Dict;
   string line;
   if(!getline(in, line) || line != "dict_v001")
     THROW_ERROR("Expecting dictionary version dict_v001, but got: " << line);
@@ -101,8 +101,8 @@ cnn::Dict* ReadDict(std::istream & in) {
     dict->set_unk("<unk>");
   return dict;
 }
-cnn::Dict * CreateNewDict(bool add_tokens) {
-  cnn::Dict * ret = new cnn::Dict;
+dynet::Dict * CreateNewDict(bool add_tokens) {
+  dynet::Dict * ret = new dynet::Dict;
   if(add_tokens) {
     ret->convert("<s>");
     ret->convert("<unk>");

@@ -7,14 +7,14 @@
 #include <lamtram/eval-measure-wer.h>
 #include <lamtram/eval-measure-interp.h>
 #include <lamtram/macros.h>
-#include <cnn/dict.h>
+#include <dynet/dict.h>
 
 using namespace std;
 using namespace lamtram;
 
 namespace lamtram {
 
-EvalMeasure * EvalMeasureLoader::CreateMeasureFromString(const string & str, const cnn::Dict & vocab) {
+EvalMeasure * EvalMeasureLoader::CreateMeasureFromString(const string & str, const dynet::Dict & vocab) {
     // Get the eval, config substr
     string eval, config;
     size_t eq = str.find(':');

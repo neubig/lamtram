@@ -1,11 +1,11 @@
 
 #include <lamtram/lamtram-train.h>
-#include <cnn/init.h>
+#include <dynet/init.h>
 
 using namespace lamtram;
 
 int main(int argc, char** argv) {
-    cnn::initialize(argc, argv);
+    dynet::initialize(argc, argv);
     LamtramTrain train;
     return train.main(argc, argv);
 }

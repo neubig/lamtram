@@ -1,11 +1,11 @@
 #pragma once
 
 #include <lamtram/sentence.h>
-#include <cnn/tensor.h>
+#include <dynet/tensor.h>
 #include <boost/program_options.hpp>
 #include <string>
 
-namespace cnn {
+namespace dynet {
 struct Trainer;
 class Model;
 class Dict;
@@ -34,9 +34,9 @@ public:
                            const std::vector<OutputType> & train_cache,
                            const std::vector<Sentence> & dev_src,
                            const std::vector<OutputType> & dev_trg,
-                           const cnn::Dict & vocab_src,
-                           const cnn::Dict & vocab_trg,
-                           cnn::Model & mod,
+                           const dynet::Dict & vocab_src,
+                           const dynet::Dict & vocab_trg,
+                           dynet::Model & mod,
                            ModelType & encdec);
 
     // Minimum risk training
@@ -46,30 +46,30 @@ public:
                          const std::vector<int> & train_fold_ids,                         
                          const std::vector<Sentence> & dev_src,
                          const std::vector<Sentence> & dev_trg,
-                         const cnn::Dict & vocab_src,
-                         const cnn::Dict & vocab_trg,
+                         const dynet::Dict & vocab_src,
+                         const dynet::Dict & vocab_trg,
                          const EvalMeasure & eval,
-                         cnn::Model & model,
+                         dynet::Model & model,
                          ModelType & encdec);
 
     // Get the trainer to use
-    typedef std::shared_ptr<cnn::Trainer> TrainerPtr;
-    TrainerPtr GetTrainer(const std::string & trainer_id, const cnn::real learning_rate, cnn::Model & model);
+    typedef std::shared_ptr<dynet::Trainer> TrainerPtr;
+    TrainerPtr GetTrainer(const std::string & trainer_id, const dynet::real learning_rate, dynet::Model & model);
 
     // Load in the training data
-    void LoadFile(const std::string filename, bool add_last, cnn::Dict & vocab, std::vector<Sentence> & sents);
-    void LoadLabels(const std::string filename, cnn::Dict & vocab, std::vector<int> & labs);
+    void LoadFile(const std::string filename, bool add_last, dynet::Dict & vocab, std::vector<Sentence> & sents);
+    void LoadLabels(const std::string filename, dynet::Dict & vocab, std::vector<int> & labs);
 
     void LoadBothFiles(
-          const std::string filename_src, cnn::Dict & vocab_src, std::vector<Sentence> & sents_src,
-          const std::string filename_trg, cnn::Dict & vocab_trg, std::vector<Sentence> & sents_trg);
+          const std::string filename_src, dynet::Dict & vocab_src, std::vector<Sentence> & sents_src,
+          const std::string filename_trg, dynet::Dict & vocab_trg, std::vector<Sentence> & sents_trg);
 
 protected:
 
     boost::program_options::variables_map vm_;
 
     // Variable settings
-    cnn::real rate_thresh_, rate_decay_;
+    dynet::real rate_thresh_, rate_decay_;
     int epochs_, context_, eval_every_;
     float scheduled_samp_, dropout_;
     std::string model_in_file_, model_out_file_;

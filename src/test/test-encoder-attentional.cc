@@ -3,8 +3,8 @@
 
 #include <fstream>
 
-#include <cnn/dict.h>
-#include <cnn/training.h>
+#include <dynet/dict.h>
+#include <dynet/training.h>
 
 #include <lamtram/macros.h>
 #include <lamtram/encoder-decoder.h>
@@ -32,7 +32,7 @@ struct TestEncoderAttentional {
   ~TestEncoderAttentional() { }
 
   void CreateModel(
-        shared_ptr<cnn::Model> & mod,
+        shared_ptr<dynet::Model> & mod,
         EncoderAttentionalPtr & encatt,
         shared_ptr<EnsembleDecoder> & ensdec,
         const std::string & attention_type = "mlp:2",
@@ -49,7 +49,7 @@ struct TestEncoderAttentional {
       my_lex_type = "prior:file=/tmp/lex_prior.txt:alpha=0.001";
     }
     // Create the model
-    mod = shared_ptr<cnn::Model>(new cnn::Model);
+    mod = shared_ptr<dynet::Model>(new dynet::Model);
     NeuralLMPtr lmptr(new NeuralLM(vocab_trg_, 1, (attention_feed ? 5 : 0), attention_feed, 5, BuilderSpec("lstm:5:1"), -1, "full", *mod));
     vector<LinearEncoderPtr> encs(1, LinearEncoderPtr(new LinearEncoder(vocab_src_->size(), 5, BuilderSpec("lstm:5:1"), -1, *mod)));
     ExternAttentionalPtr ext(new ExternAttentional(encs, attention_type, attention_hist, 5, my_lex_type, vocab_src_, vocab_trg_, *mod));
@@ -63,10 +63,10 @@ struct TestEncoderAttentional {
     if(lex_type == "prior")
       std::remove("/tmp/lex_prior.txt");
     // Perform a few rounds of training
-    cnn::SimpleSGDTrainer sgd(mod.get());
+    dynet::SimpleSGDTrainer sgd(mod.get());
     LLStats train_stat(vocab_trg_->size());
     for(size_t i = 0; i < 100; ++i) {
-      cnn::ComputationGraph cg;
+      dynet::ComputationGraph cg;
       encatt->NewGraph(cg);
       encatt->BuildSentGraph(sent_src_, sent_trg_, cache_, 0.f, false, cg, train_stat);
       cg.forward();
@@ -81,14 +81,14 @@ struct TestEncoderAttentional {
      const std::string & attention_hist,
      const std::string & lex_type
   ) {
-    shared_ptr<cnn::Model> mod;
+    shared_ptr<dynet::Model> mod;
     EncoderAttentionalPtr encatt;
     shared_ptr<EnsembleDecoder> ensdec;
     CreateModel(mod, encatt, ensdec, attention_type, attention_feed, attention_hist, lex_type);
     // Compare the two values
     LLStats train_stat(vocab_trg_->size()), test_stat(vocab_trg_->size());
     {
-      cnn::ComputationGraph cg;
+      dynet::ComputationGraph cg;
       encatt->NewGraph(cg);
       encatt->BuildSentGraph(sent_src_, sent_trg_, cache_, 0.f, false, cg, train_stat);
       train_stat.loss_ += as_scalar(cg.incremental_forward());
@@ -99,7 +99,7 @@ struct TestEncoderAttentional {
   }
 
   void TestDecoding(const std::string & attention_type, bool attention_feed, const std::string & attention_hist, const std::string & lex_type) {
-    shared_ptr<cnn::Model> mod;
+    shared_ptr<dynet::Model> mod;
     EncoderAttentionalPtr encatt;
     shared_ptr<EnsembleDecoder> ensdec;
     CreateModel(mod, encatt, ensdec, attention_type, attention_feed, attention_hist, lex_type);
@@ -115,7 +115,7 @@ struct TestEncoderAttentional {
     // Calculate the training likelihood for that value
     {
       LLStats train_stat(vocab_trg_->size());
-      cnn::ComputationGraph cg;
+      dynet::ComputationGraph cg;
       encatt->NewGraph(cg);
       encatt->BuildSentGraph(sent_src_, decode_sent, cache_, 0.f, false, cg, train_stat);
       train_ll = -as_scalar(cg.incremental_forward());
@@ -132,10 +132,10 @@ BOOST_FIXTURE_TEST_SUITE(encoder_attentional, TestEncoderAttentional)
 
 // Test whether reading and writing works.
 // Note that this is just checking if serialized strings is equal,
-// which is a hack for now because cnn::Model doesn't have an equality operator.
+// which is a hack for now because dynet::Model doesn't have an equality operator.
 BOOST_AUTO_TEST_CASE(TestWriteRead) {
   // Create a randomized lm
-  shared_ptr<cnn::Model> act_mod(new cnn::Model), exp_mod(new cnn::Model);
+  shared_ptr<dynet::Model> act_mod(new dynet::Model), exp_mod(new dynet::Model);
   DictPtr exp_src_vocab(CreateNewDict()); exp_src_vocab->convert("hola");
   DictPtr exp_trg_vocab(CreateNewDict()); exp_trg_vocab->convert("hello");
   NeuralLMPtr exp_lm(new NeuralLM(exp_trg_vocab, 2, 2, false, 3, BuilderSpec("rnn:2:1"), -1, "full", *exp_mod));
@@ -149,7 +149,7 @@ BOOST_AUTO_TEST_CASE(TestWriteRead) {
   exp_encatt.Write(out);
   ModelUtils::WriteModelText(out, *exp_mod);
   // Read the Model
-  DictPtr act_src_vocab(new cnn::Dict), act_trg_vocab(new cnn::Dict);
+  DictPtr act_src_vocab(new dynet::Dict), act_trg_vocab(new dynet::Dict);
   string first_string = out.str();
   istringstream in(out.str());
   EncoderAttentionalPtr act_lm(ModelUtils::LoadBilingualModel<EncoderAttentional>(in, act_mod, act_src_vocab, act_trg_vocab));
@@ -176,19 +176,19 @@ BOOST_AUTO_TEST_CASE(TestLLScoresBilinFalseNone)    { TestLLScores("bilin", fals
 
 // Test whether log likelihood is the same when batched or not
 BOOST_AUTO_TEST_CASE(TestLLBatchScores) {
-  shared_ptr<cnn::Model> mod;
+  shared_ptr<dynet::Model> mod;
   EncoderAttentionalPtr encatt;
   shared_ptr<EnsembleDecoder> ensdec;
   CreateModel(mod, encatt, ensdec, "mlp:5", true, "sum");
   LLStats batch_stat(vocab_trg_->size()), unbatch_stat(vocab_trg_->size());
   // Do unbatched calculation
   {
-    cnn::ComputationGraph cg; encatt->NewGraph(cg);
+    dynet::ComputationGraph cg; encatt->NewGraph(cg);
     encatt->BuildSentGraph(sent_src_, sent_trg_, cache_, 0.f, false, cg, unbatch_stat);
     unbatch_stat.loss_ += as_scalar(cg.incremental_forward());
   }
   {
-    cnn::ComputationGraph cg; encatt->NewGraph(cg);
+    dynet::ComputationGraph cg; encatt->NewGraph(cg);
     encatt->BuildSentGraph(sent_src2_, sent_trg2_, cache_, 0.f, false, cg, unbatch_stat);
     unbatch_stat.loss_ += as_scalar(cg.incremental_forward());
   }
@@ -197,7 +197,7 @@ BOOST_AUTO_TEST_CASE(TestLLBatchScores) {
     std::vector<Sentence> batch_src(2); batch_src[0] = sent_src_; batch_src[1] = sent_src2_;
     std::vector<Sentence> batch_trg(2); batch_trg[0] = sent_trg_; batch_trg[1] = sent_trg2_;
     std::vector<Sentence> batch_cache(2); batch_cache[0] = cache_; batch_cache[1] = cache_;
-    cnn::ComputationGraph cg; encatt->NewGraph(cg);
+    dynet::ComputationGraph cg; encatt->NewGraph(cg);
     encatt->BuildSentGraph(batch_src, batch_trg, batch_cache, 0.f, false, cg, batch_stat);
     batch_stat.loss_ += as_scalar(cg.incremental_forward());
   }
@@ -215,7 +215,7 @@ BOOST_AUTO_TEST_CASE(TestDecodingBilinFalseNone)    { TestDecoding("bilin", fals
 
 // Test whether scores during decoding are the same as training
 BOOST_AUTO_TEST_CASE(TestBeamDecodingScores) {
-  shared_ptr<cnn::Model> mod;
+  shared_ptr<dynet::Model> mod;
   EncoderAttentionalPtr encatt;
   shared_ptr<EnsembleDecoder> ensdec;
   CreateModel(mod, encatt, ensdec);
@@ -233,7 +233,7 @@ BOOST_AUTO_TEST_CASE(TestBeamDecodingScores) {
   // Calculate the training likelihood for that value
   {
     LLStats train_stat(vocab_trg_->size());
-    cnn::ComputationGraph cg;
+    dynet::ComputationGraph cg;
     encatt->NewGraph(cg);
     encatt->BuildSentGraph(sent_src_, decode_sent, cache_, 0.f, false, cg, train_stat);
     train_ll = -as_scalar(cg.incremental_forward());
@@ -243,7 +243,7 @@ BOOST_AUTO_TEST_CASE(TestBeamDecodingScores) {
 
 // Test whether scores improve through beam search
 BOOST_AUTO_TEST_CASE(TestBeamSearchImproves) {
-  shared_ptr<cnn::Model> mod;
+  shared_ptr<dynet::Model> mod;
   EncoderAttentionalPtr encatt;
   shared_ptr<EnsembleDecoder> ensdec;
   CreateModel(mod, encatt, ensdec);

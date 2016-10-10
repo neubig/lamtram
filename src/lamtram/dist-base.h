@@ -6,7 +6,7 @@
 #include <lamtram/sentence.h>
 #include <lamtram/dict-utils.h>
 
-namespace cnn {
+namespace dynet {
   class Dict;
 }
 

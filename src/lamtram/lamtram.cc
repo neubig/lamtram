@@ -14,7 +14,7 @@
 #include <lamtram/mapping.h>
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string.hpp>
-#include <cnn/dict.h>
+#include <dynet/dict.h>
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -52,7 +52,7 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
   vector<NeuralLMPtr> lms;
   vector<EncoderDecoderPtr> encdecs;
   vector<EncoderAttentionalPtr> encatts;
-  vector<shared_ptr<cnn::Model> > models;
+  vector<shared_ptr<dynet::Model> > models;
   DictPtr vocab_src, vocab_trg;
 
   int max_minibatch_size = vm["minibatch_size"].as<int>();
@@ -72,7 +72,7 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
     type = infile.substr(0, eqpos);
     file = infile.substr(eqpos+1);
     DictPtr vocab_src_temp, vocab_trg_temp;
-    shared_ptr<cnn::Model> mod_temp;
+    shared_ptr<dynet::Model> mod_temp;
     // Read in the model
     if(type == "encdec") {
       EncoderDecoder * tm = ModelUtils::LoadBilingualModel<EncoderDecoder>(file, mod_temp, vocab_src_temp, vocab_trg_temp);
@@ -254,7 +254,7 @@ int Lamtram::ClassifierOperation(const boost::program_options::variables_map & v
   // Models
   vector<EncoderClassifierPtr> encclss;
   DictPtr vocab_src, vocab_trg;
-  vector<shared_ptr<cnn::Model> > models;
+  vector<shared_ptr<dynet::Model> > models;
 
   // Read in the files
   vector<string> infiles;
@@ -269,7 +269,7 @@ int Lamtram::ClassifierOperation(const boost::program_options::variables_map & v
       THROW_ERROR("Bad model type. Must specify enccls= before model name." << endl << infile);
     file = infile.substr(eqpos+1);
     DictPtr vocab_src_temp, vocab_trg_temp;
-    shared_ptr<cnn::Model> mod_temp;
+    shared_ptr<dynet::Model> mod_temp;
     // Read in the model
     EncoderClassifier * tm = ModelUtils::LoadBilingualModel<EncoderClassifier>(file, mod_temp, vocab_src_temp, vocab_trg_temp);
     encclss.push_back(shared_ptr<EncoderClassifier>(tm));
@@ -337,7 +337,7 @@ int Lamtram::main(int argc, char** argv) {
     ("help", "Produce help message")
     ("verbose", po::value<int>()->default_value(0), "How much verbose output to print")
     ("beam", po::value<int>()->default_value(1), "Number of hypotheses to expand")
-    ("cnn_mem", po::value<int>()->default_value(512), "How much memory to allocate to cnn")
+    ("dynet_mem", po::value<int>()->default_value(512), "How much memory to allocate to dynet")
     ("ensemble_op", po::value<string>()->default_value("sum"), "The operation to use when ensembling probabilities (sum/logsum)")
     ("wordprob_out", po::value<string>()->default_value(""), "Output word log probabilities during perplexity calculation")
     ("map_in", po::value<string>()->default_value(""), "A file containing a mapping table (\"src trg prob\" format)")

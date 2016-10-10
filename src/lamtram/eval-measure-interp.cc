@@ -3,7 +3,7 @@
 #include <lamtram/eval-measure-loader.h>
 #include <lamtram/macros.h>
 
-#include <cnn/dict.h>
+#include <dynet/dict.h>
 
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
@@ -101,7 +101,7 @@ EvalStatsPtr EvalMeasureInterp::ReadStats(const std::string & line) {
     return EvalStatsPtr(new EvalStatsInterp(stats, coeffs_));
 }
 
-EvalMeasureInterp::EvalMeasureInterp(const std::string & config, const cnn::Dict & vocab) {
+EvalMeasureInterp::EvalMeasureInterp(const std::string & config, const dynet::Dict & vocab) {
     vector<string> strs;
     boost::algorithm::split(strs, config, boost::is_any_of("|"));
     if(strs.size() == 0 || strs.size() % 2 != 0)

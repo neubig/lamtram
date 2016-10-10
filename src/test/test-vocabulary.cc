@@ -4,7 +4,7 @@
 #include <lamtram/macros.h>
 #include <lamtram/sentence.h>
 #include <lamtram/dict-utils.h>
-#include <cnn/dict.h>
+#include <dynet/dict.h>
 #include <sstream>
 
 using namespace std;
@@ -31,7 +31,7 @@ BOOST_AUTO_TEST_CASE(TestParseWords) {
 }
 
 BOOST_AUTO_TEST_CASE(TestPrintWords) {
-    cnn::Dict vocab;
+    dynet::Dict vocab;
     string in = "  a b  c a c <s> b  ";
     string exp = "a b c a c <s> b";
     string act = PrintWords(vocab, ParseWords(vocab, in, false));

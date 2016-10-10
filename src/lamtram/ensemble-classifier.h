@@ -1,8 +1,8 @@
 #pragma once
 
 #include <lamtram/encoder-classifier.h>
-#include <cnn/tensor.h>
-#include <cnn/cnn.h>
+#include <dynet/tensor.h>
+#include <dynet/dynet.h>
 #include <vector>
 
 namespace lamtram {
@@ -19,7 +19,7 @@ public:
     std::string GetEnsembleOperation() const { return ensemble_operation_; }
     void SetEnsembleOperation(const std::string & ensemble_operation) { ensemble_operation_ = ensemble_operation; }
 
-    int MaxElement(const std::vector<cnn::real> & vals) const;
+    int MaxElement(const std::vector<dynet::real> & vals) const;
 
 protected:
     std::vector<EncoderClassifierPtr> encclss_;

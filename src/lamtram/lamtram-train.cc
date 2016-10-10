@@ -11,11 +11,11 @@
 #include <lamtram/loss-stats.h>
 #include <lamtram/eval-measure.h>
 #include <lamtram/eval-measure-loader.h>
-#include <cnn/cnn.h>
-#include <cnn/dict.h>
-#include <cnn/globals.h>
-#include <cnn/training.h>
-#include <cnn/tensor.h>
+#include <dynet/dynet.h>
+#include <dynet/dict.h>
+#include <dynet/globals.h>
+#include <dynet/training.h>
+#include <dynet/tensor.h>
 #include <boost/program_options.hpp>
 #include <boost/range/irange.hpp>
 #include <boost/algorithm/string.hpp>
@@ -25,7 +25,7 @@
 
 using namespace std;
 using namespace lamtram;
-using namespace cnn::expr;
+using namespace dynet::expr;
 namespace po = boost::program_options;
 
 int LamtramTrain::main(int argc, char** argv) {
@@ -67,7 +67,7 @@ int LamtramTrain::main(int argc, char** argv) {
     ("attention_feed", po::value<bool>()->default_value(true), "Whether to perform the input feeding of Luong et al.")
     ("attention_hist", po::value<string>()->default_value("none"), "How to pass information about the attention into the score function (none/sum)")
     ("attention_lex", po::value<string>()->default_value("none"), "Use a lexicon (e.g. \"prior:file=/path/to/file:alpha=0.001\")")
-    ("cnn_mem", po::value<int>()->default_value(512), "How much memory to allocate to cnn")
+    ("dynet_mem", po::value<int>()->default_value(512), "How much memory to allocate to dynet")
     ("verbose", po::value<int>()->default_value(0), "How much verbose output to print")
     ;
   po::store(po::parse_command_line(argc, argv, desc), vm_);
@@ -83,8 +83,8 @@ int LamtramTrain::main(int argc, char** argv) {
   // Set random seed if necessary
   int seed = vm_["seed"].as<int>();
   if(seed != 0) {
-    delete cnn::rndeng;
-    cnn::rndeng = new mt19937(seed);
+    delete dynet::rndeng;
+    dynet::rndeng = new mt19937(seed);
   }
 
   // Sanity check for model type
@@ -244,17 +244,17 @@ inline void CreateMinibatches(const std::vector<Sentence> & train_trg,
 
 void LamtramTrain::TrainLM() {
 
-  // cnn::Dict
+  // dynet::Dict
   DictPtr vocab_trg, vocab_src;
-  std::shared_ptr<cnn::Model> model;
+  std::shared_ptr<dynet::Model> model;
   std::shared_ptr<NeuralLM> nlm;
   if(model_in_file_.size()) {
     nlm.reset(ModelUtils::LoadMonolingualModel<NeuralLM>(model_in_file_, model, vocab_trg));
   } else {
     vocab_trg.reset(CreateNewDict());
-    model.reset(new cnn::Model);
+    model.reset(new dynet::Model);
   }
-  // if(!trg_sent) vocab_trg = cnn::Dict("");
+  // if(!trg_sent) vocab_trg = dynet::Dict("");
 
   // Read the training files
   vector<Sentence> train_trg, dev_trg, train_cache;
@@ -283,21 +283,21 @@ void LamtramTrain::TrainLM() {
   CreateMinibatches(dev_trg, empty_minibatch, 1, dev_trg_minibatch, dev_cache_minibatch);
   
   // TODO: Learning rate
-  cnn::real learning_rate = vm_["learning_rate"].as<float>();
-  cnn::real learning_scale = 1.0;
+  dynet::real learning_rate = vm_["learning_rate"].as<float>();
+  dynet::real learning_scale = 1.0;
 
   // Create a sentence list and random generator
   std::vector<int> train_ids(train_trg_minibatch.size());
   std::iota(train_ids.begin(), train_ids.end(), 0);
   // Perform the training
-  std::vector<cnn::expr::Expression> empty_hist;
-  cnn::real last_loss = 1e99, best_loss = 1e99;
+  std::vector<dynet::expr::Expression> empty_hist;
+  dynet::real last_loss = 1e99, best_loss = 1e99;
   bool is_likelihood = (softmax_sig_ != "hinge");
   bool do_dev = dev_trg.size() != 0;
   int loc = 0, sent_loc = 0, last_print = 0;
   float epoch_frac = 0.f, samp_prob = 0.f;
   int epoch = 0;
-  std::shuffle(train_ids.begin(), train_ids.end(), *cnn::rndeng);
+  std::shuffle(train_ids.begin(), train_ids.end(), *dynet::rndeng);
   while(true) {
     // Start the training
     LLStats train_ll(nlm->GetVocabSize()), dev_ll(nlm->GetVocabSize());
@@ -307,7 +307,7 @@ void LamtramTrain::TrainLM() {
     for(int curr_sent_loc = 0; curr_sent_loc < eval_every_; ) {
       if(loc == (int)train_ids.size()) {
         // Shuffle the access order
-        std::shuffle(train_ids.begin(), train_ids.end(), *cnn::rndeng);
+        std::shuffle(train_ids.begin(), train_ids.end(), *dynet::rndeng);
         loc = 0;
         sent_loc = 0;
         last_print = 0;
@@ -318,7 +318,7 @@ void LamtramTrain::TrainLM() {
         float val = (epoch_frac-scheduled_samp_)/scheduled_samp_;
         samp_prob = 1/(1+exp(val));
       }
-      cnn::ComputationGraph cg;
+      dynet::ComputationGraph cg;
       nlm->NewGraph(cg);
       nlm->BuildSentGraph(train_trg_minibatch[train_ids[loc]], (train_cache_minibatch.size() ? train_cache_minibatch[train_ids[loc]] : empty_minibatch), NULL, empty_hist, samp_prob, true, cg, train_ll);
       sent_loc += train_trg_minibatch[train_ids[loc]].size();
@@ -341,7 +341,7 @@ void LamtramTrain::TrainLM() {
       time = Timer();
       nlm->SetDropout(0.f);
       for(auto & sent : dev_trg_minibatch) {
-        cnn::ComputationGraph cg;
+        dynet::ComputationGraph cg;
         nlm->NewGraph(cg);
         nlm->BuildSentGraph(sent, empty_minibatch, NULL, empty_hist, 0.f, false, cg, dev_ll);
         dev_ll.loss_ += as_scalar(cg.incremental_forward());
@@ -355,7 +355,7 @@ void LamtramTrain::TrainLM() {
     // Check the learning rate
     if(last_loss != last_loss)
       THROW_ERROR("Likelihood is not a number, dying...");
-    cnn::real my_loss = do_dev ? dev_ll.loss_ : train_ll.loss_;
+    dynet::real my_loss = do_dev ? dev_ll.loss_ : train_ll.loss_;
     if(my_loss > last_loss) {
       learning_scale *= rate_decay_;
     }
@@ -380,9 +380,9 @@ void LamtramTrain::TrainLM() {
 
 void LamtramTrain::TrainEncDec() {
 
-  // cnn::Dict
+  // dynet::Dict
   DictPtr vocab_trg, vocab_src;
-  std::shared_ptr<cnn::Model> model;
+  std::shared_ptr<dynet::Model> model;
   std::shared_ptr<EncoderDecoder> encdec;
   NeuralLMPtr decoder;
   if(model_in_file_.size()) {
@@ -391,9 +391,9 @@ void LamtramTrain::TrainEncDec() {
   } else {
     vocab_src.reset(CreateNewDict());
     vocab_trg.reset(CreateNewDict());
-    model.reset(new cnn::Model);
+    model.reset(new dynet::Model);
   }
-  // if(!trg_sent) vocab_trg = cnn::Dict("");
+  // if(!trg_sent) vocab_trg = dynet::Dict("");
 
   // Read the training files
   vector<Sentence> train_trg, dev_trg, train_src, dev_src, train_cache_ids;
@@ -450,9 +450,9 @@ void LamtramTrain::TrainEncDec() {
 
 void LamtramTrain::TrainEncAtt() {
 
-  // cnn::Dict
+  // dynet::Dict
   DictPtr vocab_trg, vocab_src;
-  std::shared_ptr<cnn::Model> model;
+  std::shared_ptr<dynet::Model> model;
   std::shared_ptr<EncoderAttentional> encatt;
   NeuralLMPtr decoder;
   if(model_in_file_.size()) {
@@ -461,7 +461,7 @@ void LamtramTrain::TrainEncAtt() {
   } else {
     vocab_src.reset(CreateNewDict());
     vocab_trg.reset(CreateNewDict());
-    model.reset(new cnn::Model);
+    model.reset(new dynet::Model);
   }
 
   // Read the training file
@@ -518,18 +518,18 @@ void LamtramTrain::TrainEncAtt() {
 
 void LamtramTrain::TrainEncCls() {
 
-  // cnn::Dict
+  // dynet::Dict
   DictPtr vocab_trg, vocab_src;
-  std::shared_ptr<cnn::Model> model;
+  std::shared_ptr<dynet::Model> model;
   std::shared_ptr<EncoderClassifier> enccls;
   if(model_in_file_.size()) {
     enccls.reset(ModelUtils::LoadBilingualModel<EncoderClassifier>(model_in_file_, model, vocab_src, vocab_trg));
   } else {
     vocab_src.reset(CreateNewDict());
     vocab_trg.reset(CreateNewDict(false));
-    model.reset(new cnn::Model);
+    model.reset(new dynet::Model);
   }
-  // if(!trg_sent) vocab_trg = cnn::Dict("");
+  // if(!trg_sent) vocab_trg = dynet::Dict("");
 
   // Read the training file
   vector<Sentence> train_src, dev_src;
@@ -575,9 +575,9 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
                                      const vector<OutputType> & train_cache,
                                      const vector<Sentence> & dev_src,
                                      const vector<OutputType> & dev_trg,
-                                     const cnn::Dict & vocab_src,
-                                     const cnn::Dict & vocab_trg,
-                                     cnn::Model & model,
+                                     const dynet::Dict & vocab_src,
+                                     const dynet::Dict & vocab_trg,
+                                     dynet::Model & model,
                                      ModelType & encdec) {
 
   // Sanity checks
@@ -596,20 +596,20 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
   TrainerPtr trainer = GetTrainer(vm_["trainer"].as<string>(), vm_["learning_rate"].as<float>(), model);
   
   // Learning rate
-  cnn::real learning_rate = vm_["learning_rate"].as<float>();
-  cnn::real learning_scale = 1.0;
+  dynet::real learning_rate = vm_["learning_rate"].as<float>();
+  dynet::real learning_scale = 1.0;
 
   // Create a sentence list and random generator
   std::vector<int> train_ids(train_src_minibatch.size());
   std::iota(train_ids.begin(), train_ids.end(), 0);
   // Perform the training
-  std::vector<cnn::expr::Expression> empty_hist;
-  cnn::real last_loss = 1e99, best_loss = 1e99;
+  std::vector<dynet::expr::Expression> empty_hist;
+  dynet::real last_loss = 1e99, best_loss = 1e99;
   bool is_likelihood = (softmax_sig_ != "hinge");
   bool do_dev = dev_src.size() != 0;
   int loc = 0, epoch = 0, sent_loc = 0, last_print = 0;
   float epoch_frac = 0.f, samp_prob = 0.f;
-  std::shuffle(train_ids.begin(), train_ids.end(), *cnn::rndeng);
+  std::shuffle(train_ids.begin(), train_ids.end(), *dynet::rndeng);
   while(true) {
     // Start the training
     LLStats train_ll(vocab_trg.size()), dev_ll(vocab_trg.size());
@@ -619,14 +619,14 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
     for(int curr_sent_loc = 0; curr_sent_loc < eval_every_; ) {
       if(loc == (int)train_ids.size()) {
         // Shuffle the access order
-        std::shuffle(train_ids.begin(), train_ids.end(), *cnn::rndeng);
+        std::shuffle(train_ids.begin(), train_ids.end(), *dynet::rndeng);
         loc = 0;
         sent_loc = 0;
         last_print = 0;
         ++epoch;
         if(epoch >= epochs_) return;
       }
-      cnn::ComputationGraph cg;
+      dynet::ComputationGraph cg;
       encdec.NewGraph(cg);
       // encdec.BuildSentGraph(train_src[train_ids[loc]], train_trg[train_ids[loc]], train_cache[train_ids[loc]], true, cg, train_ll);
       if(scheduled_samp_) {
@@ -655,7 +655,7 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
       std::vector<OutputType> empty_cache;
       encdec.SetDropout(0.f);
       for(int i : boost::irange(0, (int)dev_src_minibatch.size())) {
-        cnn::ComputationGraph cg;
+        dynet::ComputationGraph cg;
         encdec.NewGraph(cg);
         // encdec.BuildSentGraph(dev_src[i], dev_trg[i], empty_cache, false, cg, dev_ll);
         encdec.BuildSentGraph(dev_src_minibatch[i], dev_trg_minibatch[i], empty_cache, 0.f, false, cg, dev_ll);
@@ -670,7 +670,7 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
     // Check the learning rate
     if(last_loss != last_loss)
       THROW_ERROR("Likelihood is not a number, dying...");
-    cnn::real my_loss = do_dev ? dev_ll.loss_ : train_ll.loss_;
+    dynet::real my_loss = do_dev ? dev_ll.loss_ : train_ll.loss_;
     if(my_loss > last_loss)
       learning_scale *= rate_decay_;
     last_loss = my_loss;
@@ -692,13 +692,13 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
   }
 }
 
-inline cnn::expr::Expression CalcRisk(const Sentence & ref,
+inline dynet::expr::Expression CalcRisk(const Sentence & ref,
                                       const vector<Sentence> & trg_samples,
-                                      cnn::expr::Expression trg_log_probs,
+                                      dynet::expr::Expression trg_log_probs,
                                       const EvalMeasure & eval,
                                       float scaling,
                                       bool dedup,
-                                      cnn::ComputationGraph & cg) {
+                                      dynet::ComputationGraph & cg) {
     // If scaling the distribution do it
     if(scaling != 1.f)
         trg_log_probs = trg_log_probs * scaling;
@@ -718,9 +718,9 @@ inline cnn::expr::Expression CalcRisk(const Sentence & ref,
     }
     // cerr << "---------------------" << endl;
     if(sent_dup.size() != trg_samples.size())
-        trg_log_probs = trg_log_probs + input(cg, cnn::Dim({(unsigned int)trg_samples.size()}), mask);
+        trg_log_probs = trg_log_probs + input(cg, dynet::Dim({(unsigned int)trg_samples.size()}), mask);
     // Calculate expected and return loss
-    return -input(cg, cnn::Dim({1, (unsigned int)trg_samples.size()}), eval_scores) * softmax(trg_log_probs);
+    return -input(cg, dynet::Dim({1, (unsigned int)trg_samples.size()}), eval_scores) * softmax(trg_log_probs);
 }
 
 // Performs minimimum risk training according to the following paper:
@@ -732,10 +732,10 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
                                    const vector<int> & train_fold_ids,
                                    const vector<Sentence> & dev_src,
                                    const vector<Sentence> & dev_trg,
-                                   const cnn::Dict & vocab_src,
-                                   const cnn::Dict & vocab_trg,
+                                   const dynet::Dict & vocab_src,
+                                   const dynet::Dict & vocab_trg,
                                    const EvalMeasure & eval,
-                                   cnn::Model & model,
+                                   dynet::Model & model,
                                    ModelType & encdec) {
 
   // Sanity checks
@@ -760,15 +760,15 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
   }
   
   // Learning rate
-  cnn::real learning_rate = vm_["learning_rate"].as<float>();
-  cnn::real learning_scale = 1.0;
+  dynet::real learning_rate = vm_["learning_rate"].as<float>();
+  dynet::real learning_scale = 1.0;
 
   // Create a sentence list and random generator
   std::vector<int> train_ids(train_src.size());
   std::iota(train_ids.begin(), train_ids.end(), 0);
   // Perform the training
-  std::vector<cnn::expr::Expression> empty_hist;
-  cnn::real last_loss = 1e99, best_loss = 1e99;
+  std::vector<dynet::expr::Expression> empty_hist;
+  dynet::real last_loss = 1e99, best_loss = 1e99;
   bool do_dev = dev_src.size() != 0;
   int loc = train_ids.size(), epoch = -1, sent_loc = 0, last_print = 0;
   float epoch_frac = 0.f;
@@ -781,7 +781,7 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
       if(loc == (int)train_ids.size()) {
         // Shuffle the access order
         for(const pair<int,int> & fold_span : fold_id_spans)
-          std::shuffle(train_ids.begin()+fold_span.first, train_ids.begin()+fold_span.second, *cnn::rndeng);
+          std::shuffle(train_ids.begin()+fold_span.first, train_ids.begin()+fold_span.second, *dynet::rndeng);
         loc = 0;
         last_print = 0;
         sent_loc = 0;
@@ -789,15 +789,15 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
         if(epoch >= epochs_) return;
       }
       // Create the graph
-      cnn::ComputationGraph cg;
+      dynet::ComputationGraph cg;
       encdec.GetDecoderPtr()->GetSoftmax().UpdateFold(train_fold_ids[train_ids[loc]]+1);
       encdec.NewGraph(cg);
       // Sample sentences
       std::vector<Sentence> trg_samples;
-      cnn::expr::Expression trg_log_probs = encdec.SampleTrgSentences(train_src[train_ids[loc]], 
+      dynet::expr::Expression trg_log_probs = encdec.SampleTrgSentences(train_src[train_ids[loc]], 
                                                                       (include_ref ? &train_trg[train_ids[loc]] : NULL),
                                                                       num_samples, max_len, true, cg, trg_samples);
-      /* cnn::expr::Expression trg_loss = */ CalcRisk(train_trg[train_ids[loc]], trg_samples, trg_log_probs, eval, scaling, dedup, cg);
+      /* dynet::expr::Expression trg_loss = */ CalcRisk(train_trg[train_ids[loc]], trg_samples, trg_log_probs, eval, scaling, dedup, cg);
       // Increment
       sent_loc++; curr_sent_loc++;
       epoch_frac += 1.f/train_src.size(); 
@@ -819,14 +819,14 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
       time = Timer();
       encdec.SetDropout(0.f);
       for(int i : boost::irange(0, (int)dev_src.size())) {
-          cnn::ComputationGraph cg;
+          dynet::ComputationGraph cg;
           encdec.NewGraph(cg);
           // Sample sentences
           std::vector<Sentence> trg_samples;
           Expression trg_log_probs = encdec.SampleTrgSentences(dev_src[i], 
                                                                (include_ref ? &dev_trg[i] : NULL),
                                                                num_samples, max_len, true, cg, trg_samples);
-          /* cnn::expr::Expression exp_loss = */ CalcRisk(dev_trg[i], trg_samples, trg_log_probs, eval, scaling, dedup, cg);
+          /* dynet::expr::Expression exp_loss = */ CalcRisk(dev_trg[i], trg_samples, trg_log_probs, eval, scaling, dedup, cg);
           dev_loss.loss_ += as_scalar(cg.incremental_forward());
           dev_loss.sents_++;
       }
@@ -839,7 +839,7 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
     // Check the learning rate
     if(last_loss != last_loss)
       THROW_ERROR("Loss is not a number, dying...");
-    cnn::real my_loss = do_dev ? dev_loss.loss_ : train_loss.loss_;
+    dynet::real my_loss = do_dev ? dev_loss.loss_ : train_loss.loss_;
     if(my_loss > last_loss)
       learning_scale *= rate_decay_;
     last_loss = my_loss;
@@ -861,7 +861,7 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
   }
 }
 
-void LamtramTrain::LoadFile(const std::string filename, bool add_last, cnn::Dict & vocab, std::vector<Sentence> & sents) {
+void LamtramTrain::LoadFile(const std::string filename, bool add_last, dynet::Dict & vocab, std::vector<Sentence> & sents) {
   ifstream iftrain(filename.c_str());
   if(!iftrain) THROW_ERROR("Could not find training file: " << filename);
   string line;
@@ -876,7 +876,7 @@ void LamtramTrain::LoadFile(const std::string filename, bool add_last, cnn::Dict
   iftrain.close();
 }
 
-void LamtramTrain::LoadLabels(const std::string filename, cnn::Dict & vocab, std::vector<int> & labs) {
+void LamtramTrain::LoadLabels(const std::string filename, dynet::Dict & vocab, std::vector<int> & labs) {
   ifstream iftrain(filename.c_str());
   if(!iftrain) THROW_ERROR("Could not find training file: " << filename);
   string line;
@@ -885,18 +885,18 @@ void LamtramTrain::LoadLabels(const std::string filename, cnn::Dict & vocab, std
   iftrain.close();
 }
 
-LamtramTrain::TrainerPtr LamtramTrain::GetTrainer(const std::string & trainer_id, const cnn::real learning_rate, cnn::Model & model) {
+LamtramTrain::TrainerPtr LamtramTrain::GetTrainer(const std::string & trainer_id, const dynet::real learning_rate, dynet::Model & model) {
   TrainerPtr trainer;
   if(trainer_id == "sgd") {
-    trainer.reset(new cnn::SimpleSGDTrainer(&model, learning_rate));
+    trainer.reset(new dynet::SimpleSGDTrainer(&model, learning_rate));
   } else if(trainer_id == "momentum") {
-    trainer.reset(new cnn::MomentumSGDTrainer(&model, learning_rate));
+    trainer.reset(new dynet::MomentumSGDTrainer(&model, learning_rate));
   } else if(trainer_id == "adagrad") {
-    trainer.reset(new cnn::AdagradTrainer(&model, learning_rate));
+    trainer.reset(new dynet::AdagradTrainer(&model, learning_rate));
   } else if(trainer_id == "adadelta") {
-    trainer.reset(new cnn::AdadeltaTrainer(&model, learning_rate));
+    trainer.reset(new dynet::AdadeltaTrainer(&model, learning_rate));
   } else if(trainer_id == "adam") {
-    trainer.reset(new cnn::AdamTrainer(&model, learning_rate));
+    trainer.reset(new dynet::AdamTrainer(&model, learning_rate));
   } else {
     THROW_ERROR("Illegal trainer variety: " << trainer_id);
   }

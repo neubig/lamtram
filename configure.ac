@@ -24,15 +24,15 @@ AC_PROG_CC
 
 AC_LANG_CPLUSPLUS
 
-# Check for CNN
-AC_ARG_WITH(cnn,
-	[AC_HELP_STRING([--with-cnn=DIR], [cnn in DIR])],
-	[cnn_dir="${withval}"], [cnn_dir=''])
-if test "x$cnn_dir" != "x"; then
-  CNN_CPPFLAGS="-I${cnn_dir}"
-  CNN_LDFLAGS="${cnn_dir}/build/cnn/libcnn.a"
+# Check for DYNET
+AC_ARG_WITH(dynet,
+	[AC_HELP_STRING([--with-dynet=DIR], [dynet in DIR])],
+	[dynet_dir="${withval}"], [dynet_dir=''])
+if test "x$dynet_dir" != "x"; then
+  DYNET_CPPFLAGS="-I${dynet_dir}"
+  DYNET_LDFLAGS="${dynet_dir}/build/dynet/libdynet.a"
 else
-  AS_ERROR("Must specify --with-cnn=[CNN_DIR]")
+  AS_ERROR("Must specify --with-dynet=[DYNET_DIR]")
 fi
 
 # Check if we have CUDA
@@ -40,11 +40,11 @@ AC_ARG_WITH(cuda,
 	[AC_HELP_STRING([--with-cuda=DIR], [cuda in DIR])],
 	[cuda_dir="${withval}"], [cuda_dir=''])
 if test "x$cuda_dir" != "x"; then
-  CNN_CPPFLAGS="-I${cnn_dir} -I${cuda_dir}/include -DHAVE_CUDA -DEIGEN_USE_GPU -DEIGEN_HAS_CUDA_FP16"
-  CNN_LDFLAGS="${cnn_dir}/build/cnn/libcnn.a ${cnn_dir}/build/cnn/libcnncuda.a -L${cuda_dir}/lib -lcudart -lcublas"
+  DYNET_CPPFLAGS="-I${dynet_dir} -I${cuda_dir}/include -DHAVE_CUDA -DEIGEN_USE_GPU -DEIGEN_HAS_CUDA_FP16"
+  DYNET_LDFLAGS="${dynet_dir}/build/dynet/libdynet.a ${dynet_dir}/build/dynet/libdynetcuda.a -L${cuda_dir}/lib -lcudart -lcublas"
 fi
-AC_SUBST(CNN_CPPFLAGS)
-AC_SUBST(CNN_LDFLAGS)
+AC_SUBST(DYNET_CPPFLAGS)
+AC_SUBST(DYNET_LDFLAGS)
 
 # Check for Eigen
 AC_ARG_WITH(eigen,
