@@ -29,7 +29,7 @@ void EnsembleClassifier::CalcEval(const Sentence & sent_src, int trg, LLStats & 
         }
     }
     Expression i_average = average(i_sms);
-    int label = MaxElement(dynet::as_vector(cg.incremental_forward()));
+    int label = MaxElement(dynet::as_vector(cg.incremental_forward(i_average)));
     // Ensemble the probabilities and calculate the likelihood
     Expression i_logprob;
     if(ensemble_operation_ == "sum") {
@@ -39,7 +39,7 @@ void EnsembleClassifier::CalcEval(const Sentence & sent_src, int trg, LLStats & 
     } else {
         THROW_ERROR("Bad ensembling operation: " << ensemble_operation_ << endl);
     }
-    ll.loss_ -= as_scalar(cg.incremental_forward());
+    ll.loss_ -= as_scalar(cg.incremental_forward(i_logprob));
     // Check if it's correct
     if(label == trg) ll.correct_++;
     ll.words_++;
@@ -57,8 +57,8 @@ int EnsembleClassifier::Predict(const Sentence & sent_src) {
             i_sms.push_back(tm->Forward<dynet::LogSoftmax>(sent_src, false, cg));
         }
     }
-    sum(i_sms);
-    return MaxElement(dynet::as_vector(cg.incremental_forward()));
+    dynet::expr::Expression prob_exp = sum(i_sms);
+    return MaxElement(dynet::as_vector(cg.incremental_forward(prob_exp)));
 }
 
 

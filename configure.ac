@@ -30,7 +30,7 @@ AC_ARG_WITH(dynet,
 	[dynet_dir="${withval}"], [dynet_dir=''])
 if test "x$dynet_dir" != "x"; then
   DYNET_CPPFLAGS="-I${dynet_dir}"
-  DYNET_LDFLAGS="${dynet_dir}/build/dynet/libdynet.a"
+  DYNET_LDFLAGS="-L${dynet_dir}/build/dynet/ -ldynet"
 else
   AS_ERROR("Must specify --with-dynet=[DYNET_DIR]")
 fi

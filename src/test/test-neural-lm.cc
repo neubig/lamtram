@@ -72,8 +72,8 @@ BOOST_AUTO_TEST_CASE(TestDecodingScores) {
   {
     dynet::ComputationGraph cg;
     lmptr->NewGraph(cg);
-    lmptr->BuildSentGraph(sent_trg_, cache_, nullptr, layer_in, 0.f, false, cg, train_stat);
-    train_stat.loss_ += as_scalar(cg.incremental_forward());
+    dynet::expr::Expression loss_expr = lmptr->BuildSentGraph(sent_trg_, cache_, nullptr, layer_in, 0.f, false, cg, train_stat);
+    train_stat.loss_ += as_scalar(cg.incremental_forward(loss_expr));
   }
   vector<float> test_wordll;
   ensdec.CalcSentLL(sent_src_, sent_trg_, test_stat, test_wordll);

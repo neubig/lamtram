@@ -306,7 +306,7 @@ dynet::expr::Expression ExternAttentional::CreateContext(
   // Save the alignments and print if necessary
   align_out.push_back(i_alpha);
   if(GlobalVars::verbose >= 2) {
-    vector<dynet::real> softmax = as_vector(cg.incremental_forward());
+    vector<dynet::real> softmax = as_vector(cg.incremental_forward(i_alpha));
     cerr << "Alignments: " << softmax << endl;
   }
   // Update the sum if necessary

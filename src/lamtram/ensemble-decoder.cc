@@ -202,7 +202,7 @@ void EnsembleDecoder::CalcSentLL(const Sentence & sent_src, const Sent & sent_tr
     last_extern = next_extern;
   }
   Expression err = sum(errs);
-  cg.incremental_forward();
+  cg.incremental_forward(err);
   AddLik(sent_trg, err, errs, ll, wordll);
 }                    
 
@@ -261,7 +261,7 @@ std::vector<EnsembleDecoderHypPtr> EnsembleDecoder::GenerateNbest(const Sentence
         THROW_ERROR("Bad ensembling operation: " << ensemble_operation_ << endl);
       }
       // Add the word/unk penalty
-      vector<dynet::real> softmax = as_vector(cg.incremental_forward());
+      vector<dynet::real> softmax = as_vector(cg.incremental_forward(i_logprob));
       if(word_pen_ != 0.f) {
         for(size_t i = 1; i < softmax.size(); i++)
           softmax[i] += word_pen_;
@@ -270,7 +270,8 @@ std::vector<EnsembleDecoderHypPtr> EnsembleDecoder::GenerateNbest(const Sentence
       // Find the best aligned source, if any alignments exists
       WordId best_align = -1;
       if(i_aligns.size() != 0) {
-        vector<dynet::real> align = as_vector(cg.incremental_forward());
+        dynet::expr::Expression ens_align = sum(i_aligns);
+        vector<dynet::real> align = as_vector(cg.incremental_forward(ens_align));
         best_align = 0;
         for(size_t aid = 0; aid < align.size(); aid++)
           if(align[aid] > align[best_align])

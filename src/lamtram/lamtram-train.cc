@@ -320,13 +320,13 @@ void LamtramTrain::TrainLM() {
       }
       dynet::ComputationGraph cg;
       nlm->NewGraph(cg);
-      nlm->BuildSentGraph(train_trg_minibatch[train_ids[loc]], (train_cache_minibatch.size() ? train_cache_minibatch[train_ids[loc]] : empty_minibatch), NULL, empty_hist, samp_prob, true, cg, train_ll);
+      dynet::expr::Expression loss_exp = nlm->BuildSentGraph(train_trg_minibatch[train_ids[loc]], (train_cache_minibatch.size() ? train_cache_minibatch[train_ids[loc]] : empty_minibatch), NULL, empty_hist, samp_prob, true, cg, train_ll);
       sent_loc += train_trg_minibatch[train_ids[loc]].size();
       curr_sent_loc += train_trg_minibatch[train_ids[loc]].size();
       epoch_frac += 1.f/train_ids.size();
       // cg.PrintGraphviz();
-      train_ll.loss_ += as_scalar(cg.incremental_forward());
-      cg.backward();
+      train_ll.loss_ += as_scalar(cg.incremental_forward(loss_exp));
+      cg.backward(loss_exp);
       trainer->update();
       ++loc;
       if(sent_loc / 100 != last_print || curr_sent_loc >= eval_every_ || epochs_ == epoch) {
@@ -343,8 +343,8 @@ void LamtramTrain::TrainLM() {
       for(auto & sent : dev_trg_minibatch) {
         dynet::ComputationGraph cg;
         nlm->NewGraph(cg);
-        nlm->BuildSentGraph(sent, empty_minibatch, NULL, empty_hist, 0.f, false, cg, dev_ll);
-        dev_ll.loss_ += as_scalar(cg.incremental_forward());
+        dynet::expr::Expression loss_exp = nlm->BuildSentGraph(sent, empty_minibatch, NULL, empty_hist, 0.f, false, cg, dev_ll);
+        dev_ll.loss_ += as_scalar(cg.incremental_forward(loss_exp));
       }
       float elapsed = time.Elapsed();
       cerr << "Epoch " << epoch+1 << " dev: " << dev_ll.PrintStats() << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << dev_ll.words_/elapsed << " w/s)" << endl;
@@ -633,13 +633,13 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
         float val = (epoch_frac-scheduled_samp_)/scheduled_samp_;
         samp_prob = 1/(1+exp(val));
       }
-      encdec.BuildSentGraph(train_src_minibatch[train_ids[loc]], train_trg_minibatch[train_ids[loc]], (train_cache_minibatch.size() ? train_cache_minibatch[train_ids[loc]] : empty_cache), samp_prob, true, cg, train_ll);
+      dynet::expr::Expression loss_exp = encdec.BuildSentGraph(train_src_minibatch[train_ids[loc]], train_trg_minibatch[train_ids[loc]], (train_cache_minibatch.size() ? train_cache_minibatch[train_ids[loc]] : empty_cache), samp_prob, true, cg, train_ll);
       sent_loc += train_trg_minibatch[train_ids[loc]].size();
       curr_sent_loc += train_trg_minibatch[train_ids[loc]].size();
       epoch_frac += 1.f/train_ids.size();
       // cg.PrintGraphviz();
-      train_ll.loss_ += as_scalar(cg.incremental_forward());
-      cg.backward();
+      train_ll.loss_ += as_scalar(cg.incremental_forward(loss_exp));
+      cg.backward(loss_exp);
       trainer->update(learning_scale);
       ++loc;
       if(sent_loc / 100 != last_print || curr_sent_loc >= eval_every_ || epochs_ == epoch) {
@@ -658,8 +658,8 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
         dynet::ComputationGraph cg;
         encdec.NewGraph(cg);
         // encdec.BuildSentGraph(dev_src[i], dev_trg[i], empty_cache, false, cg, dev_ll);
-        encdec.BuildSentGraph(dev_src_minibatch[i], dev_trg_minibatch[i], empty_cache, 0.f, false, cg, dev_ll);
-        dev_ll.loss_ += as_scalar(cg.incremental_forward());
+        dynet::expr::Expression loss_exp = encdec.BuildSentGraph(dev_src_minibatch[i], dev_trg_minibatch[i], empty_cache, 0.f, false, cg, dev_ll);
+        dev_ll.loss_ += as_scalar(cg.incremental_forward(loss_exp));
       }
       float elapsed = time.Elapsed();
       cerr << "Epoch " << epoch+1 << " dev: " << dev_ll.PrintStats() << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << dev_ll.words_/elapsed << " w/s)" << endl;
@@ -797,14 +797,14 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
       dynet::expr::Expression trg_log_probs = encdec.SampleTrgSentences(train_src[train_ids[loc]], 
                                                                       (include_ref ? &train_trg[train_ids[loc]] : NULL),
                                                                       num_samples, max_len, true, cg, trg_samples);
-      /* dynet::expr::Expression trg_loss = */ CalcRisk(train_trg[train_ids[loc]], trg_samples, trg_log_probs, eval, scaling, dedup, cg);
+      dynet::expr::Expression trg_loss = CalcRisk(train_trg[train_ids[loc]], trg_samples, trg_log_probs, eval, scaling, dedup, cg);
       // Increment
       sent_loc++; curr_sent_loc++;
       epoch_frac += 1.f/train_src.size(); 
-      train_loss.loss_ += as_scalar(cg.incremental_forward());
+      train_loss.loss_ += as_scalar(cg.incremental_forward(trg_loss));
       train_loss.sents_++;
       // cg.PrintGraphviz();
-      cg.backward();
+      cg.backward(trg_loss);
       trainer->update(learning_scale);
       ++loc;
       if(sent_loc / 100 != last_print || curr_sent_loc >= eval_every_ || epochs_ == epoch) {
@@ -826,8 +826,8 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
           Expression trg_log_probs = encdec.SampleTrgSentences(dev_src[i], 
                                                                (include_ref ? &dev_trg[i] : NULL),
                                                                num_samples, max_len, true, cg, trg_samples);
-          /* dynet::expr::Expression exp_loss = */ CalcRisk(dev_trg[i], trg_samples, trg_log_probs, eval, scaling, dedup, cg);
-          dev_loss.loss_ += as_scalar(cg.incremental_forward());
+          dynet::expr::Expression loss_exp = CalcRisk(dev_trg[i], trg_samples, trg_log_probs, eval, scaling, dedup, cg);
+          dev_loss.loss_ += as_scalar(cg.incremental_forward(loss_exp));
           dev_loss.sents_++;
       }
       float elapsed = time.Elapsed();
