@@ -41,7 +41,7 @@ AC_ARG_WITH(cuda,
 	[cuda_dir="${withval}"], [cuda_dir=''])
 if test "x$cuda_dir" != "x"; then
   DYNET_CPPFLAGS="-I${dynet_dir} -I${cuda_dir}/include -DHAVE_CUDA -DEIGEN_USE_GPU -DEIGEN_HAS_CUDA_FP16"
-  DYNET_LDFLAGS="${dynet_dir}/build/dynet/libdynet.a ${dynet_dir}/build/dynet/libdynetcuda.a -L${cuda_dir}/lib -lcudart -lcublas"
+  DYNET_LDFLAGS="-L${dynet_dir}/build/dynet/ -ldynet -L${cuda_dir}/lib -lcudart -lcublas"
 fi
 AC_SUBST(DYNET_CPPFLAGS)
 AC_SUBST(DYNET_LDFLAGS)
