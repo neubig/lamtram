@@ -32,6 +32,7 @@ public:
     void BilingualTraining(const std::vector<Sentence> & train_src,
                            const std::vector<OutputType> & train_trg,
                            const std::vector<OutputType> & train_cache,
+                           const std::vector<float> & train_weights,
                            const std::vector<Sentence> & dev_src,
                            const std::vector<OutputType> & dev_trg,
                            const dynet::Dict & vocab_src,
@@ -59,6 +60,7 @@ public:
     // Load in the training data
     void LoadFile(const std::string filename, bool add_last, dynet::Dict & vocab, std::vector<Sentence> & sents);
     void LoadLabels(const std::string filename, dynet::Dict & vocab, std::vector<int> & labs);
+    void LoadWeights(const std::string filename, std::vector<float> & weights);
 
     void LoadBothFiles(
           const std::string filename_src, dynet::Dict & vocab_src, std::vector<Sentence> & sents_src,
@@ -73,7 +75,7 @@ protected:
     int epochs_, context_, eval_every_;
     float scheduled_samp_, dropout_;
     std::string model_in_file_, model_out_file_;
-    std::vector<std::string> train_files_trg_, train_files_src_;
+    std::vector<std::string> train_files_trg_, train_files_src_, train_files_weights_;
     std::string dev_file_trg_, dev_file_src_;
     std::string softmax_sig_;
 

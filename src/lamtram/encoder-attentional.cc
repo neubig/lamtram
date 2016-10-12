@@ -362,17 +362,34 @@ std::vector<dynet::expr::Expression> EncoderAttentional::GetEncodedState<Sentenc
 template
 std::vector<dynet::expr::Expression> EncoderAttentional::GetEncodedState<std::vector<Sentence> >(const std::vector<Sentence> & sent_src, bool train, dynet::ComputationGraph & cg);
 
-template <class SentData>
-dynet::expr::Expression EncoderAttentional::BuildSentGraph(
-          const SentData & sent_src, const SentData & sent_trg,
-          const SentData & sent_cache,
-          float samp_percent,
-          bool train,
-          dynet::ComputationGraph & cg, LLStats & ll) {
+dynet::expr::Expression EncoderAttentional::BuildSentGraph(const Sentence & sent_src,
+                                                     const Sentence & sent_trg,
+                                                     const Sentence & cache_trg,
+                                                     const float * weight,
+                                                     float samp_percent,
+                                                     bool train,
+                                                     dynet::ComputationGraph & cg,
+                                                     LLStats & ll) {
   if(&cg != curr_graph_)
-    THROW_ERROR("Initialized computation graph and passed comptuation graph don't match."); 
-  std::vector<dynet::expr::Expression> decoder_in = GetEncodedState(sent_src, train, cg);
-  return decoder_->BuildSentGraph(sent_trg, sent_cache, extern_calc_.get(), decoder_in, samp_percent, train, cg, ll);
+    THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
+  // Perform encoding with each encoder
+  vector<dynet::expr::Expression> decoder_in = GetEncodedState(sent_src, train, cg);
+  return decoder_->BuildSentGraph(sent_trg, cache_trg, weight, extern_calc_.get(), decoder_in, samp_percent, train, cg, ll);
+}
+
+dynet::expr::Expression EncoderAttentional::BuildSentGraph(const std::vector<Sentence> & sent_src,
+                                                     const std::vector<Sentence> & sent_trg,
+                                                     const std::vector<Sentence> & cache_trg,
+                                                     const std::vector<float> * weights,
+                                                     float samp_percent,
+                                                     bool train,
+                                                     dynet::ComputationGraph & cg,
+                                                     LLStats & ll) {
+  if(&cg != curr_graph_)
+    THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
+  // Perform encoding with each encoder
+  vector<dynet::expr::Expression> decoder_in = GetEncodedState(sent_src, train, cg);
+  return decoder_->BuildSentGraph(sent_trg, cache_trg, weights, extern_calc_.get(), decoder_in, samp_percent, train, cg, ll);
 }
 
 dynet::expr::Expression EncoderAttentional::SampleTrgSentences(const Sentence & sent_src,
@@ -387,18 +404,6 @@ dynet::expr::Expression EncoderAttentional::SampleTrgSentences(const Sentence & 
   std::vector<dynet::expr::Expression> decoder_in = GetEncodedState(sent_src, train, cg);
   return decoder_->SampleTrgSentences(extern_calc_.get(), decoder_in, sent_trg, num_samples, max_len, train, cg, samples);
 }
-
-template
-dynet::expr::Expression EncoderAttentional::BuildSentGraph<Sentence>(
-  const Sentence & sent_src, const Sentence & sent_trg, const Sentence & sent_cache,
-  float samp_percent,
-  bool train, dynet::ComputationGraph & cg, LLStats & ll);
-template
-dynet::expr::Expression EncoderAttentional::BuildSentGraph<vector<Sentence> >(
-  const vector<Sentence> & sent_src, const vector<Sentence> & sent_trg, const vector<Sentence> & sent_cache,
-  float samp_percent,
-  bool train, dynet::ComputationGraph & cg, LLStats & ll);
-
 
 EncoderAttentional* EncoderAttentional::Read(const DictPtr & vocab_src, const DictPtr & vocab_trg, std::istream & in, dynet::Model & model) {
   string version_id, line;
@@ -417,4 +422,3 @@ void EncoderAttentional::Write(std::ostream & out) {
   extern_calc_->Write(out);
   decoder_->Write(out);
 }
-

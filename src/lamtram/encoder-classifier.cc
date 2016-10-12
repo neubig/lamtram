@@ -49,30 +49,37 @@ dynet::expr::Expression EncoderClassifier::GetEncodedState(
     return tanh(affine_transform({i_enc2cls_b_, i_enc2cls_W_, i_combined}));
 }
 
-template <class SentData, class OutputType>
-dynet::expr::Expression EncoderClassifier::BuildSentGraph(const SentData & sent_src, const OutputType & trg, const OutputType & cache,
+dynet::expr::Expression EncoderClassifier::BuildSentGraph(const Sentence & sent_src,
+                                                        const int & trg,
+                                                        const int & cache,
+                                                        const float * weight,
                                                         float samp_percent,
                                                         bool train,
-                                                        dynet::ComputationGraph & cg, LLStats & ll) const {
+                                                        dynet::ComputationGraph & cg,
+                                                        LLStats & ll) {
     if(&cg != curr_graph_)
-        THROW_ERROR("Initialized computation graph and passed comptuation graph don't match."); 
+        THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
     // Perform encoding with each encoder
     dynet::expr::Expression classifier_in = GetEncodedState(sent_src, train, cg);
     ll.words_ += classifier_in.value().d.bd;
     return classifier_->BuildGraph(classifier_in, trg, train, cg);
 }
 
-template
-dynet::expr::Expression EncoderClassifier::BuildSentGraph<Sentence, int>(
-  const Sentence & sent_src, const int & trg, const int & cache, 
-  float samp_percent,
-  bool train, dynet::ComputationGraph & cg, LLStats & ll) const;
-template
-dynet::expr::Expression EncoderClassifier::BuildSentGraph<vector<Sentence>, vector<int> >(
-  const vector<Sentence> & sent_src, const vector<int> & trg, const vector<int> & cache,
-  float samp_percent,
-  bool train, dynet::ComputationGraph & cg, LLStats & ll) const;
-
+dynet::expr::Expression EncoderClassifier::BuildSentGraph(const std::vector<Sentence> & sent_src,
+                                                        const std::vector<int> & trg,
+                                                        const std::vector<int> & cache,
+                                                        const std::vector<float> * weights,
+                                                        float samp_percent,
+                                                        bool train,
+                                                        dynet::ComputationGraph & cg,
+                                                        LLStats & ll) {
+    if(&cg != curr_graph_)
+        THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
+    // Perform encoding with each encoder
+    dynet::expr::Expression classifier_in = GetEncodedState(sent_src, train, cg);
+    ll.words_ += classifier_in.value().d.bd;
+    return classifier_->BuildGraph(classifier_in, trg, train, cg);
+}
 
 template <class SoftmaxOp>
 dynet::expr::Expression EncoderClassifier::Forward(const Sentence & sent_src,

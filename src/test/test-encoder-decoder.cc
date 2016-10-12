@@ -39,7 +39,7 @@ struct TestEncoderDecoder {
     for(size_t i = 0; i < 100; ++i) {
       dynet::ComputationGraph cg;
       encdec_->NewGraph(cg);
-      dynet::expr::Expression loss_expr = encdec_->BuildSentGraph(sent_src_, sent_trg_, cache_, 0.f, false, cg, train_stat);
+      dynet::expr::Expression loss_expr = encdec_->BuildSentGraph(sent_src_, sent_trg_, cache_, nullptr, 0.f, false, cg, train_stat);
       cg.forward(loss_expr);
       cg.backward(loss_expr);
       sgd.update(0.1);
@@ -97,7 +97,7 @@ BOOST_AUTO_TEST_CASE(TestLLScores) {
   {
     dynet::ComputationGraph cg;
     encdec_->NewGraph(cg);
-    dynet::expr::Expression loss_expr = encdec_->BuildSentGraph(sent_src_, sent_trg_, cache_, 0.f, false, cg, train_stat);
+    dynet::expr::Expression loss_expr = encdec_->BuildSentGraph(sent_src_, sent_trg_, cache_, nullptr, 0.f, false, cg, train_stat);
     train_stat.loss_ += as_scalar(cg.incremental_forward(loss_expr));
   }
   vector<float> test_wordll;
@@ -120,7 +120,7 @@ BOOST_AUTO_TEST_CASE(TestDecodingScores) {
     LLStats train_stat(vocab_trg_->size());
     dynet::ComputationGraph cg;
     encdec_->NewGraph(cg);
-    dynet::expr::Expression loss_expr = encdec_->BuildSentGraph(sent_src_, decode_sent, cache_, 0.f, false, cg, train_stat);
+    dynet::expr::Expression loss_expr = encdec_->BuildSentGraph(sent_src_, decode_sent, cache_, nullptr, 0.f, false, cg, train_stat);
     train_ll = -as_scalar(cg.incremental_forward(loss_expr));
   }
   BOOST_CHECK_CLOSE(train_ll, decode_ll, 0.01);
@@ -143,7 +143,7 @@ BOOST_AUTO_TEST_CASE(TestBeamDecodingScores) {
     LLStats train_stat(vocab_trg_->size());
     dynet::ComputationGraph cg;
     encdec_->NewGraph(cg);
-    dynet::expr::Expression loss_expr = encdec_->BuildSentGraph(sent_src_, decode_sent, cache_, 0.f, false, cg, train_stat);
+    dynet::expr::Expression loss_expr = encdec_->BuildSentGraph(sent_src_, decode_sent, cache_, nullptr, 0.f, false, cg, train_stat);
     train_ll = -as_scalar(cg.incremental_forward(loss_expr));
   }
   BOOST_CHECK_CLOSE(train_ll, decode_ll, 0.01);

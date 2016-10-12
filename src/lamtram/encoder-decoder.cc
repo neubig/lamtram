@@ -70,17 +70,34 @@ template
 std::vector<dynet::expr::Expression> EncoderDecoder::GetEncodedState<vector<Sentence> >(
                   const vector<Sentence> & sent_src, bool train, dynet::ComputationGraph & cg);
 
-template <class SentData>
-dynet::expr::Expression EncoderDecoder::BuildSentGraph(const SentData & sent_src, const SentData & sent_trg,
-                           const SentData & cache_trg,
-                           float samp_percent,
-                           bool train,
-                           dynet::ComputationGraph & cg, LLStats & ll) {
+dynet::expr::Expression EncoderDecoder::BuildSentGraph(const Sentence & sent_src,
+                                                     const Sentence & sent_trg,
+                                                     const Sentence & cache_trg,
+                                                     const float * weight,
+                                                     float samp_percent,
+                                                     bool train,
+                                                     dynet::ComputationGraph & cg,
+                                                     LLStats & ll) {
+  if(&cg != curr_graph_)
+    THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
+  // Perform encoding with each encoder
+  vector<dynet::expr::Expression> decoder_in = GetEncodedState(sent_src, train, cg);
+  return decoder_->BuildSentGraph(sent_trg, cache_trg, weight, NULL, decoder_in, samp_percent, train, cg, ll);
+}
+
+dynet::expr::Expression EncoderDecoder::BuildSentGraph(const std::vector<Sentence> & sent_src,
+                                                     const std::vector<Sentence> & sent_trg,
+                                                     const std::vector<Sentence> & cache_trg,
+                                                     const std::vector<float> * weights,
+                                                     float samp_percent,
+                                                     bool train,
+                                                     dynet::ComputationGraph & cg,
+                                                     LLStats & ll) {
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match."); 
   // Perform encoding with each encoder
   vector<dynet::expr::Expression> decoder_in = GetEncodedState(sent_src, train, cg);
-  return decoder_->BuildSentGraph(sent_trg, cache_trg, NULL, decoder_in, samp_percent, train, cg, ll);
+  return decoder_->BuildSentGraph(sent_trg, cache_trg, weights, NULL, decoder_in, samp_percent, train, cg, ll);
 }
 
 dynet::expr::Expression EncoderDecoder::SampleTrgSentences(const Sentence & sent_src,
@@ -96,20 +113,6 @@ dynet::expr::Expression EncoderDecoder::SampleTrgSentences(const Sentence & sent
   vector<dynet::expr::Expression> decoder_in = GetEncodedState(sent_src, train, cg);
   return decoder_->SampleTrgSentences(NULL, decoder_in, sent_trg, num_samples, max_len, train, cg, samples);
 }
-
-
-template
-dynet::expr::Expression EncoderDecoder::BuildSentGraph<Sentence>(
-  const Sentence & sent_src, const Sentence & sent_trg, const Sentence & cache_trg,
-  float samp_percent,
-  bool train, dynet::ComputationGraph & cg, LLStats & ll);
-
-template
-dynet::expr::Expression EncoderDecoder::BuildSentGraph<vector<Sentence> >(
-  const vector<Sentence> & sent_src, const vector<Sentence> & sent_trg, const vector<Sentence> & cache_trg,
-  float samp_percent,
-  bool train, dynet::ComputationGraph & cg, LLStats & ll);
-
 
 EncoderDecoder* EncoderDecoder::Read(const DictPtr & vocab_src, const DictPtr & vocab_trg, std::istream & in, dynet::Model & model) {
   int num_encoders;
