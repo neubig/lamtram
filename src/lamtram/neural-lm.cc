@@ -551,7 +551,7 @@ cnn::expr::Expression NeuralLM::Forward(const Sent & sent, int t,
     }else {
       extern_out = extern_calc->CreateContext(builder_->final_h(), align_sum_in, false, cg, align_out, align_sum_out);
     }
-    i_hs_t.push_back(extern_in);
+    i_hs_t.push_back(extern_out);
     i_prior = extern_calc->CalcPrior(*align_out.rbegin());
   }
 

@@ -68,12 +68,13 @@ int LamtramTrain::main(int argc, char** argv) {
     ("attention_feed", po::value<bool>()->default_value(true), "Whether to perform the input feeding of Luong et al.")
     ("attention_hist", po::value<string>()->default_value("none"), "How to pass information about the attention into the score function (none/sum)")
     ("attention_lex", po::value<string>()->default_value("none"), "Use a lexicon (e.g. \"prior:file=/path/to/file:alpha=0.001\")")
-    ("word_embedding_in_softmax", po::value<bool>()->default_value("false"), "Use word embedding directly in output softmax (default:false")
-    ("attention_context", po::value<int>()->default_value(0), "Use words around attention in softmax default(0)");
-    ("source_word_embedding_in_softmax", po::value<int>()->default_value(false), "Use directly source embeddings in softmax");
-    ("source_word_embedding_in_softmax_context", po::value<int>()->default_value(false), "Use directly source embeddings in softmax with context");
-    ("cnn_mem", po::value<int>()->default_value(512), "How much memory to allocate to cnn");
-    ("verbose", po::value<int>()->default_value(0), "How much verbose output to print");
+    ("word_embedding_in_softmax", po::value<bool>()->default_value(true), "Use word embedding directly in output softmax (default:false")
+    ("attention_context", po::value<int>()->default_value(0), "Use words around attention in softmax default(0)")
+    ("source_word_embedding_in_softmax", po::value<bool>()->default_value(true), "Use directly source embeddings in softmax")
+    ("source_word_embedding_in_softmax_context", po::value<int>()->default_value(0), "Use directly source embeddings in softmax with context")
+    ("cnn_mem", po::value<int>()->default_value(512), "How much memory to allocate to cnn")
+    ("verbose", po::value<int>()->default_value(0), "How much verbose output to print")
+    ;
   po::store(po::parse_command_line(argc, argv, desc), vm_);
   po::notify(vm_);   
   if (vm_.count("help")) {
