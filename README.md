@@ -2,8 +2,14 @@ lamtram: A toolkit for language and translation modeling using neural networks
 ==============================================================================
 by [Graham Neubig](http://www.phontron.com)
 
-Install/Support/Citation
-------------------------
+If you have any trouble in install or usage of lamtram, please contact the 
+[lamtram-users group](https://groups.google.com/forum/#!forum/lamtram-users) or file 
+an issue on the [github page](http://github.com/neubig/lamtram). In addition to the
+usage info below, you can also take a look at the [nmt-tips tutorial](http://github.com/neubig/nmt-tips)
+on building strong neural machine translation systems.
+
+Install/Citation
+----------------
 
 First, in terms of standard libraries, you must have autotools, libtool, and Boost. If
 you are on Ubuntu/Debian linux, you can install them below:
@@ -26,14 +32,9 @@ correct paths for cnn and Eigen.
 In the instructions below, you can see how to use lamtram to train and use language
 models, translation models, or text classifiers.
 
-If you have any trouble in install or usage of lamtram, please contact the 
-[lamtram-users group](https://groups.google.com/forum/#!forum/lamtram-users) or file 
-an issue on the [github page](http://github.com/neubig/lamtram). In addition to the
-usage info below, you can also take a look at the [nmt-tips tutorial](http://github.com/neubig/nmt-tips)
-on building strong neural machine translation systems.
-
-If you want to use lamtram in your research and want a citation, feel free to use
-the following reference:
+Lamtram is licensed under the LGPL 2.1 and may be used freely according to this, or
+any later versions of the license. If you want to use lamtram in your research and
+we'd appreciate if you use the following reference:
 
     @misc{neubig15lamtram,
     	author = {Graham Neubig},

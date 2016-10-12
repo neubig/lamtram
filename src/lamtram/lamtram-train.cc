@@ -442,7 +442,7 @@ void LamtramTrain::TrainEncDec() {
                       *vocab_src, *vocab_trg, *model, *encdec);
   } else if(crit == "minrisk") {
     // Get the evaluator
-    std::shared_ptr<EvalMeasure> eval(EvalMeasureLoader::CreateMeasureFromString(vm_["eval_meas"].as<string>()));
+    std::shared_ptr<EvalMeasure> eval(EvalMeasureLoader::CreateMeasureFromString(vm_["eval_meas"].as<string>(), *vocab_trg));
     MinRiskTraining(train_src, train_trg, train_trg_ids, dev_src, dev_trg,
                     *vocab_src, *vocab_trg, *eval, *model, *encdec);
   } else {
@@ -521,7 +521,7 @@ void LamtramTrain::TrainEncAtt() {
                       *vocab_src, *vocab_trg, *model, *encatt);
   } else if(crit == "minrisk") {
     // Get the evaluator
-    std::shared_ptr<EvalMeasure> eval(EvalMeasureLoader::CreateMeasureFromString(vm_["eval_meas"].as<string>()));
+    std::shared_ptr<EvalMeasure> eval(EvalMeasureLoader::CreateMeasureFromString(vm_["eval_meas"].as<string>(), *vocab_trg));
     MinRiskTraining(train_src, train_trg, train_trg_ids, dev_src, dev_trg,
                     *vocab_src, *vocab_trg, *eval, *model, *encatt);
   } else {

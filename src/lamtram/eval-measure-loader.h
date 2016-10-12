@@ -1,6 +1,7 @@
 #ifndef EVAL_MEASURE_LOADER_H__
 #define EVAL_MEASURE_LOADER_H__
 
+#include <cnn/dict.h>
 #include <string>
 
 namespace lamtram {
@@ -15,7 +16,7 @@ class EvalMeasureLoader {
 
 public:
     // Create measure from string
-    static EvalMeasure * CreateMeasureFromString(const std::string & str);
+    static EvalMeasure * CreateMeasureFromString(const std::string & str, const cnn::Dict & vocab);
 
 }; // class EvalMeasureLoader
 
