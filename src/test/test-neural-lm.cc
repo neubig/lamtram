@@ -34,7 +34,7 @@ BOOST_AUTO_TEST_CASE(TestWriteRead) {
   std::shared_ptr<cnn::Model> act_mod(new cnn::Model), exp_mod(new cnn::Model);
   // Create a randomized lm
   DictPtr exp_vocab(CreateNewDict()); exp_vocab->convert("hello");
-  NeuralLM exp_lm(exp_vocab, 2, 2, false, 3, BuilderSpec("rnn:2:1"), -1, "full", false,*exp_mod);
+  NeuralLM exp_lm(exp_vocab, 2, 2, false, 3, BuilderSpec("rnn:2:1"), -1, "full", false,0,false,0,*exp_mod);
   // Write the LM
   ostringstream out;
   WriteDict(*exp_vocab, out);
@@ -60,7 +60,7 @@ BOOST_AUTO_TEST_CASE(TestDecodingScores) {
   std::shared_ptr<cnn::Model> mod(new cnn::Model);
   // Create a randomized lm
   DictPtr vocab(CreateNewDict()); vocab->convert("a"); vocab->convert("b"); vocab->convert("c");
-  NeuralLMPtr lmptr(new NeuralLM(vocab, 1, 0, false, 3, BuilderSpec("rnn:2:1"), -1, "full", false,*mod));
+  NeuralLMPtr lmptr(new NeuralLM(vocab, 1, 0, false, 3, BuilderSpec("rnn:2:1"), -1, "full", false,0,false,0,*mod));
   // Create the ensemble decoder
   vector<EncoderDecoderPtr> encdecs;
   vector<EncoderAttentionalPtr> encatts;

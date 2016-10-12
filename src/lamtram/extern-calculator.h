@@ -30,6 +30,9 @@ public:
         std::vector<cnn::expr::Expression> & align_out,
         cnn::expr::Expression & align_sum_out) const = 0;
     
+    virtual cnn::expr::Expression CalcAttentionContext(const cnn::expr::Expression align) const = 0;
+    virtual cnn::expr::Expression CalcWordContext(const cnn::expr::Expression align) const = 0;
+    
     virtual cnn::expr::Expression CalcContext(
         const cnn::expr::Expression & state_in
         ) = 0;    

@@ -43,12 +43,14 @@ public:
              bool extern_feed,
              int wordrep_size, const BuilderSpec & hidden_spec, int unk_id,
              const std::string & softmax_sig, bool word_embedding_in_softmax,
+             int attention_context, bool source_word_embedding_in_softmax, int source_word_embedding_in_softmax_context,
              cnn::Model & model);
 
     NeuralLM(const DictPtr & vocab, int ngram_context, int extern_context,
              bool extern_feed,
              int wordrep_size, const BuilderSpec & hidden_spec, int unk_id,
              const std::string & softmax_sig,bool word_embedding_in_softmax,
+             int attention_context, bool source_word_embedding_in_softmax, int source_word_embedding_in_softmax_context,
              ExternCalculatorPtr & att,
              cnn::Model & model);
 
@@ -154,8 +156,11 @@ protected:
     int ngram_context_, extern_context_;
     bool extern_feed_;
     int wordrep_size_, unk_id_;
-    bool intermediate_att;
-    bool word_embedding_in_softmax;
+    bool intermediate_att_;
+    bool word_embedding_in_softmax_;
+    int attention_context_;
+    bool source_word_embedding_in_softmax_;
+    int source_word_embedding_in_softmax_context_;
     BuilderSpec hidden_spec_;
 
     // Pointers to the parameters

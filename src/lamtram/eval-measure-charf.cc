@@ -1,6 +1,10 @@
 #include <lamtram/eval-measure-charf.h>
 #include <boost/lexical_cast.hpp>
+#include <boost/algorithm/string/join.hpp>
+#include <boost/algorithm/string/replace.hpp>
 #include <lamtram/macros.h>
+#include <sstream>
+#include <string-util.h>
 using namespace std;
 using namespace lamtram;
 using namespace boost;
@@ -10,21 +14,56 @@ using namespace boost;
 EvalMeasureCharF::NgramStats * EvalMeasureCharF::ExtractNgrams(const Sentence & sentence) const {
     EvalMeasureCharF::NgramStats * all_ngrams = new EvalMeasureCharF::NgramStats;
     
-    for(int i =0; i < sentence.size()-k; i++) {
-        cout << vocab_.convert(sentence[i]) << " " << endl;
+    stringstream s;
+    
+    for(int i =0; i < sentence.size(); i++) {
+        if(sentence[i] != EOS)
+            s << vocab_.convert(sentence[i]) << " ";
     }
-    exit(-1);
-    // TODO
-/*    vector<WordId> ngram;
-    for (int k = 0; k < ngram_order_; k++) {
-        for(int i =0; i < max((int)sentence.size()-k,0); i++) {
-            for ( int j = i; j<= i+k; j++) {
-                ngram.push_back(sentence[j]);
-            }
-            ++((*all_ngrams)[ngram]);
-            ngram.clear();
+    string sent = s.str();
+    boost::algorithm::trim(sent);
+
+    if(ignore_bpe_) {
+        boost::replace_all(sent, "@@ ", "");
+    }
+    vector<string> current_ngram;
+    unsigned pos = 0;
+    unsigned len = 0;
+    unsigned count = 0;
+
+
+
+
+
+    while(current_ngram.size() < ngram_order_ && pos < sent.size()) {
+        len = UTF8Len(sent[pos]);
+        string c = sent.substr(pos,len);
+        if(use_space_ || c.compare(" ") != 0) {
+            current_ngram.push_back(c);
         }
-    }*/
+        pos += len;
+    }
+
+    if(current_ngram.size() == ngram_order_) {
+        ++((*all_ngrams)[boost::algorithm::join(current_ngram, " ")]);
+        ++count;
+    }
+
+    
+    while(pos < sent.size()) {
+        len = UTF8Len(sent[pos]);
+        string c = sent.substr(pos,len);
+        if(use_space_ || c.compare(" ") != 0) {
+            current_ngram.erase(current_ngram.begin());
+            current_ngram.push_back(c);
+            ++((*all_ngrams)[boost::algorithm::join(current_ngram, "")]);
+            ++count;
+        }
+        pos += len;
+    }
+
+    (*all_ngrams)["<ALLCOUNT>"] = count;
+
     return all_ngrams;
 }
 
@@ -57,19 +96,22 @@ std::shared_ptr<EvalStats> EvalMeasureCharF::CalculateStats(const NgramStats & r
     vector<EvalStatsDataType> vals(vals_n);
 
     vals[0] = 0;
-    vals[1] = sys_ngrams.size();
-    vals[1] = ref_ngrams.size();
+    vals[1] = sys_ngrams.find("<ALLCOUNT>")->second;
+    vals[2] = ref_ngrams.find("<ALLCOUNT>")->second;
     
-/*
+
     for (NgramStats::const_iterator it = sys_ngrams.begin(); it != sys_ngrams.end(); it++) {
-        NgramStats::const_iterator ref_it = ref_ngrams.find(it->first);
-        if(ref_it != ref_ngrams.end()) {
-            vals[3* (it->first.size()-1)] += min(ref_it->second,it->second);
+        if(it->first.compare("<ALLCOUNT>") == 0) {
+            NgramStats::const_iterator ref_it = ref_ngrams.find(it->first);
+            if(ref_it != ref_ngrams.end()) {
+                vals[0] += min(ref_it->second,it->second);
+            }
         }
     }
-    */
+    
+
     // Create the stats for this sentence
-    EvalStatsPtr ret(new EvalStatsCharF(vals, beta_));
+    EvalStatsPtr ret(new EvalStatsCharF(vals,smooth_val_, beta_,mode_));
     // If we are using sentence based, take the average immediately
     return ret;
 }
@@ -78,7 +120,7 @@ std::shared_ptr<EvalStats> EvalMeasureCharF::CalculateStats(const NgramStats & r
 // Read in the stats
 std::shared_ptr<EvalStats> EvalMeasureCharF::ReadStats(const std::string & line) {
     EvalStatsPtr ret;
-    ret.reset(new EvalStatsCharF(std::vector<EvalStatsDataType>(), beta_));
+    ret.reset(new EvalStatsCharF(std::vector<EvalStatsDataType>(), smooth_val_,beta_,mode_));
     ret->ReadStats(line);
     return ret;
 }
@@ -100,11 +142,18 @@ float EvalStatsCharF::ConvertToScore() const {
 
 CharFReport EvalStatsCharF::CalcCharFReport() const {
     CharFReport report;
+    report.precision = 1.0 * (vals_[0]+ smooth_) / (vals_[2] + smooth_);
+    report.recall = 1.0 * (vals_[0] + smooth_) / (vals_[1] + smooth_);
+    if(mode_ == 0) {
+        report.charF = 1.0 *(1+beta_*beta_) * (report.precision * report.recall) /(beta_*beta_ * report.precision + report.recall);
+    }else if(mode_ == 1) {
+        report.charF = report.precision;
+    }else if(mode_ == 2) {
+        report.charF = report.recall;
+    }
 
-    report.precision = 1.0 * vals_[0] / vals_[2];
-    report.recall = 1.0 * vals_[0] / vals_[1];
-    report.charF = 1.0 *(1+beta_*beta_) * (report.precision * report.recall) /(beta_*beta_ * report.precision + report.recall);
-
+    report.ref_len = vals_[2];
+    report.sys_len = vals_[1];
 
     return report;
 }
@@ -112,15 +161,25 @@ CharFReport EvalStatsCharF::CalcCharFReport() const {
 
 
 
-EvalMeasureCharF::EvalMeasureCharF(const std::string & config, const cnn::Dict & vocab) : ngram_order_(3), beta_(0.5),vocab_(vocab) {
+EvalMeasureCharF::EvalMeasureCharF(const std::string & config, const cnn::Dict & vocab) : smooth_val_(0),mode_(0),ignore_bpe_(true),use_space_(false),ngram_order_(6), beta_(3),vocab_(vocab) {
     if(config.length() == 0) return;
     for(const EvalMeasure::StringPair & strs : EvalMeasure::ParseConfig(config)) {
         if(strs.first == "order") {
             ngram_order_ = boost::lexical_cast<int>(strs.second);
         } else if(strs.first == "beta") {
             beta_ = boost::lexical_cast<float>(strs.second);
+        } else if(strs.first == "smooth") {
+            smooth_val_ = boost::lexical_cast<float>(strs.second);
+        } else if(strs.first == "use_space") {
+            use_space_ = boost::lexical_cast<bool>(strs.second);
+        } else if(strs.first == "ignore_bpe") {
+            ignore_bpe_ = boost::lexical_cast<bool>(strs.second);
+        } else if(strs.first == "mode") {
+            mode_ = boost::lexical_cast<int>(strs.second);
         } else {
             THROW_ERROR("Bad configuration string: " << config);
         }
     }
 }
+
+

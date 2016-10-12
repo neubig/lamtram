@@ -40,6 +40,8 @@ LIBCPP = \
     eval-measure-wer.cc \
     eval-measure-interp.cc \
     eval-measure-charf.cc \
+    eval-measure-char.cc \
+    eval-measure-fscore.cc \
     eval-measure.cc \
     gru-cond.cc 
 

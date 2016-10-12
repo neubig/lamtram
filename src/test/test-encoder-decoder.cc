@@ -24,7 +24,7 @@ struct TestEncoderDecoder {
     // Create a randomized lm
     vocab_src_ = DictPtr(CreateNewDict()); vocab_src_->convert("a"); vocab_src_->convert("b"); vocab_src_->convert("c");
     vocab_trg_ = DictPtr(CreateNewDict()); vocab_trg_->convert("x"); vocab_trg_->convert("y"); vocab_trg_->convert("z");
-    NeuralLMPtr lmptr(new NeuralLM(vocab_trg_, 1, 0, false, 5, BuilderSpec("lstm:5:1"), -1, "full",false, *mod_));
+    NeuralLMPtr lmptr(new NeuralLM(vocab_trg_, 1, 0, false, 5, BuilderSpec("lstm:5:1"), -1, "full",false, 0,false,0, *mod_));
     vector<LinearEncoderPtr> encs(1, LinearEncoderPtr(new LinearEncoder(vocab_src_->size(), 5, BuilderSpec("lstm:5:1"), -1, *mod_)));
     encdec_ = shared_ptr<EncoderDecoder>(new EncoderDecoder(encs, lmptr, *mod_));
     // Create the ensemble decoder
@@ -65,7 +65,7 @@ BOOST_AUTO_TEST_CASE(TestWriteRead) {
   shared_ptr<cnn::Model> act_mod(new cnn::Model), exp_mod(new cnn::Model);
   DictPtr exp_src_vocab(CreateNewDict()); exp_src_vocab->convert("hola");
   DictPtr exp_trg_vocab(CreateNewDict()); exp_trg_vocab->convert("hello");
-  NeuralLMPtr exp_lm(new NeuralLM(exp_trg_vocab, 2, 2, false, 3, BuilderSpec("rnn:2:1"), -1, "full", false, *exp_mod));
+  NeuralLMPtr exp_lm(new NeuralLM(exp_trg_vocab, 2, 2, false, 3, BuilderSpec("rnn:2:1"), -1, "full", false, 0,false,0,*exp_mod));
   vector<LinearEncoderPtr> exp_encs(1, LinearEncoderPtr(new LinearEncoder(exp_src_vocab->size(), 2, BuilderSpec("rnn:2:1"), -1, *exp_mod)));
   EncoderDecoder exp_encatt(exp_encs, exp_lm, *exp_mod);
   // Write the Model

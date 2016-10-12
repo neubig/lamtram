@@ -7,8 +7,11 @@
 #include <lamtram/eval-measure.h>
 #include <map>
 #include <vector>
+#include <cnn/dict.h>
 
 namespace lamtram {
+
+#define EOS 0
 
 typedef struct {
     float charF; // CharF score
@@ -19,14 +22,14 @@ typedef struct {
 class EvalStatsCharF : public EvalStats {
 public:
     EvalStatsCharF(const std::vector<EvalStatsDataType> vals = std::vector<EvalStatsDataType>(),
-                  float beta = 0.5)
-            : beta_(beta) {
+                  float smooth = 0, float beta = 3,int mode = 0)
+            : smooth_(smooth),beta_(beta),mode_(mode) {
         vals_ = vals;
     }
     virtual std::string GetIdString() const { return "CHARF"; }
     virtual float ConvertToScore() const;
     virtual std::string ConvertToString() const;
-    virtual EvalStatsPtr Clone() const { return EvalStatsPtr(new EvalStatsCharF(vals_, beta_)); }
+    virtual EvalStatsPtr Clone() const { return EvalStatsPtr(new EvalStatsCharF(vals_, smooth_,beta_,mode_)); }
     CharFReport CalcCharFReport() const;
 /*    float GetAvgLogPrecision() const;
     float GetLengthRatio() const;
@@ -36,8 +39,10 @@ public:
     float GetRefCount(int n) const { return vals_[3*n+2]+smooth_; } */
 private:
     float beta_;
+    int mode_;
     //vals: 0 - #correct 1 - #hyp 2 - #ref
     
+    float smooth_;
 };
 
 
@@ -47,14 +52,14 @@ class EvalMeasureCharF : public EvalMeasure {
 public:
 
     // NgramStats are a mapping between ngrams and the number of occurrences
-    typedef std::map<std::vector<char>,int> NgramStats;
+    typedef std::map<std::string,int> NgramStats;
 
     // A cache to hold the stats
     typedef std::map<int,std::shared_ptr<NgramStats> > StatsCache;
 
 
-    EvalMeasureCharF(int ngram_order = 4, float beta = 0.5,const cnn::Dict & vocab) : 
-        ngram_order_(ngram_order), beta_(beta) ,vocab_(vocab){ }
+    EvalMeasureCharF(const cnn::Dict & vocab, float smooth_val = 0, int ngram_order = 6, float beta = 3, bool use_space = false,bool ignore_bpe = true,int mode = 0) : 
+        smooth_val_(smooth_val),ngram_order_(ngram_order), beta_(beta) ,vocab_(vocab),use_space_(use_space),ignore_bpe_(ignore_bpe),mode_(mode){ }
     EvalMeasureCharF(const std::string & config,const cnn::Dict & vocab);
 
     // Calculate the stats for a single sentence
@@ -93,11 +98,22 @@ public:
     void SetNgramOrder(int ngram_order) { ngram_order_ = ngram_order; }
     float GetBetaVal() const { return beta_; }
     void BetaVal(float beta) { beta_ = beta; }
+    float GetSmoothVal() const { return smooth_val_; }
+    void SetSmoothVal(float smooth_val) { smooth_val_ = smooth_val; }
     std::string GetIdString() { return "CHARF"; }
 protected:
 
     int ngram_order_;
     float beta_;
+    bool use_space_;
+    bool ignore_bpe_;
+    
+    //mode 0 - f-score with beta; 1 - precision; 2 - recall
+    int mode_;
+
+    // The amount by which to smooth the counts
+    float smooth_val_;
+
 
     const cnn::Dict & vocab_;
 

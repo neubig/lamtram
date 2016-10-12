@@ -32,6 +32,7 @@ public:
                       const std::string & attention_type, const std::string & attention_hist,
                       int state_size, const std::string & lex_type,
                       const DictPtr & vocab_src, const DictPtr & vocab_trg,
+                     int attention_context, bool source_word_embedding_in_softmax, int source_word_embedding_in_softmax_context,
                       cnn::Model & mod);
     virtual ~ExternAttentional() { }
 
@@ -55,6 +56,10 @@ public:
     virtual cnn::expr::Expression CalcContext(
         const cnn::expr::Expression & state_in
         ) override;
+
+    virtual cnn::expr::Expression CalcAttentionContext(const cnn::expr::Expression align) const;
+    virtual cnn::expr::Expression CalcWordContext(const cnn::expr::Expression align) const;
+
 
     // Calculate the prior
     cnn::expr::Expression CalcPrior(
@@ -89,6 +94,11 @@ protected:
     bool use_bias_;
     
 
+    int attention_context_;
+    bool source_word_embedding_in_softmax_;
+    int source_word_embedding_in_softmax_context_;
+
+
     // Lexical type
     std::string lex_type_, lex_file_;
     MultipleIdMappingPtr lex_mapping_;
@@ -116,6 +126,8 @@ protected:
 
     // Temporary variables
     cnn::expr::Expression i_h_;
+    cnn::expr::Expression i_we_;
+    cnn::expr::Expression i_hc_;
     cnn::expr::Expression i_h_last_;
     cnn::expr::Expression i_ehid_hpart_;
     cnn::expr::Expression i_sent_len_;

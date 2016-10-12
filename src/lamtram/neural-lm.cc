@@ -24,10 +24,12 @@ inline std::string print_vec(const std::vector<float> & vec) {
 
 NeuralLM::NeuralLM(const DictPtr & vocab, int ngram_context, int extern_context, bool extern_feed,
            int wordrep_size, const BuilderSpec & hidden_spec, int unk_id, const std::string & softmax_sig, bool word_embedding_in_softmax,
+           int attention_context, bool source_word_embedding_in_softmax, int source_word_embedding_in_softmax_context,
            cnn::Model & model) :
       vocab_(vocab), ngram_context_(ngram_context),
       extern_context_(extern_context), extern_feed_(extern_feed), wordrep_size_(wordrep_size),
-      unk_id_(unk_id), hidden_spec_(hidden_spec), word_embedding_in_softmax(word_embedding_in_softmax), curr_graph_(NULL),intermediate_att(false) {
+      attention_context_(attention_context),source_word_embedding_in_softmax_(source_word_embedding_in_softmax),source_word_embedding_in_softmax_context_(source_word_embedding_in_softmax_context),
+      unk_id_(unk_id), hidden_spec_(hidden_spec), word_embedding_in_softmax_(word_embedding_in_softmax), curr_graph_(NULL),intermediate_att_(false) {
   // Hidden layers
   builder_ = BuilderFactory::CreateBuilder(hidden_spec_,
                        ngram_context*wordrep_size + (extern_feed ? extern_context : 0),
@@ -37,16 +39,23 @@ NeuralLM::NeuralLM(const DictPtr & vocab, int ngram_context, int extern_context,
   p_wr_W_ = model.add_lookup_parameters(vocab->size(), {(unsigned int)wordrep_size}); 
 
   // Create the softmax
-  softmax_ = SoftmaxFactory::CreateSoftmax(softmax_sig, hidden_spec_.nodes + extern_context+ (word_embedding_in_softmax ? ngram_context*wordrep_size : 0), vocab, model);
+  int softmax_input_size = hidden_spec_.nodes + extern_context;
+  softmax_input_size += (word_embedding_in_softmax ? ngram_context*wordrep_size : 0);
+  softmax_input_size += attention_context * 2 * extern_context;
+  softmax_input_size += (source_word_embedding_in_softmax ? (source_word_embedding_in_softmax_context*2 +1) * wordrep_size : 0);
+  
+  softmax_ = SoftmaxFactory::CreateSoftmax(softmax_sig, softmax_input_size, vocab, model);
 }
 
 NeuralLM::NeuralLM(const DictPtr & vocab, int ngram_context, int extern_context, bool extern_feed,
            int wordrep_size, const BuilderSpec & hidden_spec, int unk_id, const std::string & softmax_sig,bool word_embedding_in_softmax,
+           int attention_context, bool source_word_embedding_in_softmax, int source_word_embedding_in_softmax_context,
            ExternCalculatorPtr & att,
            cnn::Model & model) :
       vocab_(vocab), ngram_context_(ngram_context),
       extern_context_(extern_context), extern_feed_(extern_feed), wordrep_size_(wordrep_size),
-      unk_id_(unk_id), hidden_spec_(hidden_spec), curr_graph_(NULL),intermediate_att(true),word_embedding_in_softmax(word_embedding_in_softmax) {
+      attention_context_(attention_context),source_word_embedding_in_softmax_(source_word_embedding_in_softmax),source_word_embedding_in_softmax_context_(source_word_embedding_in_softmax_context),
+      unk_id_(unk_id), hidden_spec_(hidden_spec), curr_graph_(NULL),intermediate_att_(true),word_embedding_in_softmax_(word_embedding_in_softmax) {
   // Hidden layers
   builder_ = BuilderFactory::CreateBuilder(hidden_spec_,
                        ngram_context*wordrep_size , extern_context,
@@ -56,7 +65,11 @@ NeuralLM::NeuralLM(const DictPtr & vocab, int ngram_context, int extern_context,
   p_wr_W_ = model.add_lookup_parameters(vocab->size(), {(unsigned int)wordrep_size}); 
 
   // Create the softmax
-  softmax_ = SoftmaxFactory::CreateSoftmax(softmax_sig, hidden_spec_.nodes + extern_context+(word_embedding_in_softmax ? ngram_context*wordrep_size : 0), vocab, model);
+  int softmax_input_size = hidden_spec_.nodes + extern_context;
+  softmax_input_size += (word_embedding_in_softmax ? ngram_context*wordrep_size : 0);
+  softmax_input_size += attention_context * 2 * extern_context;
+  softmax_input_size += (source_word_embedding_in_softmax ? (source_word_embedding_in_softmax_context*2 +1) * wordrep_size : 0);
+  softmax_ = SoftmaxFactory::CreateSoftmax(softmax_sig, softmax_input_size, vocab, model);
 }
 
 
@@ -85,7 +98,7 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
   // Initialize the previous extern
   cnn::expr::Expression extern_in;
   assert(extern_context_ == 0 || extern_calc != nullptr);
-  if(extern_context_ != 0 && extern_feed_ && !intermediate_att) extern_in = extern_calc->GetEmptyContext(cg);
+  if(extern_context_ != 0 && extern_feed_ && !intermediate_att_) extern_in = extern_calc->GetEmptyContext(cg);
   // Next, do the computation
   vector<cnn::expr::Expression> errs, aligns;
   cnn::expr::Expression align_sum;
@@ -104,7 +117,7 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
       i_wr_noEx_t = i_wrs_t[0];
     }
     
-    if(extern_context_ > 0 && extern_feed_ && !intermediate_att)
+    if(extern_context_ > 0 && extern_feed_ && !intermediate_att_)
       i_wrs_t.push_back(extern_in);
     // Concatenate the inputs if necessary
     cnn::expr::Expression i_wr_t;
@@ -116,22 +129,34 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
     }
     // cerr << "i_wr_t == " << print_vec(as_vector(i_wr_t.value())) << endl;
     // Run the hidden unit
-    cnn::expr::Expression i_h_t = builder_->add_input(i_wr_t);
+    vector<cnn::expr::Expression> i_hs_t;
+
+    if(word_embedding_in_softmax_) {
+      i_hs_t.push_back(i_wr_noEx_t);
+    }
+
+    i_hs_t.push_back(builder_->add_input(i_wr_t));
+
     cnn::expr::Expression i_prior;
     // Calculate the extern if existing
     if(extern_context_ > 0) {
-      if(intermediate_att) {
+      if(intermediate_att_) {
         extern_in = extern_calc->GetLastContext();
       }else {
         extern_in = extern_calc->CreateContext(builder_->final_h(), align_sum, train, cg, aligns, align_sum);
       }
-      if(word_embedding_in_softmax) {
-        i_h_t = concatenate({i_wr_noEx_t,i_h_t,extern_in});
-      }else{
-        i_h_t = concatenate({i_h_t, extern_in});
-      }
+      i_hs_t.push_back(extern_in);
       i_prior = extern_calc->CalcPrior(*aligns.rbegin());
     }
+
+    if(attention_context_ > 0 ){
+      i_hs_t.push_back(extern_calc->CalcAttentionContext(*aligns.rbegin()));
+    }
+    if(source_word_embedding_in_softmax_) {
+      i_hs_t.push_back(extern_calc->CalcWordContext(*aligns.rbegin()));
+    }
+    cnn::expr::Expression i_h_t = concatenate(i_hs_t);
+    
     // If the extern is capable of calculating a probability distribution, do it
     // Run the softmax and calculate the error
     for(i = 0; i < ngram.size()-1; i++) ngram[i] = ngram[i+1];
@@ -188,7 +213,7 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
   std::bernoulli_distribution samp_dist(samp_prob);
   // Initialize the previous extern
   cnn::expr::Expression extern_in;
-  if(extern_context_ != 0 && extern_feed_ && !intermediate_att) extern_in = extern_calc->GetEmptyContext(cg);
+  if(extern_context_ != 0 && extern_feed_ && !intermediate_att_) extern_in = extern_calc->GetEmptyContext(cg);
   // Next, do the computation
   vector<cnn::expr::Expression> errs, aligns;
   cnn::expr::Expression align_sum;
@@ -209,7 +234,7 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
       i_wr_noEx_t = i_wrs_t[0];
     }
 
-    if(extern_context_ > 0 && extern_feed_ && !intermediate_att)
+    if(extern_context_ > 0 && extern_feed_ && !intermediate_att_)
       i_wrs_t.push_back(extern_in);
     // Concatenate the inputs if necessary
     cnn::expr::Expression i_wr_t;
@@ -220,22 +245,34 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
       i_wr_t = i_wrs_t[0];
     }
     // Run the hidden unit
-    cnn::expr::Expression i_h_t = builder_->add_input(i_wr_t);
+    vector<cnn::expr::Expression> i_hs_t;
+
+    if(word_embedding_in_softmax_) {
+      i_hs_t.push_back(i_wr_noEx_t);
+    }
+
+    i_hs_t.push_back(builder_->add_input(i_wr_t));
+
     cnn::expr::Expression i_prior;
     // Calculate the extern if existing
     if(extern_context_ > 0) {
-      if(intermediate_att) {
+      if(intermediate_att_) {
         extern_in = extern_calc->GetLastContext();  
       }else {
         extern_in = extern_calc->CreateContext(builder_->final_h(), align_sum, train, cg, aligns, align_sum);
       }
-      if(word_embedding_in_softmax) {
-        i_h_t = concatenate({i_wr_noEx_t,i_h_t,extern_in});
-      }else{
-        i_h_t = concatenate({i_h_t, extern_in});
-      }
+      i_hs_t.push_back(extern_in);
       i_prior = extern_calc->CalcPrior(*aligns.rbegin());
+    }     
+    if(attention_context_ > 0 ){
+      i_hs_t.push_back(extern_calc->CalcAttentionContext(*aligns.rbegin()));
     }
+    if(source_word_embedding_in_softmax_) {
+      i_hs_t.push_back(extern_calc->CalcWordContext(*aligns.rbegin()));
+    }
+
+    cnn::expr::Expression i_h_t = concatenate(i_hs_t);
+
     // Run the softmax and calculate the error
     for(size_t i = 0; i < sent.size(); i++) {
       for(nt = 0; nt < ngrams[0].size()-1; nt++)
@@ -313,7 +350,7 @@ Expression NeuralLM::SampleTrgSentences(
   vector<cnn::expr::Expression> i_wr;
   // Initialize the previous extern
   cnn::expr::Expression extern_in;
-  if(extern_context_ != 0 && extern_feed_ && !intermediate_att) extern_in = extern_calc->GetEmptyContext(cg);
+  if(extern_context_ != 0 && extern_feed_ && !intermediate_att_) extern_in = extern_calc->GetEmptyContext(cg);
   // Next, do the computation
   vector<cnn::expr::Expression> log_probs, aligns;
   cnn::expr::Expression align_sum;
@@ -335,7 +372,7 @@ Expression NeuralLM::SampleTrgSentences(
       i_wr_noEx_t = i_wrs_t[0];
     }
 
-    if(extern_context_ > 0 && extern_feed_ && !intermediate_att)
+    if(extern_context_ > 0 && extern_feed_ && !intermediate_att_)
       i_wrs_t.push_back(extern_in);
     // Concatenate the inputs if necessary
     cnn::expr::Expression i_wr_t;
@@ -346,22 +383,35 @@ Expression NeuralLM::SampleTrgSentences(
       i_wr_t = i_wrs_t[0];
     }
     // Run the hidden unit
-    cnn::expr::Expression i_h_t = builder_->add_input(i_wr_t);
+    vector<cnn::expr::Expression> i_hs_t;
+
+    if(word_embedding_in_softmax_) {
+      i_hs_t.push_back(i_wr_noEx_t);
+    }
+    
+    i_hs_t.push_back(builder_->add_input(i_wr_t));
+    
     // Calculate the extern if existing
     cnn::expr::Expression i_prior;
     if(extern_context_ > 0 ) {
-      if(intermediate_att) {
+      if(intermediate_att_) {
         extern_in = extern_calc->GetLastContext();  
       }else {
         extern_in = extern_calc->CreateContext(builder_->final_h(), align_sum, train, cg, aligns, align_sum);
       }
-      if(word_embedding_in_softmax) {
-        i_h_t = concatenate({i_wr_noEx_t,i_h_t,extern_in});
-      }else{
-        i_h_t = concatenate({i_h_t, extern_in});
-      }
+      i_hs_t.push_back(extern_in);
       i_prior = extern_calc->CalcPrior(*aligns.rbegin());
     }
+
+    if(attention_context_ > 0 ){
+      i_hs_t.push_back(extern_calc->CalcAttentionContext(*aligns.rbegin()));
+    }
+    if(source_word_embedding_in_softmax_) {
+      i_hs_t.push_back(extern_calc->CalcWordContext(*aligns.rbegin()));
+    }
+    cnn::expr::Expression i_h_t = concatenate(i_hs_t);
+
+
     // Create the cache
     cnn::expr::Expression i_err;
     // Perform sampling if necessary
@@ -473,7 +523,7 @@ cnn::expr::Expression NeuralLM::Forward(const Sent & sent, int t,
   }
 
 
-  if(extern_feed_ && !intermediate_att)
+  if(extern_feed_ && !intermediate_att_)
     i_wrs_t.push_back(extern_in.pg == nullptr ? extern_calc->GetEmptyContext(cg) : extern_in);
   // Concatenate the inputs if necessary
   cnn::expr::Expression i_wr_t;
@@ -485,23 +535,35 @@ cnn::expr::Expression NeuralLM::Forward(const Sent & sent, int t,
   }
   // cerr << "i_wr_t == " << print_vec(as_vector(i_wr_t.value())) << endl;
   // Run the hidden unit
-  cnn::expr::Expression i_h_t = builder_->add_input(i_wr_t);
+  vector<cnn::expr::Expression> i_hs_t;
+
+  if(word_embedding_in_softmax_) {
+    i_hs_t.push_back(i_wr_noEx_t);
+  }
+  
+  i_hs_t.push_back(builder_->add_input(i_wr_t));
+
   cnn::expr::Expression i_prior;
   // Calculate the extern if existing
   if(extern_context_ > 0) {
-    if(intermediate_att) {
+    if(intermediate_att_) {
       extern_out = extern_calc->GetLastContext();  
     }else {
       extern_out = extern_calc->CreateContext(builder_->final_h(), align_sum_in, false, cg, align_out, align_sum_out);
     }
-    if(word_embedding_in_softmax) {
-      i_h_t = concatenate({i_wr_noEx_t,i_h_t,extern_out});
-    }else{
-      i_h_t = concatenate({i_h_t, extern_out});
-    }
-    
+    i_hs_t.push_back(extern_in);
     i_prior = extern_calc->CalcPrior(*align_out.rbegin());
   }
+
+    if(attention_context_ > 0 ){
+      i_hs_t.push_back(extern_calc->CalcAttentionContext(*align_out.rbegin()));
+    }
+    if(source_word_embedding_in_softmax_) {
+      i_hs_t.push_back(extern_calc->CalcWordContext(*align_out.rbegin()));
+    }
+    cnn::expr::Expression i_h_t = concatenate(i_hs_t);
+
+
   // cerr << "i_h_t == " << print_vec(as_vector(i_h_t.value())) << endl;
   // Create the context
   Sent ctxt_ngram = CreateContext<Sent>(sent, t);
@@ -548,7 +610,10 @@ NeuralLM* NeuralLM::Read(const DictPtr & vocab, std::istream & in, cnn::Model & 
   string version_id, hidden_spec, line, softmax_sig;
   bool word_embedding_in_softmax = false;
   bool intermediate_att = false;
-  if(!getline(in, line))
+  int attention_context = 0;
+  bool source_word_embedding_in_softmax = false;
+  int source_word_embedding_in_softmax_context = 0;
+if(!getline(in, line))
     THROW_ERROR("Premature end of model file when expecting Neural LM");
   istringstream iss(line);
   iss >> version_id;
@@ -558,20 +623,24 @@ NeuralLM* NeuralLM::Read(const DictPtr & vocab, std::istream & in, cnn::Model & 
     iss >> vocab_size >> ngram_context >> extern_context >> extern_feed >> wordrep_size >> hidden_spec >> unk_id >> softmax_sig >> word_embedding_in_softmax;
   }else if(version_id == "nlm_007") {
     iss >> vocab_size >> ngram_context >> extern_context >> extern_feed >> wordrep_size >> hidden_spec >> unk_id >> softmax_sig >> word_embedding_in_softmax >> intermediate_att;
+  }else if(version_id == "nlm_008") {
+    iss >> vocab_size >> ngram_context >> extern_context >> extern_feed >> wordrep_size >> hidden_spec >> unk_id >> softmax_sig >> word_embedding_in_softmax >> intermediate_att >> attention_context >> source_word_embedding_in_softmax >> source_word_embedding_in_softmax_context;
   } else {
     THROW_ERROR("Expecting a Neural LM of version nlm_005, but got something different:" << endl << line);
   }
   assert(vocab->size() == vocab_size);
   if(intermediate_att) {
     std::shared_ptr<ExternCalculator> p;
-    return new NeuralLM(vocab, ngram_context, extern_context, extern_feed, wordrep_size, hidden_spec, unk_id, softmax_sig, word_embedding_in_softmax,p,model);
+    return new NeuralLM(vocab, ngram_context, extern_context, extern_feed, wordrep_size, hidden_spec, unk_id, softmax_sig, word_embedding_in_softmax,
+    attention_context,source_word_embedding_in_softmax,source_word_embedding_in_softmax_context,p,model);
   }else{
-    return new NeuralLM(vocab, ngram_context, extern_context, extern_feed, wordrep_size, hidden_spec, unk_id, softmax_sig, word_embedding_in_softmax,model);
+    return new NeuralLM(vocab, ngram_context, extern_context, extern_feed, wordrep_size, hidden_spec, unk_id, softmax_sig, word_embedding_in_softmax,
+    attention_context,source_word_embedding_in_softmax,source_word_embedding_in_softmax_context,model);
   }
     
 }
 void NeuralLM::Write(std::ostream & out) {
-  out << "nlm_007 " << vocab_->size() << " " << ngram_context_ << " " << extern_context_ << " " << extern_feed_ << " " << wordrep_size_ << " " << hidden_spec_ << " " << unk_id_ << " " << softmax_->GetSig() << " " << word_embedding_in_softmax << " " << intermediate_att << endl;
+  out << "nlm_008 " << vocab_->size() << " " << ngram_context_ << " " << extern_context_ << " " << extern_feed_ << " " << wordrep_size_ << " " << hidden_spec_ << " " << unk_id_ << " " << softmax_->GetSig() << " " << word_embedding_in_softmax_ << " " << intermediate_att_ << attention_context_ << source_word_embedding_in_softmax_ << source_word_embedding_in_softmax_context_ << endl;
 }
 
 int NeuralLM::GetVocabSize() const { return vocab_->size(); }

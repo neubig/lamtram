@@ -53,6 +53,7 @@ public:
     int GetNumLayers() const { return hidden_spec_.layers; }
     int GetNumNodes() const { return hidden_spec_.nodes; }
     const std::vector<cnn::expr::Expression> & GetWordStates() const { return word_states_; }
+    const std::vector<cnn::expr::Expression> & GetWordEmbeddings() const { return word_embeddings_; }
 
     void SetReverse(bool reverse) { reverse_ = reverse; }
     void SetDropout(float dropout);
@@ -75,6 +76,10 @@ protected:
 
     // This records the last set of word states acquired during BuildSentGraph
     std::vector<cnn::expr::Expression> word_states_;
+
+    // This records the set of word embeddings acquired during BuildSentGraph
+    std::vector<cnn::expr::Expression> word_embeddings_;
+
 
 private:
     // A pointer to the current computation graph.
