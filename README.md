@@ -18,9 +18,6 @@ you are on Ubuntu/Debian linux, you can install them below:
 
 You must install Eigen and dynet separately. Follow the directions on the
 [dynet page](http://github.com/clab/dynet), which also explain about installing Eigen.
-Note that at the moment, lamtram only works with the "v2" branch of dynet, so please
-use the v2 branch, which can be checked out by typing `git fetch origin v2` and
-`git checkout v2` after cloning.
 
 Once these two packages are installed, run the following commands, specifying the
 correct paths for dynet and Eigen.
