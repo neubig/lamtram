@@ -197,13 +197,21 @@ void ExternAttentional::InitializeSentence(
   if(attention_context_ > 0 ) {
     for(int i : boost::irange(0, sent_len_)) {
       vector<cnn::expr::Expression> vars;
-      for(int k : boost::irange(1,attention_context_)) {
+      for(int k : boost::irange(1,attention_context_+1)) {
         for(int j : boost::irange(0, (int)encoders_.size())) {
-          vars.push_back(hs_sep[j][i+k]);
-          vars.push_back(hs_sep[j][i-k]);
+          if(i+k < 0 || i+k >= sent_len_) {
+            vars.push_back(zeroes(cg,hs_sep[j][i].value().d));
+          }else {
+            vars.push_back(hs_sep[j][i+k]);
+          }
+          if(i-k < 0 || i-k >= sent_len_) {
+            vars.push_back(zeroes(cg,hs_sep[j][i].value().d));
+          }else {
+            vars.push_back(hs_sep[j][i-k]);
+          }
         }
       }
-      hs_comb.push_back(concatenate(vars));
+      hcs_comb.push_back(concatenate(vars));
     }
     i_hc_ = concatenate_cols(hcs_comb);
   }
@@ -219,10 +227,18 @@ void ExternAttentional::InitializeSentence(
         for(int j : boost::irange(0, (int)encoders_.size())) {
           vars.push_back(wes_sep[j][i]);
         }
-        for(int k : boost::irange(1,attention_context_)) {
+        for(int k : boost::irange(1,source_word_embedding_in_softmax_context_+1)) {
           for(int j : boost::irange(0, (int)encoders_.size())) {
-            vars.push_back(wes_sep[j][i+k]);
-            vars.push_back(wes_sep[j][i-k]);
+            if(i+k < 0 || i+k >= sent_len_) {
+              vars.push_back(zeroes(cg,wes_sep[j][i].value().d));
+            }else {
+              vars.push_back(wes_sep[j][i+k]);
+            }
+            if(i-k < 0 || i-k >= sent_len_) {
+              vars.push_back(zeroes(cg,wes_sep[j][i].value().d));
+            }else {
+              vars.push_back(wes_sep[j][i-k]);
+            }
           }
         }
         wes_comb.push_back(concatenate(vars));
@@ -299,22 +315,32 @@ void ExternAttentional::InitializeSentence(
   i_h_ = concatenate_cols(hs_comb);
   i_h_last_ = *hs_comb.rbegin();
 
+
   //vector for attention context
   vector<cnn::expr::Expression> hcs_comb;
   if(attention_context_ > 0 ) {
     for(int i : boost::irange(0, sent_len_)) {
       vector<cnn::expr::Expression> vars;
-      for(int k : boost::irange(1,attention_context_)) {
+      for(int k : boost::irange(1,attention_context_+1)) {
         for(int j : boost::irange(0, (int)encoders_.size())) {
-          vars.push_back(hs_sep[j][i+k]);
-          vars.push_back(hs_sep[j][i-k]);
+          if(i+k < 0 || i+k >= sent_len_) {
+            vars.push_back(zeroes(cg,hs_sep[j][i].value().d));
+          }else {
+            vars.push_back(hs_sep[j][i+k]);
+          }
+          if(i-k < 0 || i-k >= sent_len_) {
+            vars.push_back(zeroes(cg,hs_sep[j][i].value().d));
+          }else {
+            vars.push_back(hs_sep[j][i-k]);
+          }
         }
       }
-      hs_comb.push_back(concatenate(vars));
+      hcs_comb.push_back(concatenate(vars));
     }
     i_hc_ = concatenate_cols(hcs_comb);
   }
-  
+
+
   //vector for source word embedding with context  
   vector<cnn::expr::Expression> wes_comb;
   if(source_word_embedding_in_softmax_) {
@@ -326,10 +352,18 @@ void ExternAttentional::InitializeSentence(
         for(int j : boost::irange(0, (int)encoders_.size())) {
           vars.push_back(wes_sep[j][i]);
         }
-        for(int k : boost::irange(1,attention_context_)) {
+        for(int k : boost::irange(1,source_word_embedding_in_softmax_context_+1)) {
           for(int j : boost::irange(0, (int)encoders_.size())) {
-            vars.push_back(wes_sep[j][i+k]);
-            vars.push_back(wes_sep[j][i-k]);
+            if(i+k < 0 || i+k >= sent_len_) {
+              vars.push_back(zeroes(cg,wes_sep[j][i].value().d));
+            }else {
+              vars.push_back(wes_sep[j][i+k]);
+            }
+            if(i-k < 0 || i-k >= sent_len_) {
+              vars.push_back(zeroes(cg,wes_sep[j][i].value().d));
+            }else {
+              vars.push_back(wes_sep[j][i-k]);
+            }
           }
         }
         wes_comb.push_back(concatenate(vars));
@@ -337,6 +371,7 @@ void ExternAttentional::InitializeSentence(
     }
     i_we_ = concatenate_cols(wes_comb);
   }
+
 
   // Create an identity with shape
   if(hidden_size_) {

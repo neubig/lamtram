@@ -39,10 +39,11 @@ NeuralLM::NeuralLM(const DictPtr & vocab, int ngram_context, int extern_context,
   p_wr_W_ = model.add_lookup_parameters(vocab->size(), {(unsigned int)wordrep_size}); 
 
   // Create the softmax
+  int numberOfEncoder = 2;
   int softmax_input_size = hidden_spec_.nodes + extern_context;
   softmax_input_size += (word_embedding_in_softmax ? ngram_context*wordrep_size : 0);
   softmax_input_size += attention_context * 2 * extern_context;
-  softmax_input_size += (source_word_embedding_in_softmax ? (source_word_embedding_in_softmax_context*2 +1) * wordrep_size : 0);
+  softmax_input_size += (source_word_embedding_in_softmax ? (source_word_embedding_in_softmax_context*2 +1) * wordrep_size * numberOfEncoder: 0);
   
   softmax_ = SoftmaxFactory::CreateSoftmax(softmax_sig, softmax_input_size, vocab, model);
 }
@@ -272,6 +273,7 @@ cnn::expr::Expression NeuralLM::BuildSentGraph(
     }
 
     cnn::expr::Expression i_h_t = concatenate(i_hs_t);
+
 
     // Run the softmax and calculate the error
     for(size_t i = 0; i < sent.size(); i++) {
