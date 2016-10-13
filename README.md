@@ -141,6 +141,7 @@ use case.
 
     $ src/lamtram/lamtram \
         --operation gen \
+        --src_in test-src.txt \
         --models_in encdec=transmodel.out \
         --beam 5 \        # Perform beam search with a beam of 5
         --word_pen 0.0 \  # The word penalty can be used to increase or decrease
