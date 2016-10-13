@@ -19,6 +19,7 @@ LIBCPP = \
     counts.cc \
     input-file-stream.cc \
     softmax-full.cc \
+    softmax-multilayer.cc \
     softmax-hinge.cc \
     softmax-mod.cc \
     softmax-diff.cc \
