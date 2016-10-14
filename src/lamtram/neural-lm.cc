@@ -528,6 +528,8 @@ cnn::expr::Expression NeuralLM::Forward(const Sent & sent, int t,
   if(extern_feed_ && !intermediate_att_)
     i_wrs_t.push_back(extern_in.pg == nullptr ? extern_calc->GetEmptyContext(cg) : extern_in);
   // Concatenate the inputs if necessary
+  
+
   cnn::expr::Expression i_wr_t;
   if(i_wrs_t.size() > 1) {
     i_wr_t = concatenate(i_wrs_t);
@@ -642,7 +644,7 @@ if(!getline(in, line))
     
 }
 void NeuralLM::Write(std::ostream & out) {
-  out << "nlm_008 " << vocab_->size() << " " << ngram_context_ << " " << extern_context_ << " " << extern_feed_ << " " << wordrep_size_ << " " << hidden_spec_ << " " << unk_id_ << " " << softmax_->GetSig() << " " << word_embedding_in_softmax_ << " " << intermediate_att_ << attention_context_ << source_word_embedding_in_softmax_ << source_word_embedding_in_softmax_context_ << endl;
+  out << "nlm_008 " << vocab_->size() << " " << ngram_context_ << " " << extern_context_ << " " << extern_feed_ << " " << wordrep_size_ << " " << hidden_spec_ << " " << unk_id_ << " " << softmax_->GetSig() << " " << word_embedding_in_softmax_ << " " << intermediate_att_ << " " << attention_context_ << " " << source_word_embedding_in_softmax_ << " " << source_word_embedding_in_softmax_context_ << " " << endl;
 }
 
 int NeuralLM::GetVocabSize() const { return vocab_->size(); }

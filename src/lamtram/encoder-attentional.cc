@@ -150,6 +150,7 @@ ExternAttentional* ExternAttentional::Read(std::istream & in, const DictPtr & vo
   } else {
     THROW_ERROR("Expecting a ExternAttentional of version extatt_002-extatt_004, but got something different:" << endl << line);
   }
+  
   vector<LinearEncoderPtr> encoders;
   while(num_encoders-- > 0)
     encoders.push_back(LinearEncoderPtr(LinearEncoder::Read(in, model)));
@@ -157,7 +158,7 @@ ExternAttentional* ExternAttentional::Read(std::istream & in, const DictPtr & vo
 }
 
 void ExternAttentional::Write(std::ostream & out) {
-  out << "extatt_005 " << encoders_.size() << " " << attention_type_ << " " << attention_hist_ << " " << lex_type_ << " " << state_size_ << attention_context_ << source_word_embedding_in_softmax_ << endl;
+  out << "extatt_005 " << encoders_.size() << " " << attention_type_ << " " << attention_hist_ << " " << lex_type_ << " " << state_size_ << " " << attention_context_ << " " << source_word_embedding_in_softmax_ << " " << source_word_embedding_in_softmax_context_ << endl;
   for(auto & enc : encoders_) enc->Write(out);
 }
 
