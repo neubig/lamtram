@@ -287,8 +287,10 @@ void LamtramTrain::TrainLM() {
   if(eval_every_ == -1) eval_every_ = train_trg.size();
 
   // Create the model
+  int wordrep = vm_["wordrep"].as<int>();
+  if(wordrep <= 0) wordrep = GlobalVars::layer_size;
   if(model_in_file_.size() == 0)
-    nlm.reset(new NeuralLM(vocab_trg, context_, 0, false, vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_trg->get_unk_id(), softmax_sig_, *model));
+    nlm.reset(new NeuralLM(vocab_trg, context_, 0, false, wordrep, vm_["layers"].as<string>(), vocab_trg->get_unk_id(), softmax_sig_, *model));
   TrainerPtr trainer = GetTrainer(vm_["trainer"].as<string>(), vm_["learning_rate"].as<float>(), *model);
 
   // If necessary, cache the softmax
@@ -443,14 +445,16 @@ void LamtramTrain::TrainEncDec() {
     if(dec_layer_spec.nodes % encoder_types.size() != 0)
       THROW_ERROR("The number of nodes in the decoder (" << dec_layer_spec.nodes << ") must be divisible by the number of encoders (" << encoder_types.size() << ")");
     BuilderSpec enc_layer_spec(dec_layer_spec); enc_layer_spec.nodes /= encoder_types.size();
+    int wordrep = vm_["wordrep"].as<int>();
+    if(wordrep <= 0) wordrep = GlobalVars::layer_size;
     for(auto & spec : encoder_types) {
-      LinearEncoderPtr enc(new LinearEncoder(vocab_src->size(), vm_["wordrep"].as<int>(), enc_layer_spec, vocab_src->get_unk_id(), *model));
+      LinearEncoderPtr enc(new LinearEncoder(vocab_src->size(), wordrep, enc_layer_spec, vocab_src->get_unk_id(), *model));
       if(spec == "for") { }
       else if(spec == "rev") { enc->SetReverse(true); }
       else { THROW_ERROR("Illegal encoder type: " << spec); }
       encoders.push_back(enc);
     }
-    decoder.reset(new NeuralLM(vocab_trg, context_, 0, false, vm_["wordrep"].as<int>(), dec_layer_spec, vocab_trg->get_unk_id(), softmax_sig_, *model));
+    decoder.reset(new NeuralLM(vocab_trg, context_, 0, false, wordrep, dec_layer_spec, vocab_trg->get_unk_id(), softmax_sig_, *model));
     encdec.reset(new EncoderDecoder(encoders, decoder, *model));
   }
 
@@ -515,13 +519,15 @@ void LamtramTrain::TrainEncAtt() {
     if(dec_layer_spec.nodes % encoder_types.size() != 0)
       THROW_ERROR("The number of nodes in the decoder (" << dec_layer_spec.nodes << ") must be divisible by the number of encoders (" << encoder_types.size() << ")");
     BuilderSpec enc_layer_spec(dec_layer_spec); enc_layer_spec.nodes /= encoder_types.size();
+    int wordrep = vm_["wordrep"].as<int>();
+    if(wordrep <= 0) wordrep = GlobalVars::layer_size;
     for(auto & spec : encoder_types) {
-      LinearEncoderPtr enc(new LinearEncoder(vocab_src->size(), vm_["wordrep"].as<int>(), enc_layer_spec, vocab_src->get_unk_id(), *model));
+      LinearEncoderPtr enc(new LinearEncoder(vocab_src->size(), wordrep, enc_layer_spec, vocab_src->get_unk_id(), *model));
       if(spec == "rev") enc->SetReverse(true);
       encoders.push_back(enc);
     }
     ExternAttentionalPtr extatt(new ExternAttentional(encoders, vm_["attention_type"].as<string>(), vm_["attention_hist"].as<string>(), dec_layer_spec.nodes, vm_["attention_lex"].as<string>(), vocab_src, vocab_trg, *model));
-    decoder.reset(new NeuralLM(vocab_trg, context_, dec_layer_spec.nodes, vm_["attention_feed"].as<bool>(), vm_["wordrep"].as<int>(), dec_layer_spec, vocab_trg->get_unk_id(), softmax_sig_, *model));
+    decoder.reset(new NeuralLM(vocab_trg, context_, dec_layer_spec.nodes, vm_["attention_feed"].as<bool>(), wordrep, dec_layer_spec, vocab_trg->get_unk_id(), softmax_sig_, *model));
     encatt.reset(new EncoderAttentional(extatt, decoder, *model));
   }
 
@@ -582,8 +588,10 @@ void LamtramTrain::TrainEncCls() {
     vector<LinearEncoderPtr> encoders;
     vector<string> encoder_types;
     boost::algorithm::split(encoder_types, vm_["encoder_types"].as<string>(), boost::is_any_of("|"));
+    int wordrep = vm_["wordrep"].as<int>();
+    if(wordrep <= 0) wordrep = GlobalVars::layer_size;
     for(auto & spec : encoder_types) {
-      LinearEncoderPtr enc(new LinearEncoder(vocab_src->size(), vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_src->get_unk_id(), *model));
+      LinearEncoderPtr enc(new LinearEncoder(vocab_src->size(), wordrep, vm_["layers"].as<string>(), vocab_src->get_unk_id(), *model));
       if(spec == "rev") enc->SetReverse(true);
       encoders.push_back(enc);
     }
