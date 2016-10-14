@@ -16,11 +16,17 @@ you are on Ubuntu/Debian linux, you can install them below:
 
     $ sudo apt-get install autotools libtool libboost-all
 
-You must install Eigen and dynet separately. Follow the directions on the
+You must install Eigen and DyNet separately. Follow the directions on the
 [dynet page](http://github.com/clab/dynet), which also explain about installing Eigen.
+Note that in order to run programs like lamtram that are linked to DyNet, you will have
+to set the `LD_LIBRARY_PATH` variable to include the DyNet library. For example, if
+`$DYNET_DIR` is the top directory for DyNet, then you can run the following command,
+or add it to you `.bashrc` or `.zshrc` file:
 
-Once these two packages are installed, run the following commands, specifying the
-correct paths for dynet and Eigen.
+    $ export LD_LIBARY_PATH="$DYNET_DIR/build/dynet:$LD_LIBRARY_PATH"
+
+Once these two packages are installed and DyNet has been added to the `LD_LIBRARY_PATH`,
+run the following commands, specifying the correct paths for dynet and Eigen.
 
     $ autoreconf -i
     $ ./configure --with-dynet=/path/to/dynet --with-eigen=/path/to/eigen
