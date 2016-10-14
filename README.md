@@ -11,6 +11,8 @@ on building strong neural machine translation systems.
 Install/Citation
 ----------------
 
+(To run Lamtram easily using Docker, see docker/README.md.  To install manually, read on.)
+
 First, in terms of standard libraries, you must have autotools, libtool, and Boost. If
 you are on Ubuntu/Debian linux, you can install them below:
 
