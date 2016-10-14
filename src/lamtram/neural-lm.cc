@@ -27,13 +27,13 @@ NeuralLM::NeuralLM(const DictPtr & vocab, int ngram_context, int extern_context,
       vocab_(vocab), ngram_context_(ngram_context),
       extern_context_(extern_context), extern_feed_(extern_feed), wordrep_size_(wordrep_size),
       unk_id_(unk_id), hidden_spec_(hidden_spec), curr_graph_(NULL) {
+  if(wordrep_size_ <= 0) wordrep_size_ = GlobalVars::layer_size;
   // Hidden layers
   builder_ = BuilderFactory::CreateBuilder(hidden_spec_,
-                       ngram_context*wordrep_size + (extern_feed ? extern_context : 0),
+                       ngram_context*wordrep_size_ + (extern_feed ? extern_context : 0),
                        model);
   // Word representations
-  assert(wordrep_size > 0);
-  p_wr_W_ = model.add_lookup_parameters(vocab->size(), {(unsigned int)wordrep_size}); 
+  p_wr_W_ = model.add_lookup_parameters(vocab->size(), {(unsigned int)wordrep_size_}); 
 
   // Create the softmax
   softmax_ = SoftmaxFactory::CreateSoftmax(softmax_sig, hidden_spec_.nodes + extern_context, vocab, model);

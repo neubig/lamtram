@@ -12,7 +12,8 @@ SoftmaxMultiLayer::SoftmaxMultiLayer(const std::string & sig, int input_size, co
   vector<string> strs;
     boost::algorithm::split(strs, sig, boost::is_any_of(":"));
 
-  int hiddenSize = atoi(strs[1].c_str());
+  int hiddenSize = stoi(strs[1]);
+  if(hiddenSize <= 0) hiddenSize = GlobalVars::layer_size;
   p_sm_W_ = mod.add_parameters({(unsigned int)hiddenSize, (unsigned int)input_size});
   p_sm_b_ = mod.add_parameters({(unsigned int)hiddenSize});
   strs.erase(strs.begin(), strs.begin() + 2);

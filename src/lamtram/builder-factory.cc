@@ -17,6 +17,7 @@ BuilderSpec::BuilderSpec(const std::string & spec) {
         THROW_ERROR("Invalid layer specification \"" << spec << "\", must be layer type (rnn/lstm/gru), number of nodes, number of layers, with the three elements separated by a token.");
     type = strs[0];
     nodes = boost::lexical_cast<int>(strs[1]); 
+    if(nodes <= 0) nodes = GlobalVars::layer_size;
     layers = boost::lexical_cast<int>(strs[2]); 
     multiplier = (type == "lstm" ? 2 : 1);
 }

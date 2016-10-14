@@ -38,7 +38,7 @@ ExternAttentional::ExternAttentional(const std::vector<LinearEncoderPtr> & encod
     p_ehid_h_W_ = mod.add_parameters({(unsigned int)state_size_, (unsigned int)context_size_});
   } else if(attention_type_.substr(0,4) == "mlp:") {
     hidden_size_ = stoi(attention_type_.substr(4));
-    assert(hidden_size_ != 0);
+    if(hidden_size_ == 0) hidden_size_ = GlobalVars::layer_size;
     p_ehid_h_W_ = mod.add_parameters({(unsigned int)hidden_size_, (unsigned int)context_size_});
     p_ehid_state_W_ = mod.add_parameters({(unsigned int)hidden_size_, (unsigned int)state_size_});
     p_e_ehid_W_ = mod.add_parameters({1, (unsigned int)hidden_size_});

@@ -36,39 +36,40 @@ int LamtramTrain::main(int argc, char** argv) {
     ("dev_trg", po::value<string>()->default_value(""), "Development files")
     ("train_src", po::value<string>()->default_value(""), "Training source files for TMs, possibly separated by pipes")
     ("dev_src", po::value<string>()->default_value(""), "Development source file for TMs")
-    ("train_weights", po::value<string>()->default_value(""), "Training instance weights for TMs, possibly separated by pipes")
-    ("eval_every", po::value<int>()->default_value(-1), "Evaluate every n sentences (-1 for full training set)")
     ("model_out", po::value<string>()->default_value(""), "File to write the model to")
-    ("model_in", po::value<string>()->default_value(""), "If resuming training, read the model in")
     ("model_type", po::value<string>()->default_value("nlm"), "Model type (Neural LM nlm, Encoder Decoder encdec, Attentional Model encatt, or Encoder Classifier enccls)")
-    ("epochs", po::value<int>()->default_value(100), "Number of epochs")
-    ("rate_decay", po::value<float>()->default_value(0.5), "Learning rate decay when dev perplexity gets worse")
-    ("rate_thresh",  po::value<float>()->default_value(1e-5), "Threshold for the learning rate")
-    ("trainer", po::value<string>()->default_value("adam"), "Training algorithm (sgd/momentum/adagrad/adadelta)")
-    ("softmax", po::value<string>()->default_value("multilayer:512:full"), "The type of softmax to use (full/hinge/hier/mod/multilayer)")
-    ("seed", po::value<int>()->default_value(0), "Random seed (default 0 -> changes every time)")
-    ("scheduled_samp", po::value<float>()->default_value(0.f), "If set to 1 or more, perform scheduled sampling where the selected value is the number of iterations after which the sampling value reaches 0.5")
-    ("learning_rate", po::value<float>()->default_value(0.001), "Learning rate")
-    ("learning_criterion", po::value<string>()->default_value("ml"), "The criterion to use for learning (ml/minrisk)")
-    ("dropout", po::value<float>()->default_value(0.0), "Dropout rate during training")
-    ("minrisk_num_samples", po::value<int>()->default_value(50), "The number of samples to perform for minimum risk training")
-    ("minrisk_scaling", po::value<float>()->default_value(0.005), "The scaling factor for min risk training")
-    ("minrisk_include_ref", po::value<bool>()->default_value(false), "Whether to include the reference in every sample for min risk training")
-    ("minrisk_dedup", po::value<bool>()->default_value(true), "Whether to deduplicate samples for min risk training")
-    ("eval_meas", po::value<string>()->default_value("bleu:smooth=1"), "The evaluation measure to use for minimum risk training (default: BLEU+1)")
-    ("encoder_types", po::value<string>()->default_value("for|rev"), "The type of encoder, multiple separated by a pipe (for=forward, rev=reverse)")
-    ("context", po::value<int>()->default_value(2), "Amount of context information to use")
-    ("minibatch_size", po::value<int>()->default_value(1), "Number of words per mini-batch")
-    ("max_len", po::value<int>()->default_value(200), "Limit on the max length of sentences")
-    ("wordrep", po::value<int>()->default_value(512), "Size of the word representations")
-    ("layers", po::value<string>()->default_value("lstm:100:1"), "Descriptor for hidden layers, type:num_units:num_layers")
-    ("cls_layers", po::value<string>()->default_value(""), "Descriptor for classifier layers, nodes1:nodes2:...")
-    ("wildcards", po::value<string>()->default_value(""), "Wildcards to be used in loading training files")
-    ("attention_type", po::value<string>()->default_value("mlp:512"), "Type of attention score (mlp:NUM/bilin/dot)")
+    ("layer_size", po::value<int>()->default_value(512), "The default size of all hidden layers (word rep, hidden state, mlp attention, mlp softmax) if not specified otherwise")
     ("attention_feed", po::value<bool>()->default_value(true), "Whether to perform the input feeding of Luong et al.")
     ("attention_hist", po::value<string>()->default_value("none"), "How to pass information about the attention into the score function (none/sum)")
     ("attention_lex", po::value<string>()->default_value("none"), "Use a lexicon (e.g. \"prior:file=/path/to/file:alpha=0.001\")")
+    ("attention_type", po::value<string>()->default_value("mlp:0"), "Type of attention score (mlp:NUM/bilin/dot)")
+    ("cls_layers", po::value<string>()->default_value(""), "Descriptor for classifier layers, nodes1:nodes2:...")
+    ("context", po::value<int>()->default_value(2), "Amount of context information to use")
+    ("dropout", po::value<float>()->default_value(0.0), "Dropout rate during training")
+    ("encoder_types", po::value<string>()->default_value("for|rev"), "The type of encoder, multiple separated by a pipe (for=forward, rev=reverse)")
+    ("epochs", po::value<int>()->default_value(100), "Number of epochs")
+    ("eval_every", po::value<int>()->default_value(-1), "Evaluate every n sentences (-1 for full training set)")
+    ("eval_meas", po::value<string>()->default_value("bleu:smooth=1"), "The evaluation measure to use for minimum risk training (default: BLEU+1)")
+    ("layers", po::value<string>()->default_value("lstm:0:1"), "Descriptor for hidden layers, type:num_units:num_layers")
+    ("learning_criterion", po::value<string>()->default_value("ml"), "The criterion to use for learning (ml/minrisk)")
+    ("learning_rate", po::value<float>()->default_value(0.001), "Learning rate")
+    ("minibatch_size", po::value<int>()->default_value(1), "Number of words per mini-batch")
+    ("minrisk_dedup", po::value<bool>()->default_value(true), "Whether to deduplicate samples for min risk training")
+    ("minrisk_include_ref", po::value<bool>()->default_value(false), "Whether to include the reference in every sample for min risk training")
+    ("minrisk_max_len", po::value<int>()->default_value(200), "Limit on the max length of sentences")
+    ("minrisk_num_samples", po::value<int>()->default_value(50), "The number of samples to perform for minimum risk training")
+    ("minrisk_scaling", po::value<float>()->default_value(0.005), "The scaling factor for min risk training")
+    ("model_in", po::value<string>()->default_value(""), "If resuming training, read the model in")
+    ("rate_decay", po::value<float>()->default_value(0.5), "Learning rate decay when dev perplexity gets worse")
+    ("rate_thresh",  po::value<float>()->default_value(1e-5), "Threshold for the learning rate")
+    ("scheduled_samp", po::value<float>()->default_value(0.f), "If set to 1 or more, perform scheduled sampling where the selected value is the number of iterations after which the sampling value reaches 0.5")
+    ("seed", po::value<int>()->default_value(0), "Random seed (default 0 -> changes every time)")
+    ("softmax", po::value<string>()->default_value("multilayer:0:full"), "The type of softmax to use (full/hinge/hier/mod/multilayer) see softmax_factory.h for details")
+    ("train_weights", po::value<string>()->default_value(""), "Training instance weights for TMs, possibly separated by pipes")
+    ("trainer", po::value<string>()->default_value("adam"), "Training algorithm (sgd/momentum/adagrad/adadelta)")
     ("verbose", po::value<int>()->default_value(0), "How much verbose output to print")
+    ("wildcards", po::value<string>()->default_value(""), "Wildcards to be used in loading training files")
+    ("wordrep", po::value<int>()->default_value(0), "Size of the word representations (0 to match layer_size)")
     ;
   po::store(po::parse_command_line(argc, argv, desc), vm_);
   po::notify(vm_);   
@@ -79,6 +80,7 @@ int LamtramTrain::main(int argc, char** argv) {
   for(int i = 0; i < argc; i++) { cerr << argv[i] << " "; } cerr << endl;
 
   GlobalVars::verbose = vm_["verbose"].as<int>();
+  GlobalVars::layer_size = vm_["layer_size"].as<int>();
 
   // Set random seed if necessary
   int seed = vm_["seed"].as<int>();
@@ -781,7 +783,7 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
   assert(dev_src.size() == dev_trg.size());
 
   TrainerPtr trainer = GetTrainer(vm_["trainer"].as<string>(), vm_["learning_rate"].as<float>(), model);
-  int max_len = vm_["max_len"].as<int>();
+  int max_len = vm_["minrisk_max_len"].as<int>();
   int num_samples = vm_["minrisk_num_samples"].as<int>();
   float scaling = vm_["minrisk_scaling"].as<float>();
   bool include_ref = vm_["minrisk_include_ref"].as<bool>();

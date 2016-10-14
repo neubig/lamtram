@@ -65,8 +65,7 @@ with options:
     $ src/lamtram/lamtram-train \
         --dynet_mem 1024 \        # Allocate 1024 megabytes of memory for training
         --model_type nlm \        # Train a neural language model
-        --layers "lstm:512:1" \   # Create a single 512-node LSTM layer
-        --wordrep 512 \           # Use 512-node word representations
+        --layer_size 512 \        # Use a layer size of 512 for hidden layers, embeddings, etc.
         --trainer adam \          # Use adam for training models
         --learning_rate 0.001 \   # Set learning rate to 0.001
         --seed 0 \                # A random seed, or 0 for a different seed every run
@@ -112,8 +111,7 @@ model as in Sutskever et. al (NIPS2014) by just changing "encatt" into "encdec."
     $ src/lamtram/lamtram-train \
         --dynet_mem 1024 \        # Allocate 1024 megabytes of memory for training
         --model_type encatt \     # Create an atttentional model
-        --layers "lstm:512:1" \   # Create a single 512-node LSTM layer
-        --wordrep 512 \           # Use 512-node word representations
+        --layer_size 512 \        # Use a layer size of 512 for hidden layers, embeddings, etc.
         --trainer adam \          # Use adam for training models
         --learning_rate 0.001 \   # Set learning rate to 0.001
         --seed 0 \                # A random seed, or 0 for a different seed every run
@@ -183,10 +181,9 @@ an LSTM model.
     $ src/lamtram/lamtram-train \
         --dynet_mem 1024 \        # Allocate 1024 megabytes of memory for training
         --model_type enccls \     # Create an encoder-classifier model
-        --layers "lstm:512:1" \   # Create a single 512-node LSTM layer
-        --wordrep 512 \           # Create 512-node word representations
-        --trainer adam \          # Use sgd for training models
-        --learning_rate 0.001 \   # Set learning rate to 0.1
+        --layer_size 512 \        # Use a layer size of 512 for hidden layers, embeddings, etc.
+        --trainer adam \          # Use adam for training models
+        --learning_rate 0.001 \   # Set learning rate to 0.001
         --seed 0 \                # A random seed, or 0 for a different seed every run
         --train_src train-src.unk \ # Specify the training source file
         --train_trg train-lbl.txt \ # Specify the training label file

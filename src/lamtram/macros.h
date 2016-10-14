@@ -11,6 +11,7 @@ class GlobalVars {
 public:
     static int verbose;
     static int curr_word;
+    static int layer_size;
 };
 
 }
