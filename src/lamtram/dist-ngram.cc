@@ -2,7 +2,7 @@
 #include <boost/range/algorithm/max_element.hpp>
 #include <boost/range/algorithm/min_element.hpp>
 #include <boost/algorithm/string.hpp>
-#include <cnn/dict.h>
+#include <dynet/dict.h>
 #include <lamtram/macros.h>
 #include <lamtram/dist-ngram.h>
 #include <lamtram/dict-utils.h>

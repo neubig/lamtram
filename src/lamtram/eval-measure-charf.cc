@@ -161,7 +161,7 @@ CharFReport EvalStatsCharF::CalcCharFReport() const {
 
 
 
-EvalMeasureCharF::EvalMeasureCharF(const std::string & config, const cnn::Dict & vocab) : smooth_val_(0),mode_(0),ignore_bpe_(true),use_space_(false),ngram_order_(6), beta_(3),vocab_(vocab) {
+EvalMeasureCharF::EvalMeasureCharF(const std::string & config, const dynet::Dict & vocab) : smooth_val_(0),mode_(0),ignore_bpe_(true),use_space_(false),ngram_order_(6), beta_(3),vocab_(vocab) {
     if(config.length() == 0) return;
     for(const EvalMeasure::StringPair & strs : EvalMeasure::ParseConfig(config)) {
         if(strs.first == "order") {

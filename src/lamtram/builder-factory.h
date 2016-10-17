@@ -4,7 +4,7 @@
 #include <string>
 #include <memory>
 
-namespace cnn {
+namespace dynet {
 class Model;
 struct RNNBuilder;
 }
@@ -25,11 +25,11 @@ inline std::ostream & operator<<(std::ostream & out, const BuilderSpec & spec) {
     return out << spec.type << ":" << spec.nodes << ":" << spec.layers;
 }
 
-typedef std::shared_ptr<cnn::RNNBuilder> BuilderPtr;
+typedef std::shared_ptr<dynet::RNNBuilder> BuilderPtr;
 class BuilderFactory {
 public:
-    static BuilderPtr CreateBuilder(const BuilderSpec & spec, int input_dim, cnn::Model & model);
-    static BuilderPtr CreateBuilder(const BuilderSpec & spec, int input_dim, int input2_dim, cnn::Model & model,ExternCalculatorPtr & att);
+    static BuilderPtr CreateBuilder(const BuilderSpec & spec, int input_dim, dynet::Model & model);
+    static BuilderPtr CreateBuilder(const BuilderSpec & spec, int input_dim, int input2_dim, dynet::Model & model,ExternCalculatorPtr & att);
 };
 
 }

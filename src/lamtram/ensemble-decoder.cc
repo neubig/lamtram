@@ -1,12 +1,12 @@
 #include <lamtram/ensemble-decoder.h>
 #include <lamtram/macros.h>
-#include <cnn/nodes.h>
+#include <dynet/nodes.h>
 #include <boost/range/irange.hpp>
 #include <cfloat>
 
 using namespace lamtram;
 using namespace std;
-using namespace cnn::expr;
+using namespace dynet::expr;
 
 
 EnsembleDecoder::EnsembleDecoder(const vector<EncoderDecoderPtr> & encdecs, const vector<EncoderAttentionalPtr> & encatts, const vector<NeuralLMPtr> & lms)
@@ -29,7 +29,7 @@ EnsembleDecoder::EnsembleDecoder(const vector<EncoderDecoderPtr> & encdecs, cons
   unk_log_prob_ = -log(lms_[0]->GetVocabSize());
 }
 
-vector<vector<Expression> > EnsembleDecoder::GetInitialStates(const Sentence & sent_src, cnn::ComputationGraph & cg) {
+vector<vector<Expression> > EnsembleDecoder::GetInitialStates(const Sentence & sent_src, dynet::ComputationGraph & cg) {
   vector<vector<Expression> > last_state(encdecs_.size() + encatts_.size() + lms_.size());
   int id = 0;
   for(auto & tm : encdecs_)
@@ -39,12 +39,12 @@ vector<vector<Expression> > EnsembleDecoder::GetInitialStates(const Sentence & s
   return last_state;
 }
 
-Expression EnsembleDecoder::EnsembleProbs(const std::vector<Expression> & in, cnn::ComputationGraph & cg) {
+Expression EnsembleDecoder::EnsembleProbs(const std::vector<Expression> & in, dynet::ComputationGraph & cg) {
   if(in.size() == 1) return in[0];
   return average(in);
 }
 
-Expression EnsembleDecoder::EnsembleLogProbs(const std::vector<Expression> & in, cnn::ComputationGraph & cg) {
+Expression EnsembleDecoder::EnsembleLogProbs(const std::vector<Expression> & in, dynet::ComputationGraph & cg) {
   if(in.size() == 1) return in[0];
   Expression i_average = average(in);
   return log_softmax({i_average});
@@ -53,7 +53,7 @@ Expression EnsembleDecoder::EnsembleLogProbs(const std::vector<Expression> & in,
 namespace lamtram {
 
 template<>
-Expression EnsembleDecoder::EnsembleSingleProb(const std::vector<Expression> & in, const Sentence & sent, int t, cnn::ComputationGraph & cg) {
+Expression EnsembleDecoder::EnsembleSingleProb(const std::vector<Expression> & in, const Sentence & sent, int t, dynet::ComputationGraph & cg) {
   // cout << "word: " << sent[t] << endl;
   if(in.size() == 1)
     return pick({in[0]}, sent[t]);
@@ -64,7 +64,7 @@ Expression EnsembleDecoder::EnsembleSingleProb(const std::vector<Expression> & i
 }
 
 template<>
-Expression EnsembleDecoder::EnsembleSingleLogProb(const std::vector<Expression> & in, const Sentence & sent, int t, cnn::ComputationGraph & cg) {
+Expression EnsembleDecoder::EnsembleSingleLogProb(const std::vector<Expression> & in, const Sentence & sent, int t, dynet::ComputationGraph & cg) {
   if(in.size() == 1)
     return pick({in[0]}, sent[t]);
   Expression i_average = average(in);
@@ -91,7 +91,7 @@ inline void CreateWordsAndMask(const vector<Sentence> & sents, int t, bool inver
 
 namespace lamtram {
 template<>
-Expression EnsembleDecoder::EnsembleSingleProb(const std::vector<Expression> & in, const vector<Sentence> & sents, int t, cnn::ComputationGraph & cg) {
+Expression EnsembleDecoder::EnsembleSingleProb(const std::vector<Expression> & in, const vector<Sentence> & sents, int t, dynet::ComputationGraph & cg) {
   vector<unsigned> words; vector<float> mask;
   CreateWordsAndMask(sents, t, false, words, mask);
   // cout << "words:"; for(auto w : words) cout << " " << w; cout << endl;
@@ -106,13 +106,13 @@ Expression EnsembleDecoder::EnsembleSingleProb(const std::vector<Expression> & i
   }
   if(mask.size()) {
     // cout << "mask:"; for(auto w : mask) cout << " " << w; cout << endl;
-    ret = pow(ret, input(cg, cnn::Dim({1}, sents.size()), mask));
+    ret = pow(ret, input(cg, dynet::Dim({1}, sents.size()), mask));
   }
   return ret;
 }
 
 template<>
-Expression EnsembleDecoder::EnsembleSingleLogProb(const std::vector<Expression> & in, const vector<Sentence> & sents, int t, cnn::ComputationGraph & cg) {
+Expression EnsembleDecoder::EnsembleSingleLogProb(const std::vector<Expression> & in, const vector<Sentence> & sents, int t, dynet::ComputationGraph & cg) {
   vector<unsigned> words; vector<float> mask;
   CreateWordsAndMask(sents, t, true, words, mask);
   Expression ret;
@@ -124,27 +124,27 @@ Expression EnsembleDecoder::EnsembleSingleLogProb(const std::vector<Expression> 
     ret = pick({i_softmax}, words);
   }
   if(mask.size())
-    ret = ret * input(cg, cnn::Dim({1}, sents.size()), mask);
+    ret = ret * input(cg, dynet::Dim({1}, sents.size()), mask);
   return ret;
 }
 
 template <>
-void EnsembleDecoder::AddLik<Sentence,LLStats,vector<float> >(const Sentence & sent, const cnn::expr::Expression & exp, const std::vector<cnn::expr::Expression> & exps, LLStats & ll, vector<float> & wordll) {
+void EnsembleDecoder::AddLik<Sentence,LLStats,vector<float> >(const Sentence & sent, const dynet::expr::Expression & exp, const std::vector<dynet::expr::Expression> & exps, LLStats & ll, vector<float> & wordll) {
   ll.loss_ -= as_scalar(exp.value());
   ll.words_ += sent.size();
   for(unsigned t = 0; t < sent.size(); t++) {
     if(sent[t] == unk_id_)
       ++ll.unk_;
-    wordll.push_back(cnn::as_scalar(exps[t].value()));
+    wordll.push_back(dynet::as_scalar(exps[t].value()));
   }
 }
 template <>
-void EnsembleDecoder::AddLik<vector<Sentence>,vector<LLStats>,vector<vector<float> > >(const vector<Sentence> & sent, const cnn::expr::Expression & exp, const std::vector<cnn::expr::Expression> & exps, std::vector<LLStats> & ll, std::vector<std::vector<float> > & wordll) {
+void EnsembleDecoder::AddLik<vector<Sentence>,vector<LLStats>,vector<vector<float> > >(const vector<Sentence> & sent, const dynet::expr::Expression & exp, const std::vector<dynet::expr::Expression> & exps, std::vector<LLStats> & ll, std::vector<std::vector<float> > & wordll) {
   vector<float> ret = as_vector(exp.value());
   assert(ret.size() == ll.size());
   vector<vector<float> > exp_floats;
   for(size_t i = 0; i < exps.size(); i++)
-    exp_floats.push_back(cnn::as_vector(exps[i].value()));
+    exp_floats.push_back(dynet::as_vector(exps[i].value()));
   for(size_t i = 0; i < ret.size(); i++) {
     ll[i].loss_ -= ret[i];
     ll[i].words_ += sent[i].size();
@@ -170,7 +170,7 @@ inline int GetWord(const Sentence & vec, int t) { return vec[t]; }
 template <class Sent, class Stat, class WordStat>
 void EnsembleDecoder::CalcSentLL(const Sentence & sent_src, const Sent & sent_trg, Stat & ll, WordStat & wordll) {
   // First initialize states and do encoding as necessary
-  cnn::ComputationGraph cg;
+  dynet::ComputationGraph cg;
   for(auto & tm : encdecs_) tm->NewGraph(cg);
   for(auto & tm : encatts_) tm->NewGraph(cg);
   for(auto & lm : lms_) lm->NewGraph(cg);
@@ -202,7 +202,7 @@ void EnsembleDecoder::CalcSentLL(const Sentence & sent_src, const Sent & sent_tr
     last_extern = next_extern;
   }
   Expression err = sum(errs);
-  cg.incremental_forward();
+  cg.incremental_forward(err);
   AddLik(sent_trg, err, errs, ll, wordll);
 }                    
 
@@ -219,7 +219,7 @@ EnsembleDecoderHypPtr EnsembleDecoder::Generate(const Sentence & sent_src,int le
 std::vector<EnsembleDecoderHypPtr> EnsembleDecoder::GenerateNbest(const Sentence & sent_src, int nbest_size,int length) {
 
   // First initialize states
-  cnn::ComputationGraph cg;
+  dynet::ComputationGraph cg;
   for(auto & tm : encdecs_) tm->NewGraph(cg);
   for(auto & tm : encatts_) tm->NewGraph(cg);
   for(auto & lm : lms_) lm->NewGraph(cg);
@@ -246,7 +246,7 @@ std::vector<EnsembleDecoderHypPtr> EnsembleDecoder::GenerateNbest(const Sentence
   // Perform decoding
   for(int sent_len = 0; sent_len <= size_limit; sent_len++) {
     // This vector will hold the best IDs
-    vector<tuple<cnn::real,int,int,int> > next_beam_id(beam_size_+1, tuple<cnn::real,int,int,int>(-DBL_MAX,-1,-1,-1));
+    vector<tuple<dynet::real,int,int,int> > next_beam_id(beam_size_+1, tuple<dynet::real,int,int,int>(-DBL_MAX,-1,-1,-1));
     // Go through all the hypothesis IDs
     for(int hypid = 0; hypid < (int)curr_beam.size(); hypid++) {
       EnsembleDecoderHypPtr curr_hyp = curr_beam[hypid];
@@ -267,7 +267,7 @@ std::vector<EnsembleDecoderHypPtr> EnsembleDecoder::GenerateNbest(const Sentence
         THROW_ERROR("Bad ensembling operation: " << ensemble_operation_ << endl);
       }
       // Add the word/unk penalty
-      vector<cnn::real> softmax = as_vector(cg.incremental_forward());
+      vector<dynet::real> softmax = as_vector(cg.incremental_forward(i_logprob));
       if(word_pen_ != 0.f) {
         for(size_t i = 1; i < softmax.size(); i++)
           softmax[i] += word_pen_;
@@ -276,7 +276,8 @@ std::vector<EnsembleDecoderHypPtr> EnsembleDecoder::GenerateNbest(const Sentence
       // Find the best aligned source, if any alignments exists
       WordId best_align = -1;
       if(i_aligns.size() != 0) {
-        vector<cnn::real> align = as_vector(cg.incremental_forward());
+        dynet::expr::Expression ens_align = sum(i_aligns);
+        vector<dynet::real> align = as_vector(cg.incremental_forward(ens_align));
         best_align = 0;
         for(size_t aid = 0; aid < align.size(); aid++)
           if(align[aid] > align[best_align])
@@ -285,35 +286,35 @@ std::vector<EnsembleDecoderHypPtr> EnsembleDecoder::GenerateNbest(const Sentence
       // Find the best IDs
       if(fix_length_) {
         if(sent_len == size_limit) {
-          cnn::real my_score = curr_hyp->GetScore() + softmax[EOS];
+          dynet::real my_score = curr_hyp->GetScore() + softmax[EOS];
           for(bid = beam_size_; bid > 0 && my_score > std::get<0>(next_beam_id[bid-1]); bid--)
             next_beam_id[bid] = next_beam_id[bid-1];
-          next_beam_id[bid] = tuple<cnn::real,int,int,int>(my_score,hypid,EOS,best_align);
+          next_beam_id[bid] = tuple<dynet::real,int,int,int>(my_score,hypid,EOS,best_align);
           
         }else {
           for(int wid = 0; wid < (int)softmax.size(); wid++) {
             if(wid != EOS) {
-              cnn::real my_score = curr_hyp->GetScore() + softmax[wid];
+              dynet::real my_score = curr_hyp->GetScore() + softmax[wid];
               for(bid = beam_size_; bid > 0 && my_score > std::get<0>(next_beam_id[bid-1]); bid--)
                 next_beam_id[bid] = next_beam_id[bid-1];
-              next_beam_id[bid] = tuple<cnn::real,int,int,int>(my_score,hypid,wid,best_align);
+              next_beam_id[bid] = tuple<dynet::real,int,int,int>(my_score,hypid,wid,best_align);
             }
           }
         }
 
       }else {
         for(int wid = 0; wid < (int)softmax.size(); wid++) {
-          cnn::real my_score = curr_hyp->GetScore() + softmax[wid];
+          dynet::real my_score = curr_hyp->GetScore() + softmax[wid];
           for(bid = beam_size_; bid > 0 && my_score > std::get<0>(next_beam_id[bid-1]); bid--)
             next_beam_id[bid] = next_beam_id[bid-1];
-          next_beam_id[bid] = tuple<cnn::real,int,int,int>(my_score,hypid,wid,best_align);
+          next_beam_id[bid] = tuple<dynet::real,int,int,int>(my_score,hypid,wid,best_align);
         }
       }
     }
     // Create the new hypotheses
     vector<EnsembleDecoderHypPtr> next_beam;
     for(int i = 0; i < beam_size_; i++) {
-      cnn::real score = std::get<0>(next_beam_id[i]);
+      dynet::real score = std::get<0>(next_beam_id[i]);
       int hypid = std::get<1>(next_beam_id[i]);
       int wid = std::get<2>(next_beam_id[i]);
       int aid = std::get<3>(next_beam_id[i]);

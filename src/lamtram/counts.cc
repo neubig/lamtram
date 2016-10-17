@@ -1,5 +1,5 @@
 #include <boost/algorithm/string.hpp>
-#include <cnn/dict.h>
+#include <dynet/dict.h>
 #include <lamtram/macros.h>
 #include <lamtram/sentence.h>
 #include <lamtram/counts.h>

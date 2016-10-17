@@ -5,12 +5,12 @@
 #include <lamtram/builder-factory.h>
 #include <lamtram/softmax-base.h>
 #include <lamtram/dict-utils.h>
-#include <cnn/cnn.h>
-#include <cnn/expr.h>
+#include <dynet/dynet.h>
+#include <dynet/expr.h>
 #include <vector>
 #include <iostream>
 
-namespace cnn {
+namespace dynet {
 class Model;
 struct ComputationGraph;
 struct LookupParameter;
@@ -44,7 +44,7 @@ public:
              int wordrep_size, const BuilderSpec & hidden_spec, int unk_id,
              const std::string & softmax_sig, bool word_embedding_in_softmax,
              int attention_context, bool source_word_embedding_in_softmax, int source_word_embedding_in_softmax_context,
-             cnn::Model & model);
+             dynet::Model & model);
 
     NeuralLM(const DictPtr & vocab, int ngram_context, int extern_context,
              bool extern_feed,
@@ -52,7 +52,7 @@ public:
              const std::string & softmax_sig,bool word_embedding_in_softmax,
              int attention_context, bool source_word_embedding_in_softmax, int source_word_embedding_in_softmax_context,
              ExternCalculatorPtr & att,
-             cnn::Model & model);
+             dynet::Model & model);
 
     ~NeuralLM() { }
 
@@ -65,32 +65,36 @@ public:
     //   train: Whether we're training or not (so we know whether to use dropout, etc.)
     //   cg: The computation graph.
     //   ll: The log likelihood statistics will be used here.
-    cnn::expr::Expression BuildSentGraph(
+    dynet::expr::Expression BuildSentGraph(
                                    const Sentence & sent,
                                    const Sentence & cache_ids,
+                                   const float * weight,
                                    const ExternCalculator * extern_calc,
-                                   const std::vector<cnn::expr::Expression> & layer_in,
+                                   const std::vector<dynet::expr::Expression> & layer_in,
                                    float samp_percent,
                                    bool train,
-                                   cnn::ComputationGraph & cg, LLStats & ll);
-    cnn::expr::Expression BuildSentGraph(
+                                   dynet::ComputationGraph & cg,
+                                   LLStats & ll);
+    dynet::expr::Expression BuildSentGraph(
                                    const std::vector<Sentence> & sent,
                                    const std::vector<Sentence> & cache_ids,
+                                   const std::vector<float> * weights,
                                    const ExternCalculator * extern_calc,
-                                   const std::vector<cnn::expr::Expression> & layer_in,
+                                   const std::vector<dynet::expr::Expression> & layer_in,
                                    float samp_percent,
                                    bool train,
-                                   cnn::ComputationGraph & cg, LLStats & ll);
+                                   dynet::ComputationGraph & cg,
+                                   LLStats & ll);
 
     // Acquire samples from this sentence and return their log probabilities as a vector
-    cnn::expr::Expression SampleTrgSentences(
+    dynet::expr::Expression SampleTrgSentences(
                                    const ExternCalculator * extern_calc,
-                                   const std::vector<cnn::expr::Expression> & layer_in,
+                                   const std::vector<dynet::expr::Expression> & layer_in,
                                    const Sentence * answer,                                   
                                    int num_samples,
                                    int max_len,
                                    bool train,
-                                   cnn::ComputationGraph & cg,
+                                   dynet::ComputationGraph & cg,
                                    std::vector<Sentence> & samples);
 
     // Move forward one step using the language model and return the probabilities.
@@ -106,26 +110,26 @@ public:
     //   cg: The computation graph.
     //   align_out: The alignments.
     template <class Sent>
-    cnn::expr::Expression Forward(const Sent & sent, int id, 
+    dynet::expr::Expression Forward(const Sent & sent, int id, 
                                const ExternCalculator * extern_calc,
                                bool log_prob,
-                               const std::vector<cnn::expr::Expression> & layer_in,
-                               const cnn::expr::Expression & extern_in,
-                               const cnn::expr::Expression & extern_sum_in,
-                               std::vector<cnn::expr::Expression> & layer_out,
-                               cnn::expr::Expression & extern_out,
-                               cnn::expr::Expression & extern_sum_out,
-                               cnn::ComputationGraph & cg,
-                               std::vector<cnn::expr::Expression> & align_out);
+                               const std::vector<dynet::expr::Expression> & layer_in,
+                               const dynet::expr::Expression & extern_in,
+                               const dynet::expr::Expression & extern_sum_in,
+                               std::vector<dynet::expr::Expression> & layer_out,
+                               dynet::expr::Expression & extern_out,
+                               dynet::expr::Expression & extern_sum_out,
+                               dynet::ComputationGraph & cg,
+                               std::vector<dynet::expr::Expression> & align_out);
 
     template <class Sent>
     Sent CreateContext(const Sent & sent, int t);
     
     // Index the parameters in a computation graph
-    void NewGraph(cnn::ComputationGraph & cg);
+    void NewGraph(dynet::ComputationGraph & cg);
 
     // Reading/writing functions
-    static NeuralLM* Read(const DictPtr & vocab, std::istream & in, cnn::Model & model);
+    static NeuralLM* Read(const DictPtr & vocab, std::istream & in, dynet::Model & model);
     void Write(std::ostream & out);
 
     // Information functions
@@ -164,7 +168,7 @@ protected:
     BuilderSpec hidden_spec_;
 
     // Pointers to the parameters
-    cnn::LookupParameter p_wr_W_; // Wordrep weights
+    dynet::LookupParameter p_wr_W_; // Wordrep weights
 
     // Pointer to the softmax
     SoftmaxPtr softmax_;
@@ -176,7 +180,7 @@ private:
     // A pointer to the current computation graph.
     // This is only used for sanity checking to make sure NewGraph
     // is called before trying to do anything that requires it.
-    cnn::ComputationGraph * curr_graph_;
+    dynet::ComputationGraph * curr_graph_;
 
 };
 

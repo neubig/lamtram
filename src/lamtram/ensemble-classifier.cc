@@ -1,12 +1,12 @@
 #include <lamtram/ensemble-classifier.h>
 #include <lamtram/macros.h>
-#include <cnn/nodes.h>
+#include <dynet/nodes.h>
 #include <boost/range/irange.hpp>
 #include <cfloat>
 
 using namespace lamtram;
 using namespace std;
-using namespace cnn::expr;
+using namespace dynet::expr;
 
 
 EnsembleClassifier::EnsembleClassifier(const vector<EncoderClassifierPtr> & encclss)
@@ -17,19 +17,19 @@ EnsembleClassifier::EnsembleClassifier(const vector<EncoderClassifierPtr> & encc
 
 void EnsembleClassifier::CalcEval(const Sentence & sent_src, int trg, LLStats & ll) {
     // First initialize states and do encoding as necessary
-    cnn::ComputationGraph cg;
+    dynet::ComputationGraph cg;
     vector<Expression> i_sms;
     for(auto & tm : encclss_) {
         tm->NewGraph(cg);
         // TODO: add identity
         if(ensemble_operation_ == "sum") {
-            i_sms.push_back(tm->Forward<cnn::Softmax>(sent_src, false, cg));
+            i_sms.push_back(tm->Forward<dynet::Softmax>(sent_src, false, cg));
         } else {
-            i_sms.push_back(tm->Forward<cnn::LogSoftmax>(sent_src, false, cg));
+            i_sms.push_back(tm->Forward<dynet::LogSoftmax>(sent_src, false, cg));
         }
     }
     Expression i_average = average(i_sms);
-    int label = MaxElement(cnn::as_vector(cg.incremental_forward()));
+    int label = MaxElement(dynet::as_vector(cg.incremental_forward(i_average)));
     // Ensemble the probabilities and calculate the likelihood
     Expression i_logprob;
     if(ensemble_operation_ == "sum") {
@@ -39,7 +39,7 @@ void EnsembleClassifier::CalcEval(const Sentence & sent_src, int trg, LLStats & 
     } else {
         THROW_ERROR("Bad ensembling operation: " << ensemble_operation_ << endl);
     }
-    ll.loss_ -= as_scalar(cg.incremental_forward());
+    ll.loss_ -= as_scalar(cg.incremental_forward(i_logprob));
     // Check if it's correct
     if(label == trg) ll.correct_++;
     ll.words_++;
@@ -47,22 +47,22 @@ void EnsembleClassifier::CalcEval(const Sentence & sent_src, int trg, LLStats & 
 
 int EnsembleClassifier::Predict(const Sentence & sent_src) {
     // First initialize states and do encoding as necessary
-    cnn::ComputationGraph cg;
+    dynet::ComputationGraph cg;
     vector<Expression> i_sms;
     for(auto & tm : encclss_) {
         tm->NewGraph(cg);
         if(ensemble_operation_ == "sum") {
-            i_sms.push_back(tm->Forward<cnn::Softmax>(sent_src, false, cg));
+            i_sms.push_back(tm->Forward<dynet::Softmax>(sent_src, false, cg));
         } else {
-            i_sms.push_back(tm->Forward<cnn::LogSoftmax>(sent_src, false, cg));
+            i_sms.push_back(tm->Forward<dynet::LogSoftmax>(sent_src, false, cg));
         }
     }
-    sum(i_sms);
-    return MaxElement(cnn::as_vector(cg.incremental_forward()));
+    dynet::expr::Expression prob_exp = sum(i_sms);
+    return MaxElement(dynet::as_vector(cg.incremental_forward(prob_exp)));
 }
 
 
-int EnsembleClassifier::MaxElement(const std::vector<cnn::real> & vals) const {
+int EnsembleClassifier::MaxElement(const std::vector<dynet::real> & vals) const {
     if(!vals.size()) THROW_ERROR("Can't get max element of empty vector");
     int best_id = 0;
     float best_val = vals[0];

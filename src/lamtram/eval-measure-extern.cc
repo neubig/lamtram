@@ -1,6 +1,6 @@
 #include <lamtram/eval-measure-extern.h>
 #include <lamtram/macros.h>
-#include <cnn/dict.h>
+#include <dynet/dict.h>
 #include <boost/algorithm/string.hpp>
 #include <boost/iostreams/device/file_descriptor.hpp>
 #include <boost/iostreams/stream.hpp>
@@ -19,7 +19,7 @@ using namespace boost::iostreams;
 #define CHILD_STDOUT_READ pipefds_output[0]
 #define CHILD_STDOUT_WRITE pipefds_output[1]
 
-EvalMeasureExtern::EvalMeasureExtern(const std::string & config, const cnn::Dict & vocab)
+EvalMeasureExtern::EvalMeasureExtern(const std::string & config, const dynet::Dict & vocab)
                         : vocab_(vocab), run_(""), eos_(false) {
     if(config.length() == 0) THROW_ERROR("Required for external measure: run");
     for(const EvalMeasure::StringPair & strs : EvalMeasure::ParseConfig(config)) {

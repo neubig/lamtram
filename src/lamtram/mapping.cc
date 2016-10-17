@@ -1,7 +1,7 @@
 
 #include <lamtram/mapping.h>
 #include <lamtram/macros.h>
-#include <cnn/dict.h>
+#include <dynet/dict.h>
 #include <boost/algorithm/string.hpp>
 #include <fstream>
 

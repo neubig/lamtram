@@ -4,11 +4,11 @@
 #include <lamtram/dist-base.h>
 #include <lamtram/dist-factory.h>
 #include <lamtram/hashes.h>
-#include <cnn/expr.h>
-#include <cnn/dict.h>
+#include <dynet/expr.h>
+#include <dynet/dict.h>
 
 using namespace lamtram;
-using namespace cnn::expr;
+using namespace dynet::expr;
 using namespace std;
 
 void SoftmaxMod::LoadDists(int id) {
@@ -28,7 +28,7 @@ void SoftmaxMod::LoadDists(int id) {
   dist_id_ = id;
 }
 
-SoftmaxMod::SoftmaxMod(const string & sig, int input_size, const DictPtr & vocab, cnn::Model & mod) : SoftmaxBase(sig,input_size,vocab,mod), num_dist_(0), num_ctxt_(0), finished_words_(0), drop_words_(0), dist_id_(-1) {
+SoftmaxMod::SoftmaxMod(const string & sig, int input_size, const DictPtr & vocab, dynet::Model & mod) : SoftmaxBase(sig,input_size,vocab,mod), num_dist_(0), num_ctxt_(0), finished_words_(0), drop_words_(0), dist_id_(-1) {
   vector<string> strs = Tokenize(sig, ":");
   if(strs.size() <= 2 || strs[0] != "mod") THROW_ERROR("Bad signature in SoftmaxMod: " << sig);
   vector<string> my_dist_files;
@@ -64,7 +64,7 @@ SoftmaxMod::SoftmaxMod(const string & sig, int input_size, const DictPtr & vocab
   p_smd_b_ = mod.add_parameters({(unsigned int)num_dist_});  
 }
 
-void SoftmaxMod::NewGraph(cnn::ComputationGraph & cg) {
+void SoftmaxMod::NewGraph(dynet::ComputationGraph & cg) {
   i_sms_b_ = parameter(cg, p_sms_b_);
   i_sms_W_ = parameter(cg, p_sms_W_);
   i_smd_b_ = parameter(cg, p_smd_b_);
@@ -190,7 +190,7 @@ Expression SoftmaxMod::CalcLossExpr(Expression & in, Expression & prior, const C
   Expression score_sms = affine_transform({i_sms_b_, i_sms_W_, in_ctxt_expr});
   // Do dropout and use only the regular softmax
   uniform_real_distribution<float> float_distribution(0.0, 1.0);
-  if(train && (finished_words_ < drop_words_ || float_distribution(*cnn::rndeng) < dropout_)) {  
+  if(train && (finished_words_ < drop_words_ || float_distribution(*dynet::rndeng) < dropout_)) {  
     finished_words_++;
     return pickneglogsoftmax(score_sms, wid);
   // Do no dropout
@@ -207,12 +207,12 @@ Expression SoftmaxMod::CalcLossExpr(Expression & in, Expression & prior, const C
 Expression SoftmaxMod::CalcLossExpr(Expression & in, Expression & prior, const CtxtDist & ctxt_dist_batched, const vector<unsigned> & wids, bool train) {
   assert(prior.pg == nullptr);
   // Create expressions
-  Expression ctxt_expr = input(*in.pg, cnn::Dim({(unsigned int)num_ctxt_}, wids.size()), ctxt_dist_batched.first);
+  Expression ctxt_expr = input(*in.pg, dynet::Dim({(unsigned int)num_ctxt_}, wids.size()), ctxt_dist_batched.first);
   Expression in_ctxt_expr = concatenate({in, ctxt_expr});
   Expression score_sms = affine_transform({i_sms_b_, i_sms_W_, in_ctxt_expr});
   // Do dropout and use only the regular softmax
   uniform_real_distribution<float> float_distribution(0.0, 1.0);
-  if(train && (finished_words_ < drop_words_ || float_distribution(*cnn::rndeng) < dropout_)) {  
+  if(train && (finished_words_ < drop_words_ || float_distribution(*dynet::rndeng) < dropout_)) {  
     finished_words_ += wids.size();
     return pickneglogsoftmax(score_sms, wids);
   // Do no dropout
@@ -221,7 +221,7 @@ Expression SoftmaxMod::CalcLossExpr(Expression & in, Expression & prior, const C
     Expression score_smd = affine_transform({i_smd_b_, i_smd_W_, in_ctxt_expr});
     Expression score = softmax(concatenate({score_sms, score_smd}));
     // Do mixture of distributions
-    Expression word_prob = pick(score, wids) + input(*in.pg, cnn::Dim({1, (unsigned int)num_dist_}, wids.size()), ctxt_dist_batched.second) * pickrange(score, vocab_->size(), vocab_->size()+num_dist_);
+    Expression word_prob = pick(score, wids) + input(*in.pg, dynet::Dim({1, (unsigned int)num_dist_}, wids.size()), ctxt_dist_batched.second) * pickrange(score, vocab_->size(), vocab_->size()+num_dist_);
     return -log(word_prob);
   }
 }
@@ -238,7 +238,7 @@ Expression SoftmaxMod::CalcProb(Expression & in, Expression & prior, const Sente
   Expression score_sms = affine_transform({i_sms_b_, i_sms_W_, in_ctxt_expr});
   Expression word_prob;
   uniform_real_distribution<float> float_distribution(0.0, 1.0);
-  if(train && (finished_words_ < drop_words_ || float_distribution(*cnn::rndeng) < dropout_)) {  
+  if(train && (finished_words_ < drop_words_ || float_distribution(*dynet::rndeng) < dropout_)) {  
     finished_words_++;
     word_prob = softmax(score_sms);
   } else {
@@ -259,12 +259,12 @@ Expression SoftmaxMod::CalcProb(Expression & in, Expression & prior, const vecto
   CtxtDist ctxt_dist; ctxt_dist.first.resize(num_ctxt_ * ctxt_ngrams.size()); ctxt_dist.second.resize(num_dist_*vocab_->size() * ctxt_ngrams.size());
   CalcAllDists(ctxt_ngrams, ctxt_dist);
   // Create expressions
-  Expression ctxt_expr = input(*in.pg, cnn::Dim({(unsigned int)num_ctxt_}, ctxt_ngrams.size()), ctxt_dist.first);
+  Expression ctxt_expr = input(*in.pg, dynet::Dim({(unsigned int)num_ctxt_}, ctxt_ngrams.size()), ctxt_dist.first);
   Expression in_ctxt_expr = concatenate({in, ctxt_expr});
   Expression score_sms = affine_transform({i_sms_b_, i_sms_W_, in_ctxt_expr});
   Expression word_prob;
   uniform_real_distribution<float> float_distribution(0.0, 1.0);
-  if(train && (finished_words_ < drop_words_ || float_distribution(*cnn::rndeng) < dropout_)) {  
+  if(train && (finished_words_ < drop_words_ || float_distribution(*dynet::rndeng) < dropout_)) {  
     finished_words_++;
     word_prob = softmax(score_sms);
   } else {
@@ -272,7 +272,7 @@ Expression SoftmaxMod::CalcProb(Expression & in, Expression & prior, const vecto
     Expression score_smd = affine_transform({i_smd_b_, i_smd_W_, in_ctxt_expr});
     Expression score = softmax(concatenate({score_sms, score_smd}));
     // Do mixture of distributions
-    Expression dists = input(*in.pg, cnn::Dim({(unsigned int)num_dist_, (unsigned int)vocab_->size()}, ctxt_ngrams.size()), ctxt_dist.second);
+    Expression dists = input(*in.pg, dynet::Dim({(unsigned int)num_dist_, (unsigned int)vocab_->size()}, ctxt_ngrams.size()), ctxt_dist.second);
     word_prob = pickrange(score, 0, vocab_->size()) + transpose(dists) * pickrange(score, vocab_->size(), vocab_->size()+num_dist_);
   }
   // cerr << "Word " << GlobalVars::curr_word << " and surrounding probs: " << as_vector(pickrange(word_prob, max(0,GlobalVars::curr_word-3), min(GlobalVars::curr_word+4, (int)vocab_->size())).value()) << endl;

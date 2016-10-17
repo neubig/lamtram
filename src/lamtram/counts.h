@@ -7,7 +7,7 @@
 #include <lamtram/hashes.h>
 #include <lamtram/training-data.h>
 
-namespace cnn { class Dict; }
+namespace dynet { class Dict; }
 
 namespace lamtram {
 

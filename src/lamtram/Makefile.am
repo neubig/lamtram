@@ -19,12 +19,12 @@ LIBCPP = \
     counts.cc \
     input-file-stream.cc \
     softmax-full.cc \
+    softmax-multilayer.cc \
     softmax-hinge.cc \
     softmax-mod.cc \
     softmax-diff.cc \
     softmax-class.cc \
     softmax-factory.cc \
-    softmax-multilayer.cc \
     dict-utils.cc \
     dist-base.cc \
     dist-factory.cc \
@@ -45,7 +45,7 @@ LIBCPP = \
     eval-measure.cc \
     gru-cond.cc 
 
-AM_CXXFLAGS = $(BOOST_CPPFLAGS) $(EIGEN_CPPFLAGS) $(CNN_CPPFLAGS) $(OPENMP_CXXFLAGS) -I$(srcdir)/..
+AM_CXXFLAGS = $(BOOST_CPPFLAGS) $(EIGEN_CPPFLAGS) $(DYNET_CPPFLAGS) $(OPENMP_CXXFLAGS) -I$(srcdir)/..
 
 lib_LTLIBRARIES = liblamtram.la
 
@@ -56,7 +56,7 @@ liblamtram_la_LDFLAGS = -version-info 0:0:0
 
 LDADD=liblamtram.la \
     ../cnpy/libcnpy.la \
-    $(CNN_LDFLAGS) \
+    $(DYNET_LDFLAGS) \
     $(BOOST_LDFLAGS) \
     $(BOOST_SYSTEM_LIB) \
     $(BOOST_PROGRAM_OPTIONS_LIB) \

@@ -1,10 +1,10 @@
 #include <cnpy/cnpy-utils.h>
-#include <cnn/model.h>
+#include <dynet/model.h>
 
 using namespace std;
 using namespace lamtram;
 
-void CnpyUtils::copyWeight(const string & name,cnpy::npz_t & model,cnn::LookupParameter & target,float dropoutProb) {
+void CnpyUtils::copyWeight(const string & name,cnpy::npz_t & model,dynet::LookupParameter & target,float dropoutProb) {
     auto it = model.find(name);
     if(it != model.end()) {
         int vocSize = it->second.shape[0];

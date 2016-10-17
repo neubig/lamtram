@@ -1,9 +1,9 @@
 #include <lamtram/linear-encoder.h>
 #include <lamtram/macros.h>
 #include <lamtram/builder-factory.h>
-#include <cnn/model.h>
-#include <cnn/nodes.h>
-#include <cnn/rnn.h>
+#include <dynet/model.h>
+#include <dynet/nodes.h>
+#include <dynet/rnn.h>
 #include <boost/range/irange.hpp>
 #include <ctime>
 #include <fstream>
@@ -13,7 +13,7 @@ using namespace lamtram;
 
 LinearEncoder::LinearEncoder(int vocab_size, int wordrep_size,
            const BuilderSpec & hidden_spec, int unk_id,
-           cnn::Model & model) :
+           dynet::Model & model) :
       vocab_size_(vocab_size), wordrep_size_(wordrep_size), unk_id_(unk_id), hidden_spec_(hidden_spec), reverse_(false) {
   // Hidden layers
   builder_ = BuilderFactory::CreateBuilder(hidden_spec_, wordrep_size, model);
@@ -21,14 +21,14 @@ LinearEncoder::LinearEncoder(int vocab_size, int wordrep_size,
   p_wr_W_ = model.add_lookup_parameters(vocab_size, {(unsigned int)wordrep_size}); 
 }
 
-cnn::expr::Expression LinearEncoder::BuildSentGraph(const Sentence & sent, bool add, bool train, cnn::ComputationGraph & cg) {
+dynet::expr::Expression LinearEncoder::BuildSentGraph(const Sentence & sent, bool add, bool train, dynet::ComputationGraph & cg) {
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
   word_states_.resize(sent.size() + (add ? 1 : 0));
   word_embeddings_.resize(sent.size() + (add ? 1 : 0));
   builder_->start_new_sequence();
   // First get all the word representations
-  cnn::expr::Expression i_wr_t, i_h_t;
+  dynet::expr::Expression i_wr_t, i_h_t;
   if(!reverse_) {
     for(int t = 0; t < (int)sent.size(); t++) {
       i_wr_t = lookup(cg, p_wr_W_, sent[t]);
@@ -51,7 +51,7 @@ cnn::expr::Expression LinearEncoder::BuildSentGraph(const Sentence & sent, bool 
   return i_h_t;
 }
 
-cnn::expr::Expression LinearEncoder::BuildSentGraph(const vector<Sentence> & sent, bool add, bool train, cnn::ComputationGraph & cg) {
+dynet::expr::Expression LinearEncoder::BuildSentGraph(const vector<Sentence> & sent, bool add, bool train, dynet::ComputationGraph & cg) {
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
   assert(sent.size());
@@ -63,7 +63,7 @@ cnn::expr::Expression LinearEncoder::BuildSentGraph(const vector<Sentence> & sen
   word_embeddings_.resize(max_len + (add ? 1 : 0));
   builder_->start_new_sequence();
   // First get all the word representations
-  cnn::expr::Expression i_wr_t, i_h_t;
+  dynet::expr::Expression i_wr_t, i_h_t;
   vector<unsigned> words(sent.size());
   if(!reverse_) {
     for(int t = 0; t < max_len; t++) {
@@ -93,7 +93,7 @@ cnn::expr::Expression LinearEncoder::BuildSentGraph(const vector<Sentence> & sen
 }
 
 
-void LinearEncoder::NewGraph(cnn::ComputationGraph & cg) {
+void LinearEncoder::NewGraph(dynet::ComputationGraph & cg) {
   builder_->new_graph(cg);
   curr_graph_ = &cg;
 }
@@ -106,7 +106,7 @@ void LinearEncoder::NewGraph(cnn::ComputationGraph & cg) {
 //   builder_.copy(enc.builder_);
 // }
 
-LinearEncoder* LinearEncoder::Read(std::istream & in, cnn::Model & model) {
+LinearEncoder* LinearEncoder::Read(std::istream & in, dynet::Model & model) {
   int vocab_size, wordrep_size, unk_id;
   string version_id, hidden_spec, line, reverse;
   if(!getline(in, line))
@@ -123,7 +123,7 @@ void LinearEncoder::Write(std::ostream & out) {
   out << "linenc_001 " << vocab_size_ << " " << wordrep_size_ << " " << hidden_spec_ << " " << unk_id_ << " " << (reverse_?"rev":"for") << endl;
 }
 
-vector<cnn::expr::Expression> LinearEncoder::GetFinalHiddenLayers() const {
+vector<dynet::expr::Expression> LinearEncoder::GetFinalHiddenLayers() const {
   return builder_->final_h();
 }
 

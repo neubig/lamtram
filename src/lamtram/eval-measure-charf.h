@@ -7,7 +7,7 @@
 #include <lamtram/eval-measure.h>
 #include <map>
 #include <vector>
-#include <cnn/dict.h>
+#include <dynet/dict.h>
 
 namespace lamtram {
 
@@ -58,9 +58,9 @@ public:
     typedef std::map<int,std::shared_ptr<NgramStats> > StatsCache;
 
 
-    EvalMeasureCharF(const cnn::Dict & vocab, float smooth_val = 0, int ngram_order = 6, float beta = 3, bool use_space = false,bool ignore_bpe = true,int mode = 0) : 
+    EvalMeasureCharF(const dynet::Dict & vocab, float smooth_val = 0, int ngram_order = 6, float beta = 3, bool use_space = false,bool ignore_bpe = true,int mode = 0) : 
         smooth_val_(smooth_val),ngram_order_(ngram_order), beta_(beta) ,vocab_(vocab),use_space_(use_space),ignore_bpe_(ignore_bpe),mode_(mode){ }
-    EvalMeasureCharF(const std::string & config,const cnn::Dict & vocab);
+    EvalMeasureCharF(const std::string & config,const dynet::Dict & vocab);
 
     // Calculate the stats for a single sentence
     virtual std::shared_ptr<EvalStats> CalculateStats(
@@ -115,7 +115,7 @@ protected:
     float smooth_val_;
 
 
-    const cnn::Dict & vocab_;
+    const dynet::Dict & vocab_;
 
     // A cache to hold the stats
     StatsCache cache_;

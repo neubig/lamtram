@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cnn/tensor.h>
+#include <dynet/tensor.h>
 #include <cmath>
 #include <sstream>
 
@@ -20,21 +20,21 @@ public:
         return *this;
     }
 
-    cnn::real CalcAcc() {
-        return correct_/(cnn::real)words_;
+    dynet::real CalcAcc() {
+        return correct_/(dynet::real)words_;
     }
 
-    cnn::real CalcAvgLoss() {
+    dynet::real CalcAvgLoss() {
         return loss_/words_;
     }
-    cnn::real CalcUnkLoss() {
+    dynet::real CalcUnkLoss() {
         return loss_+unk_*log(vocab_);
     }
 
-    cnn::real CalcPPL() {
+    dynet::real CalcPPL() {
         return pow(2, (CalcUnkLoss()/words_/log(2)));
     }
-    cnn::real CalcPPLNoUnk() {
+    dynet::real CalcPPLNoUnk() {
         return pow(2, (loss_/words_/log(2)));
     }
 
@@ -52,7 +52,7 @@ public:
     int words_; // Number of words
     int unk_;   // Number of unknown words
     int correct_; // Number of correct predictions
-    cnn::real loss_;  // Loss
+    dynet::real loss_;  // Loss
     bool is_likelihood_; // Whether this represents a likelihood, or a generic loss
 
 };

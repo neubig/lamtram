@@ -3,7 +3,7 @@
 
 #include <lamtram/sentence.h>
 #include <lamtram/eval-measure.h>
-#include <cnn/dict.h>
+#include <dynet/dict.h>
 #include <boost/iostreams/device/file_descriptor.hpp>
 #include <boost/iostreams/stream.hpp>
 #include <vector>
@@ -28,7 +28,7 @@ class EvalMeasureExtern : public EvalMeasure {
 
 public:
 
-    EvalMeasureExtern(const std::string & str, const cnn::Dict & vocab);
+    EvalMeasureExtern(const std::string & str, const dynet::Dict & vocab);
 
     // Calculate the stats for a single sentence
     virtual std::shared_ptr<EvalStats> CalculateStats(
@@ -42,7 +42,7 @@ public:
 protected:
 
     // Target vocabulary to generate sys/ref strings
-    const cnn::Dict & vocab_;
+    const dynet::Dict & vocab_;
 
     // External evaluation measure executable to run
     std::string run_;

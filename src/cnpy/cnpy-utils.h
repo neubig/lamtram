@@ -6,16 +6,16 @@
 #include <memory>
 #include <tuple>
 #include <cnpy/cnpy.h>
-#include <cnn/model.h>
-#include <cnn/rnn.h>
-#include <cnn/tensor.h>
+#include <dynet/model.h>
+#include <dynet/rnn.h>
+#include <dynet/tensor.h>
 #include <lamtram/builder-factory.h>
 #include <lamtram/encoder-attentional.h>
 #include <lamtram/softmax-base.h>
 #include <lamtram/softmax-full.h>
 #include <lamtram/softmax-multilayer.h>
 
-namespace cnn {
+namespace dynet {
 struct LookupParameter;
 struct RNNBuilder;
 }
@@ -26,7 +26,7 @@ typedef std::shared_ptr<ExternAttentional> ExternAttentionalPtr;
 
 class CnpyUtils {
 public:
-    static void copyWeight(const std::string & name,cnpy::npz_t & model,cnn::LookupParameter & target,float dropoutProb);
+    static void copyWeight(const std::string & name,cnpy::npz_t & model,dynet::LookupParameter & target,float dropoutProb);
     static void copyGRUWeight(const std::string & prefix,cnpy::npz_t & model,BuilderPtr target);
     static void copyGRUCondWeight(const std::string & prefix,cnpy::npz_t & model,BuilderPtr target);
     static void copyAttentionWeight(const std::string & prefix,cnpy::npz_t & model,ExternAttentionalPtr target);

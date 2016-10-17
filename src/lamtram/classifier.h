@@ -1,7 +1,7 @@
 #pragma once
 
-#include <cnn/model.h>
-#include <cnn/expr.h>
+#include <dynet/model.h>
+#include <dynet/expr.h>
 #include <vector>
 #include <iostream>
 #include <memory>
@@ -13,28 +13,28 @@ class Classifier {
 
 public:
 
-    Classifier(int input_size, int label_size, const std::string & layers, const std::string & smsig, cnn::Model & mod);
+    Classifier(int input_size, int label_size, const std::string & layers, const std::string & smsig, dynet::Model & mod);
     ~Classifier() { }
 
     // Calculate the log likelihood
     template <class OutputData>
-    cnn::expr::Expression BuildGraph(const cnn::expr::Expression & input, const OutputData & label,
+    dynet::expr::Expression BuildGraph(const dynet::expr::Expression & input, const OutputData & label,
                                      bool train,
-                                     cnn::ComputationGraph & cg) const;
+                                     dynet::ComputationGraph & cg) const;
 
     // Calculate the probabilities from the model, or predict
     template <class SoftmaxOp>
-    cnn::expr::Expression Forward(const cnn::expr::Expression & input,
-                                  cnn::ComputationGraph & cg) const;
+    dynet::expr::Expression Forward(const dynet::expr::Expression & input,
+                                  dynet::ComputationGraph & cg) const;
 
     // Accessors
     int GetLabelSize() const { return label_size_; }
     int GetInputSize() const { return input_size_; }
 
     // Index the parameters in a computation graph
-    void NewGraph(cnn::ComputationGraph & cg);
+    void NewGraph(dynet::ComputationGraph & cg);
     
-    static Classifier* Read(std::istream & in, cnn::Model & mod);
+    static Classifier* Read(std::istream & in, dynet::Model & mod);
     void Write(std::ostream & out);
 
     // Setters
@@ -47,17 +47,17 @@ protected:
     std::string layer_str_;
     std::string smsig_;
 
-    std::vector<cnn::Parameter> p_W_; // Layer weights
-    std::vector<cnn::Parameter> p_b_; // Layer bias
+    std::vector<dynet::Parameter> p_W_; // Layer weights
+    std::vector<dynet::Parameter> p_b_; // Layer bias
 
-    std::vector<cnn::expr::Expression> i_W_; // Layer weights
-    std::vector<cnn::expr::Expression> i_b_; // Layer bias
+    std::vector<dynet::expr::Expression> i_W_; // Layer weights
+    std::vector<dynet::expr::Expression> i_b_; // Layer bias
 
 private:
     // A pointer to the current computation graph.
     // This is only used for sanity checking to make sure NewGraph
     // is called before trying to do anything that requires it.
-    cnn::ComputationGraph * curr_graph_;
+    dynet::ComputationGraph * curr_graph_;
 
     // Dropout rate
     float dropout_;

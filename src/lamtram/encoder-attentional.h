@@ -6,7 +6,7 @@
 #include <lamtram/neural-lm.h>
 #include <lamtram/extern-calculator.h>
 #include <lamtram/mapping.h>
-#include <cnn/cnn.h>
+#include <dynet/dynet.h>
 #include <vector>
 #include <iostream>
 #include <cnpy/cnpy.h>
@@ -14,7 +14,7 @@
 #include <lamtram/gru-cond.h>
 #include "boost/property_tree/ptree.hpp"
 
-namespace cnn {
+namespace dynet {
 class Model;
 struct ComputationGraph;
 struct Parameter;
@@ -33,52 +33,52 @@ public:
                       int state_size, const std::string & lex_type,
                       const DictPtr & vocab_src, const DictPtr & vocab_trg,
                      int attention_context, bool source_word_embedding_in_softmax, int source_word_embedding_in_softmax_context,
-                      cnn::Model & mod);
+                      dynet::Model & mod);
     virtual ~ExternAttentional() { }
 
     // Index the parameters in a computation graph
-    void NewGraph(cnn::ComputationGraph & cg);
+    void NewGraph(dynet::ComputationGraph & cg);
 
     // Initialize the sentence with one or more sets of encoded input
-    virtual void InitializeSentence(const Sentence & sent, bool train, cnn::ComputationGraph & cg) override;
-    virtual void InitializeSentence(const std::vector<Sentence> & sent, bool train, cnn::ComputationGraph & cg) override;
+    virtual void InitializeSentence(const Sentence & sent, bool train, dynet::ComputationGraph & cg) override;
+    virtual void InitializeSentence(const std::vector<Sentence> & sent, bool train, dynet::ComputationGraph & cg) override;
 
     // Create a variable encoding the context
-    virtual cnn::expr::Expression CreateContext(
+    virtual dynet::expr::Expression CreateContext(
         // const Sentence & sent, int loc,
-        const std::vector<cnn::expr::Expression> & state_in,
-        const cnn::expr::Expression & align_sum_in,
+        const std::vector<dynet::expr::Expression> & state_in,
+        const dynet::expr::Expression & align_sum_in,
         bool train,
-        cnn::ComputationGraph & cg,
-        std::vector<cnn::expr::Expression> & align_out,
-        cnn::expr::Expression & align_sum_out) const override;
+        dynet::ComputationGraph & cg,
+        std::vector<dynet::expr::Expression> & align_out,
+        dynet::expr::Expression & align_sum_out) const override;
         
-    virtual cnn::expr::Expression CalcContext(
-        const cnn::expr::Expression & state_in
+    virtual dynet::expr::Expression CalcContext(
+        const dynet::expr::Expression & state_in
         ) override;
 
-    virtual cnn::expr::Expression CalcAttentionContext(const cnn::expr::Expression align) const;
-    virtual cnn::expr::Expression CalcWordContext(const cnn::expr::Expression align) const;
+    virtual dynet::expr::Expression CalcAttentionContext(const dynet::expr::Expression align) const;
+    virtual dynet::expr::Expression CalcWordContext(const dynet::expr::Expression align) const;
 
 
     // Calculate the prior
-    cnn::expr::Expression CalcPrior(
-        const cnn::expr::Expression & align_vec) const override;
+    dynet::expr::Expression CalcPrior(
+        const dynet::expr::Expression & align_vec) const override;
 
     // Create an empty context
-    virtual cnn::expr::Expression GetEmptyContext(cnn::ComputationGraph & cg) const override;
+    virtual dynet::expr::Expression GetEmptyContext(dynet::ComputationGraph & cg) const override;
 
     int GetHiddenSize() const { return hidden_size_; }
     int GetStateSize() const { return state_size_; }
     int GetContextSize() const { return context_size_; }
 
-    cnn::expr::Expression GetState() { return i_h_last_; }
+    dynet::expr::Expression GetState() { return i_h_last_; }
 
     // Reading/writing functions
-    static ExternAttentional* Read(std::istream & in, const DictPtr & vocab_src, const DictPtr & vocab_trg, cnn::Model & model);
+    static ExternAttentional* Read(std::istream & in, const DictPtr & vocab_src, const DictPtr & vocab_trg, dynet::Model & model);
     void Write(std::ostream & out);
 
-    virtual cnn::expr::Expression GetLastContext() const {return cnn::expr::Expression(lastContext);};
+    virtual dynet::expr::Expression GetLastContext() const {return dynet::expr::Expression(lastContext);};
 
 
     // Setters
@@ -105,42 +105,42 @@ protected:
     float lex_alpha_;
     size_t lex_size_;
     
-    cnn::expr::Expression lastContext;
+    dynet::expr::Expression lastContext;
 
     // Parameters
-    cnn::Parameter p_ehid_h_W_;
-    cnn::Parameter p_ehid_h_b_;
-    cnn::Parameter p_ehid_state_W_;
-    cnn::Parameter p_e_ehid_W_;
-    cnn::Parameter p_e_ehid_b_;
-    cnn::Parameter p_align_sum_W_;
+    dynet::Parameter p_ehid_h_W_;
+    dynet::Parameter p_ehid_h_b_;
+    dynet::Parameter p_ehid_state_W_;
+    dynet::Parameter p_e_ehid_W_;
+    dynet::Parameter p_e_ehid_b_;
+    dynet::Parameter p_align_sum_W_;
     
 
     // Interned parameters
-    cnn::expr::Expression i_ehid_h_W_;
-    cnn::expr::Expression i_ehid_h_b_;
-    cnn::expr::Expression i_ehid_state_W_;
-    cnn::expr::Expression i_e_ehid_W_;
-    cnn::expr::Expression i_e_ehid_b_;
-    cnn::expr::Expression i_align_sum_W_;
+    dynet::expr::Expression i_ehid_h_W_;
+    dynet::expr::Expression i_ehid_h_b_;
+    dynet::expr::Expression i_ehid_state_W_;
+    dynet::expr::Expression i_e_ehid_W_;
+    dynet::expr::Expression i_e_ehid_b_;
+    dynet::expr::Expression i_align_sum_W_;
 
     // Temporary variables
-    cnn::expr::Expression i_h_;
-    cnn::expr::Expression i_we_;
-    cnn::expr::Expression i_hc_;
-    cnn::expr::Expression i_h_last_;
-    cnn::expr::Expression i_ehid_hpart_;
-    cnn::expr::Expression i_sent_len_;
-    cnn::expr::Expression i_lexicon_;
+    dynet::expr::Expression i_h_;
+    dynet::expr::Expression i_we_;
+    dynet::expr::Expression i_hc_;
+    dynet::expr::Expression i_h_last_;
+    dynet::expr::Expression i_ehid_hpart_;
+    dynet::expr::Expression i_sent_len_;
+    dynet::expr::Expression i_lexicon_;
 
 private:
     // A pointer to the current computation graph.
     // This is only used for sanity checking to make sure NewGraph
     // is called before trying to do anything that requires it.
-    cnn::ComputationGraph * curr_graph_;
+    dynet::ComputationGraph * curr_graph_;
 
     // Internal storage of a vector full of ones
-    std::vector<cnn::real> sent_values_;
+    std::vector<dynet::real> sent_values_;
 
     int sent_len_;
 
@@ -156,38 +156,49 @@ public:
     // Create a new EncoderAttentional and add it to the existing model
     EncoderAttentional(const ExternAttentionalPtr & extern_calc,
                        const NeuralLMPtr & decoder,
-                       cnn::Model & model);
+                       dynet::Model & model);
     ~EncoderAttentional() { }
 
     // Build the computation graph for the sentence including loss
-    template <class SentData>
-    cnn::expr::Expression BuildSentGraph(const SentData & sent_src, const SentData & sent_trg, const SentData & sent_cache,
+    dynet::expr::Expression BuildSentGraph(const Sentence & sent_src,
+                                         const Sentence & sent_trg,
+                                         const Sentence & cache_trg,
+                                         const float * weight,
                                          float samp_percent,
                                          bool train,
-                                         cnn::ComputationGraph & cg, LLStats & ll);
+                                         dynet::ComputationGraph & cg,
+                                         LLStats & ll);
+    dynet::expr::Expression BuildSentGraph(const std::vector<Sentence> & sent_src,
+                                         const std::vector<Sentence> & sent_trg,
+                                         const std::vector<Sentence> & cache_trg,
+                                         const std::vector<float> * weights,
+                                         float samp_percent,
+                                         bool train,
+                                         dynet::ComputationGraph & cg,
+                                         LLStats & ll);
 
     // Sample sentences and return an expression of the vector of probabilities
-    cnn::expr::Expression SampleTrgSentences(const Sentence & sent_src,
+    dynet::expr::Expression SampleTrgSentences(const Sentence & sent_src,
                                              const Sentence * sent_trg,
                                              int num_samples,
                                              int max_len,
                                              bool train,
-                                             cnn::ComputationGraph & cg,
+                                             dynet::ComputationGraph & cg,
                                              std::vector<Sentence> & samples);    
 
     template <class SentData>
-    std::vector<cnn::expr::Expression> GetEncodedState(
-                                    const SentData & sent_src, bool train, cnn::ComputationGraph & cg);
+    std::vector<dynet::expr::Expression> GetEncodedState(
+                                    const SentData & sent_src, bool train, dynet::ComputationGraph & cg);
 
     // Reading/writing functions
-    static EncoderAttentional* Read(const DictPtr & vocab_src, const DictPtr & vocab_trg, std::istream & in, cnn::Model & model);
+    static EncoderAttentional* Read(const DictPtr & vocab_src, const DictPtr & vocab_trg, std::istream & in, dynet::Model & model);
     void Write(std::ostream & out);
 
     //Read from pkz
-    static EncoderAttentional* Convert(const DictPtr & vocab_src, const DictPtr & vocab_trg, const std::string & file, const boost::property_tree::ptree & json, cnn::Model & model);
+    static EncoderAttentional* Convert(const DictPtr & vocab_src, const DictPtr & vocab_trg, const std::string & file, const boost::property_tree::ptree & json, dynet::Model & model);
 
     // Index the parameters in a computation graph
-    void NewGraph(cnn::ComputationGraph & cg);
+    void NewGraph(dynet::ComputationGraph & cg);
 
     // Information functions
     static bool HasSrcVocab() { return true; }
@@ -226,18 +237,18 @@ protected:
     NeuralLMPtr decoder_;
 
     // Parameters
-    cnn::Parameter p_enc2dec_W_; // Encoder to decoder weights
-    cnn::Parameter p_enc2dec_b_; // Encoder to decoder bias
+    dynet::Parameter p_enc2dec_W_; // Encoder to decoder weights
+    dynet::Parameter p_enc2dec_b_; // Encoder to decoder bias
 
     // Interned Parameters
-    cnn::expr::Expression i_enc2dec_W_;
-    cnn::expr::Expression i_enc2dec_b_;
+    dynet::expr::Expression i_enc2dec_W_;
+    dynet::expr::Expression i_enc2dec_b_;
 
 private:
     // A pointer to the current computation graph.
     // This is only used for sanity checking to make sure NewGraph
     // is called before trying to do anything that requires it.
-    cnn::ComputationGraph * curr_graph_;
+    dynet::ComputationGraph * curr_graph_;
 
 };
 

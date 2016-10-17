@@ -6,11 +6,11 @@
 #include <iostream>
 #include <lamtram/macros.h>
 
-#include "cnn/nodes.h"
-#include "cnn/training.h"
+#include "dynet/nodes.h"
+#include "dynet/training.h"
 
 using namespace std;
-using namespace cnn;
+using namespace dynet;
 
 namespace lamtram {
 
@@ -117,6 +117,18 @@ void GRUCONDBuilder::start_new_sequence_impl(const std::vector<Expression>& h_0)
   }
 }
 
+Expression GRUCONDBuilder::set_h_impl(int prev, const vector<Expression>& h_new) {
+  if (h_new.size()) { assert(h_new.size() == layers); }
+  const unsigned t = h.size();
+  h.push_back(vector<Expression>(layers));
+  for (unsigned i = 0; i < layers; ++i) {
+    Expression y = h_new[i];
+    h[t][i] = y;
+  }
+  return h[t].back();
+}
+
+
 Expression GRUCONDBuilder::add_input_impl(int prev, const Expression& x) {
   if(dropout_rate != 0.f)
     throw std::runtime_error("GRUCONDBuilder doesn't support dropout yet");
@@ -208,4 +220,4 @@ void GRUCONDBuilder::copy(const RNNBuilder & rnn) {
 
 	}
 
-} // namespace cnn
+} // namespace dynet

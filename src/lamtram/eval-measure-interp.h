@@ -8,7 +8,7 @@
 
 #include <lamtram/sentence.h>
 #include <lamtram/eval-measure.h>
-#include <cnn/dict.h>
+#include <dynet/dict.h>
 #include <map>
 #include <vector>
 
@@ -48,7 +48,7 @@ public:
 
     EvalMeasureInterp(const std::vector<std::shared_ptr<EvalMeasure> > & measures, const std::vector<float> & coeffs) 
         : measures_(measures), coeffs_(coeffs) { }
-    EvalMeasureInterp(const std::string & str, const cnn::Dict & vocab);
+    EvalMeasureInterp(const std::string & str, const dynet::Dict & vocab);
     virtual ~EvalMeasureInterp() { }
 
     // Calculate the stats for a single sentence

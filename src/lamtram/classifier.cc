@@ -2,15 +2,15 @@
 #include <lamtram/macros.h>
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
-#include <cnn/nodes.h>
+#include <dynet/nodes.h>
 
 using namespace lamtram;
 using namespace std;
-using namespace cnn::expr;
+using namespace dynet::expr;
 
 
 Classifier::Classifier(int input_size, int label_size,
-             const std::string & layers, const std::string & smsig, cnn::Model & mod) :
+             const std::string & layers, const std::string & smsig, dynet::Model & mod) :
     input_size_(input_size), label_size_(label_size), layer_str_(layers), smsig_(smsig), curr_graph_(NULL), dropout_(0.f) {
   vector<string> layer_sizes;
   if(layers.size() > 0)
@@ -30,12 +30,12 @@ Classifier::Classifier(int input_size, int label_size,
 namespace lamtram {
 
 template <>
-cnn::expr::Expression Classifier::BuildGraph<int>(const cnn::expr::Expression & input, const int & label,
+dynet::expr::Expression Classifier::BuildGraph<int>(const dynet::expr::Expression & input, const int & label,
                           bool train,
-                          cnn::ComputationGraph & cg) const {
+                          dynet::ComputationGraph & cg) const {
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
-  cnn::expr::Expression last_expr = input, aff;
+  dynet::expr::Expression last_expr = input, aff;
   int i;
   for(i = 0; i < (int)p_W_.size()-1; i++) {
     aff = affine_transform({i_b_[i], i_W_[i], last_expr});
@@ -53,12 +53,12 @@ cnn::expr::Expression Classifier::BuildGraph<int>(const cnn::expr::Expression & 
 }
 
 template <>
-cnn::expr::Expression Classifier::BuildGraph<vector<int> >(const cnn::expr::Expression & input, const vector<int> & label,
+dynet::expr::Expression Classifier::BuildGraph<vector<int> >(const dynet::expr::Expression & input, const vector<int> & label,
                                bool train,
-                               cnn::ComputationGraph & cg) const {
+                               dynet::ComputationGraph & cg) const {
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
-  cnn::expr::Expression last_expr = input, aff;
+  dynet::expr::Expression last_expr = input, aff;
   int i;
   for(i = 0; i < (int)p_W_.size()-1; i++) {
     aff = affine_transform({i_b_[i], i_W_[i], last_expr});
@@ -82,11 +82,11 @@ cnn::expr::Expression Classifier::BuildGraph<vector<int> >(const cnn::expr::Expr
 
 
 template <class SoftmaxOp>
-cnn::expr::Expression Classifier::Forward(const cnn::expr::Expression & input,
-                      cnn::ComputationGraph & cg) const {
+dynet::expr::Expression Classifier::Forward(const dynet::expr::Expression & input,
+                      dynet::ComputationGraph & cg) const {
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
-  cnn::expr::Expression last_expr = input, aff;
+  dynet::expr::Expression last_expr = input, aff;
   int i;
   for(i = 0; i < (int)p_W_.size()-1; i++) {
     aff = affine_transform({i_b_[i], i_W_[i], last_expr});
@@ -94,24 +94,24 @@ cnn::expr::Expression Classifier::Forward(const cnn::expr::Expression & input,
     if(dropout_) last_expr = dropout(last_expr, dropout_);
   }
   aff = affine_transform({i_b_[i], i_W_[i], last_expr});
-  return cnn::expr::Expression(aff.pg, aff.pg->add_function<SoftmaxOp>({aff.i}));
+  return dynet::expr::Expression(aff.pg, aff.pg->add_function<SoftmaxOp>({aff.i}));
 }
 
 // Instantiate
 template
-cnn::expr::Expression Classifier::Forward<cnn::Softmax>(
-                   const cnn::expr::Expression & input,
-                   cnn::ComputationGraph & cg) const;
+dynet::expr::Expression Classifier::Forward<dynet::Softmax>(
+                   const dynet::expr::Expression & input,
+                   dynet::ComputationGraph & cg) const;
 template
-cnn::expr::Expression Classifier::Forward<cnn::LogSoftmax>(
-                   const cnn::expr::Expression & input,
-                   cnn::ComputationGraph & cg) const;
+dynet::expr::Expression Classifier::Forward<dynet::LogSoftmax>(
+                   const dynet::expr::Expression & input,
+                   dynet::ComputationGraph & cg) const;
 template
-cnn::expr::Expression Classifier::Forward<cnn::Identity>(
-                   const cnn::expr::Expression & input,
-                   cnn::ComputationGraph & cg) const;
+dynet::expr::Expression Classifier::Forward<dynet::Identity>(
+                   const dynet::expr::Expression & input,
+                   dynet::ComputationGraph & cg) const;
 
-void Classifier::NewGraph(cnn::ComputationGraph & cg) {
+void Classifier::NewGraph(dynet::ComputationGraph & cg) {
   for(int i = 0; i < (int)p_W_.size(); i++) {
     i_b_[i] = parameter(cg, p_b_[i]);
     i_W_[i] = parameter(cg, p_W_[i]);
@@ -120,7 +120,7 @@ void Classifier::NewGraph(cnn::ComputationGraph & cg) {
 }
 
 
-Classifier* Classifier::Read(std::istream & in, cnn::Model & model) {
+Classifier* Classifier::Read(std::istream & in, dynet::Model & model) {
   int input_size, label_size;
   string version_id, layers, line, smsig;
   if(!getline(in, line))

@@ -1,17 +1,17 @@
 #include <lamtram/encoder-classifier.h>
 #include <lamtram/macros.h>
-#include <cnn/model.h>
-#include <cnn/nodes.h>
+#include <dynet/model.h>
+#include <dynet/nodes.h>
 #include <fstream>
 
 using namespace std;
 using namespace lamtram;
-using namespace cnn::expr;
+using namespace dynet::expr;
 
 EncoderClassifier::EncoderClassifier(
                    const vector<LinearEncoderPtr> & encoders,
                    const ClassifierPtr & classifier,
-                   cnn::Model & model) : encoders_(encoders), classifier_(classifier), curr_graph_(NULL) {
+                   dynet::Model & model) : encoders_(encoders), classifier_(classifier), curr_graph_(NULL) {
     // Encoder to classifier mapping parameters
     int enc2cls_in = 0;
     for(auto & enc : encoders)
@@ -22,7 +22,7 @@ EncoderClassifier::EncoderClassifier(
 }
 
 
-void EncoderClassifier::NewGraph(cnn::ComputationGraph & cg) {
+void EncoderClassifier::NewGraph(dynet::ComputationGraph & cg) {
     for(auto & enc : encoders_)
         enc->NewGraph(cg);
     classifier_->NewGraph(cg);
@@ -32,70 +32,77 @@ void EncoderClassifier::NewGraph(cnn::ComputationGraph & cg) {
 }
 
 template <class SentData>
-cnn::expr::Expression EncoderClassifier::GetEncodedState(
-                        const SentData & sent_src, bool train, cnn::ComputationGraph & cg) const {
+dynet::expr::Expression EncoderClassifier::GetEncodedState(
+                        const SentData & sent_src, bool train, dynet::ComputationGraph & cg) const {
     // Perform encoding with each encoder
-    vector<cnn::expr::Expression> inputs;
+    vector<dynet::expr::Expression> inputs;
     for(auto & enc : encoders_) {
         enc->BuildSentGraph(sent_src, true, train, cg);
         for(auto & id : enc->GetFinalHiddenLayers())
             inputs.push_back(id);
     }
     // Perform transformation
-    cnn::expr::Expression i_combined;
+    dynet::expr::Expression i_combined;
     assert(inputs.size() > 0);
     if(inputs.size() == 1) { i_combined = inputs[0]; }
     else                   { i_combined = concatenate(inputs); }
     return tanh(affine_transform({i_enc2cls_b_, i_enc2cls_W_, i_combined}));
 }
 
-template <class SentData, class OutputType>
-cnn::expr::Expression EncoderClassifier::BuildSentGraph(const SentData & sent_src, const OutputType & trg, const OutputType & cache,
+dynet::expr::Expression EncoderClassifier::BuildSentGraph(const Sentence & sent_src,
+                                                        const int & trg,
+                                                        const int & cache,
+                                                        const float * weight,
                                                         float samp_percent,
                                                         bool train,
-                                                        cnn::ComputationGraph & cg, LLStats & ll) const {
+                                                        dynet::ComputationGraph & cg,
+                                                        LLStats & ll) {
     if(&cg != curr_graph_)
-        THROW_ERROR("Initialized computation graph and passed comptuation graph don't match."); 
+        THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
     // Perform encoding with each encoder
-    cnn::expr::Expression classifier_in = GetEncodedState(sent_src, train, cg);
+    dynet::expr::Expression classifier_in = GetEncodedState(sent_src, train, cg);
     ll.words_ += classifier_in.value().d.bd;
     return classifier_->BuildGraph(classifier_in, trg, train, cg);
 }
 
-template
-cnn::expr::Expression EncoderClassifier::BuildSentGraph<Sentence, int>(
-  const Sentence & sent_src, const int & trg, const int & cache, 
-  float samp_percent,
-  bool train, cnn::ComputationGraph & cg, LLStats & ll) const;
-template
-cnn::expr::Expression EncoderClassifier::BuildSentGraph<vector<Sentence>, vector<int> >(
-  const vector<Sentence> & sent_src, const vector<int> & trg, const vector<int> & cache,
-  float samp_percent,
-  bool train, cnn::ComputationGraph & cg, LLStats & ll) const;
-
+dynet::expr::Expression EncoderClassifier::BuildSentGraph(const std::vector<Sentence> & sent_src,
+                                                        const std::vector<int> & trg,
+                                                        const std::vector<int> & cache,
+                                                        const std::vector<float> * weights,
+                                                        float samp_percent,
+                                                        bool train,
+                                                        dynet::ComputationGraph & cg,
+                                                        LLStats & ll) {
+    if(&cg != curr_graph_)
+        THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
+    // Perform encoding with each encoder
+    dynet::expr::Expression classifier_in = GetEncodedState(sent_src, train, cg);
+    ll.words_ += classifier_in.value().d.bd;
+    return classifier_->BuildGraph(classifier_in, trg, train, cg);
+}
 
 template <class SoftmaxOp>
-cnn::expr::Expression EncoderClassifier::Forward(const Sentence & sent_src,
+dynet::expr::Expression EncoderClassifier::Forward(const Sentence & sent_src,
                                                  bool train, 
-                                                 cnn::ComputationGraph & cg) const {
+                                                 dynet::ComputationGraph & cg) const {
     if(&cg != curr_graph_)
         THROW_ERROR("Initialized computation graph and passed comptuation graph don't match."); 
     // Perform encoding with each encoder
-    cnn::expr::Expression classifier_in = GetEncodedState(sent_src, train, cg);
+    dynet::expr::Expression classifier_in = GetEncodedState(sent_src, train, cg);
     return classifier_->Forward<SoftmaxOp>(classifier_in, cg);
 }
 
 // Instantiate
 template
-cnn::expr::Expression EncoderClassifier::Forward<cnn::Softmax>(const Sentence & sent_src, 
+dynet::expr::Expression EncoderClassifier::Forward<dynet::Softmax>(const Sentence & sent_src, 
                                                                bool train,
-                                                               cnn::ComputationGraph & cg) const;
+                                                               dynet::ComputationGraph & cg) const;
 template
-cnn::expr::Expression EncoderClassifier::Forward<cnn::LogSoftmax>(const Sentence & sent_src, 
+dynet::expr::Expression EncoderClassifier::Forward<dynet::LogSoftmax>(const Sentence & sent_src, 
                                                                bool train,
-                                                               cnn::ComputationGraph & cg) const;
+                                                               dynet::ComputationGraph & cg) const;
 
-EncoderClassifier* EncoderClassifier::Read(const DictPtr & vocab_src, const DictPtr & vocab_trg, std::istream & in, cnn::Model & model) {
+EncoderClassifier* EncoderClassifier::Read(const DictPtr & vocab_src, const DictPtr & vocab_trg, std::istream & in, dynet::Model & model) {
     int num_encoders;
     string version_id, line;
     if(!getline(in, line))

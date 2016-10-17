@@ -1,11 +1,11 @@
 #pragma once
 
 #include <lamtram/sentence.h>
-#include <cnn/tensor.h>
+#include <dynet/tensor.h>
 #include <vector>
 #include <memory>
 
-namespace cnn {
+namespace dynet {
 struct ComputationGraph;
 }
 
@@ -17,35 +17,35 @@ public:
     ExternCalculator(int context_size) : context_size_(context_size) { }
     virtual ~ExternCalculator() { }
 
-    virtual void InitializeSentence(const Sentence & sent, bool train, cnn::ComputationGraph & cg) { }
-    virtual void InitializeSentence(const std::vector<Sentence> & sent, bool train, cnn::ComputationGraph & cg) { }
+    virtual void InitializeSentence(const Sentence & sent, bool train, dynet::ComputationGraph & cg) { }
+    virtual void InitializeSentence(const std::vector<Sentence> & sent, bool train, dynet::ComputationGraph & cg) { }
 
     // Create a variable encoding the context
-    virtual cnn::expr::Expression CreateContext(
+    virtual dynet::expr::Expression CreateContext(
         // const Sentence & sent, int loc,
-        const std::vector<cnn::expr::Expression> & state_in,
-        const cnn::expr::Expression & align_sum_in,
+        const std::vector<dynet::expr::Expression> & state_in,
+        const dynet::expr::Expression & align_sum_in,
         bool train,
-        cnn::ComputationGraph & cg,
-        std::vector<cnn::expr::Expression> & align_out,
-        cnn::expr::Expression & align_sum_out) const = 0;
+        dynet::ComputationGraph & cg,
+        std::vector<dynet::expr::Expression> & align_out,
+        dynet::expr::Expression & align_sum_out) const = 0;
     
-    virtual cnn::expr::Expression CalcAttentionContext(const cnn::expr::Expression align) const = 0;
-    virtual cnn::expr::Expression CalcWordContext(const cnn::expr::Expression align) const = 0;
+    virtual dynet::expr::Expression CalcAttentionContext(const dynet::expr::Expression align) const = 0;
+    virtual dynet::expr::Expression CalcWordContext(const dynet::expr::Expression align) const = 0;
     
-    virtual cnn::expr::Expression CalcContext(
-        const cnn::expr::Expression & state_in
+    virtual dynet::expr::Expression CalcContext(
+        const dynet::expr::Expression & state_in
         ) = 0;    
 
     // Calculate the prior over the inputs
-    virtual cnn::expr::Expression CalcPrior(
-        const cnn::expr::Expression & align_vec) const { return cnn::expr::Expression(); };
+    virtual dynet::expr::Expression CalcPrior(
+        const dynet::expr::Expression & align_vec) const { return dynet::expr::Expression(); };
 
-    virtual cnn::expr::Expression GetEmptyContext(cnn::ComputationGraph & cg) const = 0;
+    virtual dynet::expr::Expression GetEmptyContext(dynet::ComputationGraph & cg) const = 0;
 
     int GetSize() const { return context_size_; }
 
-    virtual cnn::expr::Expression GetLastContext() const = 0;
+    virtual dynet::expr::Expression GetLastContext() const = 0;
 
 protected:
     int context_size_;

@@ -4,11 +4,11 @@
 #include <lamtram/dist-base.h>
 #include <lamtram/dist-factory.h>
 #include <lamtram/hashes.h>
-#include <cnn/expr.h>
-#include <cnn/dict.h>
+#include <dynet/expr.h>
+#include <dynet/dict.h>
 
 using namespace lamtram;
-using namespace cnn::expr;
+using namespace dynet::expr;
 using namespace std;
 
 void SoftmaxDiff::LoadDists(int id) {
@@ -26,7 +26,7 @@ void SoftmaxDiff::LoadDists(int id) {
   dist_id_ = id;
 }
 
-SoftmaxDiff::SoftmaxDiff(const string & sig, int input_size, const DictPtr & vocab, cnn::Model & mod)
+SoftmaxDiff::SoftmaxDiff(const string & sig, int input_size, const DictPtr & vocab, dynet::Model & mod)
                         : SoftmaxBase(sig,input_size,vocab,mod), vocab_size_(vocab->size()), 
                           finished_words_(0), drop_words_(0), dropout_(0.f), dist_id_(-1) {
   vector<string> strs = Tokenize(sig, ":");
@@ -58,7 +58,7 @@ SoftmaxDiff::SoftmaxDiff(const string & sig, int input_size, const DictPtr & voc
   p_sm_b_ = mod.add_parameters({(unsigned int)vocab_size_});  
 }
 
-void SoftmaxDiff::NewGraph(cnn::ComputationGraph & cg) {
+void SoftmaxDiff::NewGraph(dynet::ComputationGraph & cg) {
   i_sm_b_ = parameter(cg, p_sm_b_);
   i_sm_W_ = parameter(cg, p_sm_W_);
 }
@@ -163,7 +163,7 @@ Expression SoftmaxDiff::CalcLossExpr(Expression & in, Expression & prior, const 
   // Create expressions
   Expression score = affine_transform({i_sm_b_, i_sm_W_, in});
   uniform_real_distribution<float> float_distribution(0.0, 1.0);
-  if(!(train && (finished_words_ < drop_words_ || float_distribution(*cnn::rndeng) < dropout_))) {
+  if(!(train && (finished_words_ < drop_words_ || float_distribution(*dynet::rndeng) < dropout_))) {
     // cerr << "score before=" << as_scalar(pick(score, wid).value());
     // cerr << "ctxt_dist[" << wid << "] == " << ctxt_dist[wid] << endl;
     score = score + input(*in.pg, {(unsigned int)vocab_size_}, ctxt_dist);
@@ -177,9 +177,9 @@ Expression SoftmaxDiff::CalcLossExpr(Expression & in, Expression & prior, const 
   assert(prior.pg == nullptr);
   Expression score = affine_transform({i_sm_b_, i_sm_W_, in});
   uniform_real_distribution<float> float_distribution(0.0, 1.0);
-  if(!(train && (finished_words_ < drop_words_ || float_distribution(*cnn::rndeng) < dropout_))) {
+  if(!(train && (finished_words_ < drop_words_ || float_distribution(*dynet::rndeng) < dropout_))) {
     // cerr << "score before=" << as_vector(pick(score, wids).value());
-    score = score + input(*in.pg, cnn::Dim({(unsigned int)vocab_size_}, wids.size()), ctxt_dist_batched);
+    score = score + input(*in.pg, dynet::Dim({(unsigned int)vocab_size_}, wids.size()), ctxt_dist_batched);
     // cerr << " after=" << as_vector(pick(score, wids).value()) << endl;
   }
   finished_words_ += wids.size();
@@ -195,7 +195,7 @@ Expression SoftmaxDiff::CalcProb(Expression & in, Expression & prior, const Sent
   // Create expressions
   Expression score = affine_transform({i_sm_b_, i_sm_W_, in});
   uniform_real_distribution<float> float_distribution(0.0, 1.0);
-  if(!(train && (finished_words_ < drop_words_ || float_distribution(*cnn::rndeng) < dropout_))) {
+  if(!(train && (finished_words_ < drop_words_ || float_distribution(*dynet::rndeng) < dropout_))) {
     score = score + input(*in.pg, {(unsigned int)vocab_size_}, ctxt_dist);
   }
   finished_words_++;
