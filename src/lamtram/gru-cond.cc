@@ -129,7 +129,24 @@ Expression GRUCONDBuilder::set_h_impl(int prev, const vector<Expression>& h_new)
 }
 
 
+
+ dynet::expr::Expression GRUCONDBuilder::add_input_withContext( const Expression & x, Expression & attention_context,
+        const dynet::expr::Expression & align_sum_in,
+        bool train,
+        dynet::ComputationGraph & cg,
+        std::vector<dynet::expr::Expression> & align_out,
+        dynet::expr::Expression & align_sum_out) {
+        align_sum_in_ = &align_sum_in;
+        align_out_ = &align_out;
+        train_ = train;
+        cg_ = &cg;
+        align_sum_out_ = &align_sum_out;
+        Expression out = add_input(x);
+        attention_context = attention_context_;
+        return out;
+}
 Expression GRUCONDBuilder::add_input_impl(int prev, const Expression& x) {
+
   if(dropout_rate != 0.f)
     throw std::runtime_error("GRUCONDBuilder doesn't support dropout yet");
   const bool has_initial_state = (h0.size() > 0);
@@ -184,20 +201,23 @@ Expression GRUCONDBuilder::add_input_impl(int prev, const Expression& x) {
     
 
     //get context;
-    Expression c = att_->CalcContext(hs);
+    vector<Expression> hs2;
+    hs2.push_back(hs);
+    attention_context_ = att_->CreateContext(hs2,*align_sum_in_,train_,*cg_,*align_out_,*align_sum_out_);
+
     
     // update gate
-    Expression zt2 = affine_transform({vars[BZ2], vars[X2Z2], c, vars[H2Z2], hs});
+    Expression zt2 = affine_transform({vars[BZ2], vars[X2Z2], attention_context_, vars[H2Z2], hs});
     zt2 = logistic(zt2);
     // forget
     Expression ft2 = 1.f - zt2;
     // reset gate
-    Expression rt2 = affine_transform({vars[BR2], vars[X2R2], c, vars[H2R2], hs});
+    Expression rt2 = affine_transform({vars[BR2], vars[X2R2], attention_context_, vars[H2R2], hs});
     rt2 = logistic(rt2);
 
     // candidate activation
     Expression ght = cwise_multiply(rt2, hs);
-    Expression ct2 = affine_transform({vars[BH2], vars[X2H2], c, vars[H2H2], ght});
+    Expression ct2 = affine_transform({vars[BH2], vars[X2H2], attention_context_, vars[H2H2], ght});
     ct2 = tanh(ct2);
     Expression nwt2 = cwise_multiply(zt2, ct2);
     Expression crt2 = cwise_multiply(ft2, hs);

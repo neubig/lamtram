@@ -12,6 +12,7 @@ struct RNNBuilder;
 namespace lamtram {
 
 class ExternCalculator;
+class GRUCONDBuilder;
 typedef std::shared_ptr<ExternCalculator> ExternCalculatorPtr;
 
 
@@ -26,10 +27,11 @@ inline std::ostream & operator<<(std::ostream & out, const BuilderSpec & spec) {
 }
 
 typedef std::shared_ptr<dynet::RNNBuilder> BuilderPtr;
+typedef std::shared_ptr<GRUCONDBuilder> CondBuilderPtr;
 class BuilderFactory {
 public:
     static BuilderPtr CreateBuilder(const BuilderSpec & spec, int input_dim, dynet::Model & model);
-    static BuilderPtr CreateBuilder(const BuilderSpec & spec, int input_dim, int input2_dim, dynet::Model & model,ExternCalculatorPtr & att);
+    static CondBuilderPtr CreateBuilder(const BuilderSpec & spec, int input_dim, int input2_dim, dynet::Model & model,ExternCalculatorPtr & att);
 };
 
 }

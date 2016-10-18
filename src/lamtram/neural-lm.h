@@ -175,6 +175,7 @@ protected:
 
     // The RNN builder
     BuilderPtr builder_;
+    CondBuilderPtr cond_builder_;
 
 private:
     // A pointer to the current computation graph.

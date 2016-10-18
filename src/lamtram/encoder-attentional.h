@@ -53,10 +53,6 @@ public:
         std::vector<dynet::expr::Expression> & align_out,
         dynet::expr::Expression & align_sum_out) const override;
         
-    virtual dynet::expr::Expression CalcContext(
-        const dynet::expr::Expression & state_in
-        ) override;
-
     virtual dynet::expr::Expression CalcAttentionContext(const dynet::expr::Expression align) const;
     virtual dynet::expr::Expression CalcWordContext(const dynet::expr::Expression align) const;
 
@@ -78,7 +74,6 @@ public:
     static ExternAttentional* Read(std::istream & in, const DictPtr & vocab_src, const DictPtr & vocab_trg, dynet::Model & model);
     void Write(std::ostream & out);
 
-    virtual dynet::expr::Expression GetLastContext() const {return dynet::expr::Expression(lastContext);};
 
 
     // Setters
@@ -105,8 +100,6 @@ protected:
     float lex_alpha_;
     size_t lex_size_;
     
-    dynet::expr::Expression lastContext;
-
     // Parameters
     dynet::Parameter p_ehid_h_W_;
     dynet::Parameter p_ehid_h_b_;

@@ -59,9 +59,10 @@ NeuralLM::NeuralLM(const DictPtr & vocab, int ngram_context, int extern_context,
       attention_context_(attention_context),source_word_embedding_in_softmax_(source_word_embedding_in_softmax),source_word_embedding_in_softmax_context_(source_word_embedding_in_softmax_context),
       unk_id_(unk_id), hidden_spec_(hidden_spec), curr_graph_(NULL),intermediate_att_(true),word_embedding_in_softmax_(word_embedding_in_softmax) {
   // Hidden layers
-  builder_ = BuilderFactory::CreateBuilder(hidden_spec_,
+  cond_builder_ = BuilderFactory::CreateBuilder(hidden_spec_,
                        ngram_context*wordrep_size , extern_context,
                        model,att);
+  builder_ = cond_builder_;
   // Word representations
   assert(wordrep_size > 0);
   p_wr_W_ = model.add_lookup_parameters(vocab->size(), {(unsigned int)wordrep_size}); 
@@ -139,18 +140,20 @@ dynet::expr::Expression NeuralLM::BuildSentGraph(
       i_hs_t.push_back(i_wr_noEx_t);
     }
 
-    i_hs_t.push_back(builder_->add_input(i_wr_t));
 
     dynet::expr::Expression i_prior;
     // Calculate the extern if existing
     if(extern_context_ > 0) {
       if(intermediate_att_) {
-        extern_in = extern_calc->GetLastContext();
+        i_hs_t.push_back(cond_builder_->add_input_withContext(i_wr_t,extern_in,align_sum, train, cg, aligns, align_sum));
       }else {
+        i_hs_t.push_back(builder_->add_input(i_wr_t));
         extern_in = extern_calc->CreateContext(builder_->final_h(), align_sum, train, cg, aligns, align_sum);
       }
       i_hs_t.push_back(extern_in);
       i_prior = extern_calc->CalcPrior(*aligns.rbegin());
+    }else {
+      i_hs_t.push_back(builder_->add_input(i_wr_t));
     }
 
     if(attention_context_ > 0 ){
@@ -260,18 +263,20 @@ dynet::expr::Expression NeuralLM::BuildSentGraph(
       i_hs_t.push_back(i_wr_noEx_t);
     }
 
-    i_hs_t.push_back(builder_->add_input(i_wr_t));
 
     dynet::expr::Expression i_prior;
     // Calculate the extern if existing
     if(extern_context_ > 0) {
       if(intermediate_att_) {
-        extern_in = extern_calc->GetLastContext();  
+        i_hs_t.push_back(cond_builder_->add_input_withContext(i_wr_t,extern_in,align_sum, train, cg, aligns, align_sum));
       }else {
+        i_hs_t.push_back(builder_->add_input(i_wr_t));
         extern_in = extern_calc->CreateContext(builder_->final_h(), align_sum, train, cg, aligns, align_sum);
       }
       i_hs_t.push_back(extern_in);
       i_prior = extern_calc->CalcPrior(*aligns.rbegin());
+    }else {
+      i_hs_t.push_back(builder_->add_input(i_wr_t));
     }     
     if(attention_context_ > 0 ){
       i_hs_t.push_back(extern_calc->CalcAttentionContext(*aligns.rbegin()));
@@ -402,18 +407,20 @@ Expression NeuralLM::SampleTrgSentences(
       i_hs_t.push_back(i_wr_noEx_t);
     }
     
-    i_hs_t.push_back(builder_->add_input(i_wr_t));
     
     // Calculate the extern if existing
     dynet::expr::Expression i_prior;
     if(extern_context_ > 0 ) {
       if(intermediate_att_) {
-        extern_in = extern_calc->GetLastContext();  
+        i_hs_t.push_back(cond_builder_->add_input_withContext(i_wr_t,extern_in,align_sum, train, cg, aligns, align_sum));
       }else {
+        i_hs_t.push_back(builder_->add_input(i_wr_t));
         extern_in = extern_calc->CreateContext(builder_->final_h(), align_sum, train, cg, aligns, align_sum);
       }
       i_hs_t.push_back(extern_in);
       i_prior = extern_calc->CalcPrior(*aligns.rbegin());
+    }else {
+      i_hs_t.push_back(builder_->add_input(i_wr_t));
     }
 
     if(attention_context_ > 0 ){
@@ -556,18 +563,20 @@ dynet::expr::Expression NeuralLM::Forward(const Sent & sent, int t,
     i_hs_t.push_back(i_wr_noEx_t);
   }
   
-  i_hs_t.push_back(builder_->add_input(i_wr_t));
 
   dynet::expr::Expression i_prior;
   // Calculate the extern if existing
   if(extern_context_ > 0) {
     if(intermediate_att_) {
-      extern_out = extern_calc->GetLastContext();  
+      i_hs_t.push_back(cond_builder_->add_input_withContext(i_wr_t,extern_out,align_sum_in, false, cg, align_out, align_sum_out));
     }else {
+      i_hs_t.push_back(builder_->add_input(i_wr_t));
       extern_out = extern_calc->CreateContext(builder_->final_h(), align_sum_in, false, cg, align_out, align_sum_out);
     }
     i_hs_t.push_back(extern_out);
     i_prior = extern_calc->CalcPrior(*align_out.rbegin());
+  }else {
+    i_hs_t.push_back(builder_->add_input(i_wr_t));
   }
 
     if(attention_context_ > 0 ){

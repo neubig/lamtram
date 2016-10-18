@@ -33,9 +33,6 @@ public:
     virtual dynet::expr::Expression CalcAttentionContext(const dynet::expr::Expression align) const = 0;
     virtual dynet::expr::Expression CalcWordContext(const dynet::expr::Expression align) const = 0;
     
-    virtual dynet::expr::Expression CalcContext(
-        const dynet::expr::Expression & state_in
-        ) = 0;    
 
     // Calculate the prior over the inputs
     virtual dynet::expr::Expression CalcPrior(
@@ -44,8 +41,6 @@ public:
     virtual dynet::expr::Expression GetEmptyContext(dynet::ComputationGraph & cg) const = 0;
 
     int GetSize() const { return context_size_; }
-
-    virtual dynet::expr::Expression GetLastContext() const = 0;
 
 protected:
     int context_size_;

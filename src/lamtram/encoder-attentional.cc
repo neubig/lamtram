@@ -476,58 +476,6 @@ dynet::expr::Expression ExternAttentional::CreateContext(
   return i_h_ * i_alpha; 
 }
 
-//Create Context during calculation of hidden state as in gru-cond
-
-dynet::expr::Expression ExternAttentional::CalcContext(
-        const dynet::expr::Expression & state_in
-        ) {
-  dynet::expr::Expression i_ehid, i_e;
-  // MLP
-  if(hidden_size_) {
-      // i_ehid_state_W_ is {hidden_size, state_size}, state_in is {state_size, 1}
-      dynet::expr::Expression i_ehid_spart = i_ehid_state_W_ * state_in;
-      i_ehid = affine_transform({i_ehid_hpart_, i_ehid_spart, i_sent_len_});
-    // Run through nonlinearity
-    dynet::expr::Expression i_ehid_out = tanh({i_ehid});
-    // i_e_ehid_W_ is {1, hidden_size}, i_ehid_out is {hidden_size, sent_len}
-    if(use_bias_) {
-      i_e = transpose(colwise_add(i_e_ehid_W_ * i_ehid_out,i_e_ehid_b_));
-    }else {
-      i_e = transpose(i_e_ehid_W_ * i_ehid_out);
-    }
-  // Bilinear/dot product
-  } else {
-    i_e = i_ehid_hpart_ * state_in;
-  }
-  dynet::expr::Expression i_alpha;
-  // Calculate the softmax, adding the previous sum if necessary
-  //not yet supported
-  //if(align_sum_in.pg != nullptr) {
-  //  i_alpha = softmax(i_e + align_sum_in * i_align_sum_W_);
-    // // DEBUG
-    // dynet::Tensor align_sum_tens = align_sum_in.value();
-    // vector<float> align_sum_val = as_vector(align_sum_in.value());
-  //} else {
-    i_alpha = softmax(i_e);
-  //}
-  
-  // Save the alignments and print if necessary not yet supported
-  //align_out.push_back(i_alpha);
-  //if(GlobalVars::verbose >= 2) {
-  //  vector<dynet::real> softmax = as_vector(cg.incremental_forward());
-  //  cerr << "Alignments: " << softmax << endl;
-  //}
-  // Update the sum if necessary -> not supported !!!!!!!!
-  if(attention_hist_ == "sum") {
-    THROW_ERROR("SUM not yet supported with calc context")
-    //align_sum_out = (align_sum_in.pg != nullptr ? align_sum_in + i_alpha : i_alpha);
-  }
-  // i_h_ is {input_size, sent_len}, i_alpha is {sent_len, 1}
-  lastContext = i_h_ * i_alpha;
-  return lastContext; 
-
-}
-
 
 dynet::expr::Expression ExternAttentional::CalcAttentionContext(const dynet::expr::Expression align) const {
 
