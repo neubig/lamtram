@@ -42,9 +42,9 @@ NeuralLM::NeuralLM(const DictPtr & vocab, int ngram_context, int extern_context,
   // Create the softmax
   int numberOfEncoder = 2;
   int softmax_input_size = hidden_spec_.nodes + extern_context;
-  softmax_input_size += (word_embedding_in_softmax ? ngram_context*wordrep_size : 0);
+  softmax_input_size += (word_embedding_in_softmax ? ngram_context*wordrep_size_ : 0);
   softmax_input_size += attention_context * 2 * extern_context;
-  softmax_input_size += (source_word_embedding_in_softmax ? (source_word_embedding_in_softmax_context*2 +1) * wordrep_size * numberOfEncoder: 0);
+  softmax_input_size += (source_word_embedding_in_softmax ? (source_word_embedding_in_softmax_context*2 +1) * wordrep_size_ * numberOfEncoder: 0);
   
   softmax_ = SoftmaxFactory::CreateSoftmax(softmax_sig, softmax_input_size, vocab, model);
 }
@@ -59,19 +59,19 @@ NeuralLM::NeuralLM(const DictPtr & vocab, int ngram_context, int extern_context,
       attention_context_(attention_context),source_word_embedding_in_softmax_(source_word_embedding_in_softmax),source_word_embedding_in_softmax_context_(source_word_embedding_in_softmax_context),
       unk_id_(unk_id), hidden_spec_(hidden_spec), curr_graph_(NULL),intermediate_att_(true),word_embedding_in_softmax_(word_embedding_in_softmax) {
   // Hidden layers
+  if(wordrep_size_ <= 0) wordrep_size_ = GlobalVars::layer_size;
+
   cond_builder_ = BuilderFactory::CreateBuilder(hidden_spec_,
-                       ngram_context*wordrep_size , extern_context,
+                       ngram_context_*wordrep_size_ , extern_context_,
                        model,att);
   builder_ = cond_builder_;
-  // Word representations
-  assert(wordrep_size > 0);
-  p_wr_W_ = model.add_lookup_parameters(vocab->size(), {(unsigned int)wordrep_size}); 
+  p_wr_W_ = model.add_lookup_parameters(vocab->size(), {(unsigned int)wordrep_size_}); 
 
   // Create the softmax
   int softmax_input_size = hidden_spec_.nodes + extern_context;
-  softmax_input_size += (word_embedding_in_softmax ? ngram_context*wordrep_size : 0);
+  softmax_input_size += (word_embedding_in_softmax ? ngram_context*wordrep_size_ : 0);
   softmax_input_size += attention_context * 2 * extern_context;
-  softmax_input_size += (source_word_embedding_in_softmax ? (source_word_embedding_in_softmax_context*2 +1) * wordrep_size : 0);
+  softmax_input_size += (source_word_embedding_in_softmax ? (source_word_embedding_in_softmax_context*2 +1) * wordrep_size_ : 0);
   softmax_ = SoftmaxFactory::CreateSoftmax(softmax_sig, softmax_input_size, vocab, model);
 }
 

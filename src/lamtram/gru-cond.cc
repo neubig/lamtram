@@ -20,7 +20,8 @@ GRUCONDBuilder::GRUCONDBuilder(unsigned layers,
                        unsigned input_dim,
                        unsigned input_2_dim,
                        unsigned hidden_dim,
-                       Model* model,ExternCalculatorPtr & att) : hidden_dim(hidden_dim), layers(layers), att_(att) {
+                       Model* model,ExternCalculatorPtr & att) : hidden_dim(hidden_dim), layers(layers) {
+  att_ = att;
   unsigned layer_input_dim = input_dim;
   unsigned layer_input_2_dim = input_2_dim;
   
@@ -130,25 +131,10 @@ Expression GRUCONDBuilder::set_h_impl(int prev, const vector<Expression>& h_new)
 
 
 
- dynet::expr::Expression GRUCONDBuilder::add_input_withContext( const Expression & x, Expression & attention_context,
-        const dynet::expr::Expression & align_sum_in,
-        bool train,
-        dynet::ComputationGraph & cg,
-        std::vector<dynet::expr::Expression> & align_out,
-        dynet::expr::Expression & align_sum_out) {
-        align_sum_in_ = &align_sum_in;
-        align_out_ = &align_out;
-        train_ = train;
-        cg_ = &cg;
-        align_sum_out_ = &align_sum_out;
-        Expression out = add_input(x);
-        attention_context = attention_context_;
-        return out;
-}
 Expression GRUCONDBuilder::add_input_impl(int prev, const Expression& x) {
 
-  if(dropout_rate != 0.f)
-    throw std::runtime_error("GRUCONDBuilder doesn't support dropout yet");
+  //if(dropout_rate != 0.f)
+  //  throw std::runtime_error("GRUCONDBuilder doesn't support dropout yet");
   const bool has_initial_state = (h0.size() > 0);
   h.push_back(vector<Expression>(layers));
   vector<Expression>& ht = h.back();
