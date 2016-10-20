@@ -149,6 +149,9 @@ Expression GRUCONDBuilder::add_input_impl(int prev, const Expression& x) {
     if (prev >= 0 || has_initial_state) {
       h_tprev = (prev < 0) ? h0[i] : h[prev][i];
     } else { prev_zero = true; }
+    
+    if (dropout_rate) in = dropout(in, dropout_rate);
+    
     // update gate
     Expression zt;
     if (prev_zero)
@@ -192,25 +195,30 @@ Expression GRUCONDBuilder::add_input_impl(int prev, const Expression& x) {
     attention_context_ = att_->CreateContext(hs2,*align_sum_in_,train_,*cg_,*align_out_,*align_sum_out_);
 
     
+    Expression att_context = attention_context_;
+    if (dropout_rate) att_context = dropout(att_context,dropout_rate);
+    
     // update gate
-    Expression zt2 = affine_transform({vars[BZ2], vars[X2Z2], attention_context_, vars[H2Z2], hs});
+    Expression zt2 = affine_transform({vars[BZ2], vars[X2Z2], att_context, vars[H2Z2], hs});
     zt2 = logistic(zt2);
     // forget
     Expression ft2 = 1.f - zt2;
     // reset gate
-    Expression rt2 = affine_transform({vars[BR2], vars[X2R2], attention_context_, vars[H2R2], hs});
+    Expression rt2 = affine_transform({vars[BR2], vars[X2R2], att_context, vars[H2R2], hs});
     rt2 = logistic(rt2);
 
     // candidate activation
     Expression ght = cwise_multiply(rt2, hs);
-    Expression ct2 = affine_transform({vars[BH2], vars[X2H2], attention_context_, vars[H2H2], ght});
+    Expression ct2 = affine_transform({vars[BH2], vars[X2H2], att_context, vars[H2H2], ght});
     ct2 = tanh(ct2);
     Expression nwt2 = cwise_multiply(zt2, ct2);
     Expression crt2 = cwise_multiply(ft2, hs);
     in = ht[i] = crt2 + nwt2;
 
   }
-  return ht.back();
+  
+  if (dropout_rate) return dropout(ht.back(), dropout_rate);
+    else return ht.back();
 }
 
 void GRUCONDBuilder::copy(const RNNBuilder & rnn) {
