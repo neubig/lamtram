@@ -44,7 +44,8 @@ LIBCPP = \
     eval-measure-fscore.cc \
     eval-measure.cc \
     gru-cond.cc \
-    rnn-cond.cc 
+    rnn-cond.cc \
+    lstm-cond.cc 
 
 AM_CXXFLAGS = $(BOOST_CPPFLAGS) $(EIGEN_CPPFLAGS) $(DYNET_CPPFLAGS) $(OPENMP_CXXFLAGS) -I$(srcdir)/..
 

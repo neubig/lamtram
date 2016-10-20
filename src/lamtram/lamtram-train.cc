@@ -545,7 +545,7 @@ void LamtramTrain::TrainEncAtt() {
     
     ExternAttentionalPtr extatt(new ExternAttentional(encoders, vm_["attention_type"].as<string>(), vm_["attention_hist"].as<string>(), dec_layer_spec.nodes, vm_["attention_lex"].as<string>(), vocab_src, vocab_trg, 
     vm_["attention_context"].as<int>(), vm_["source_word_embedding_in_softmax"].as<bool>(), vm_["source_word_embedding_in_softmax_context"].as<int>(),*model));
-    if(dec_layer_spec.type == "gru-cond") {
+    if(dec_layer_spec.type == "gru-cond" || dec_layer_spec.type == "lstm-cond") {
       ExternCalculatorPtr p = extatt;
       decoder.reset(new NeuralLM(vocab_trg, context_, dec_layer_spec.nodes, vm_["attention_feed"].as<bool>(), vm_["wordrep"].as<int>(), dec_layer_spec, vocab_trg->get_unk_id(), softmax_sig_, vm_["word_embedding_in_softmax"].as<bool>(),
        vm_["attention_context"].as<int>(), vm_["source_word_embedding_in_softmax"].as<bool>(), vm_["source_word_embedding_in_softmax_context"].as<int>(),p,*model));

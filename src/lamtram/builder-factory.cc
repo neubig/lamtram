@@ -5,6 +5,7 @@
 #include <dynet/lstm.h>
 #include <dynet/gru.h>
 #include <lamtram/gru-cond.h>
+#include <lamtram/lstm-cond.h>
 #include <lamtram/extern-calculator.h>
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
@@ -21,7 +22,7 @@ BuilderSpec::BuilderSpec(const std::string & spec) {
     nodes = boost::lexical_cast<int>(strs[1]); 
     if(nodes <= 0) nodes = GlobalVars::layer_size;
     layers = boost::lexical_cast<int>(strs[2]); 
-    multiplier = (type == "lstm" ? 2 : 1);
+    multiplier = (type == "lstm" || type == "lstm-cond" ? 2 : 1);
 }
 
 BuilderPtr BuilderFactory::CreateBuilder(const BuilderSpec & spec, int input_dim, dynet::Model & model) {
@@ -40,10 +41,13 @@ BuilderPtr BuilderFactory::CreateBuilder(const BuilderSpec & spec, int input_dim
 
 
 CondBuilderPtr BuilderFactory::CreateBuilder(const BuilderSpec & spec, int input_dim, int input_2_dim, dynet::Model & model,ExternCalculatorPtr & att) {
-     cerr << "BuilderFactor::CreateBuilder(" << spec << ", " << input_dim << ", " << (long)&model << ")" << endl;
+     //cerr << "BuilderFactor::CreateBuilder(" << spec << ", " << input_dim << ", " << (long)&model << ")" << endl;
     if(spec.type == "gru-cond") {
         //THROW_ERROR("GRU spec.nodes are not supported yet.");
         return CondBuilderPtr(new GRUCONDBuilder(spec.layers, input_dim, input_2_dim, spec.nodes, &model, att));
+    }else if(spec.type == "lstm-cond") {
+        //THROW_ERROR("GRU spec.nodes are not supported yet.");
+        return CondBuilderPtr(new LSTMCONDBuilder(spec.layers, input_dim, input_2_dim, spec.nodes, &model, att));
     } else {
         THROW_ERROR("Unknown layer type " << spec.type);
     }
