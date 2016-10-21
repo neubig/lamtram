@@ -2,6 +2,7 @@
 
 LIBCPP = \
     lamtram-train.cc \
+    lamtram-train-multitask.cc \
     lamtram.cc \
     ensemble-decoder.cc \
     ensemble-classifier.cc \
@@ -66,7 +67,7 @@ LDADD=liblamtram.la \
     $(BOOST_IOSTREAMS_LIB) \
     $(OPENMP_CXXFLAGS)
 
-bin_PROGRAMS = lamtram-train lamtram dist-train
+bin_PROGRAMS = lamtram-train-multitask lamtram-train lamtram dist-train
 
 lamtram_train_SOURCES = lamtram-train-main.cc
 lamtram_train_LDADD = $(LDADD)
@@ -76,3 +77,6 @@ lamtram_LDADD = $(LDADD)
 
 dist_train_SOURCES = dist-train-main.cc
 dist_train_LDADD = $(LDADD)
+
+lamtram_train_multitask_SOURCES = lamtram-train-multitask-main.cc
+lamtram_train_multitask_LDADD = $(LDADD)
