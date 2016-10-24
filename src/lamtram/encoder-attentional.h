@@ -9,8 +9,6 @@
 #include <dynet/dynet.h>
 #include <vector>
 #include <iostream>
-#include <cnpy/cnpy.h>
-#include <cnpy/cnpy-utils.h>
 #include <lamtram/gru-cond.h>
 #include "boost/property_tree/ptree.hpp"
 
@@ -186,9 +184,6 @@ public:
     // Reading/writing functions
     static EncoderAttentional* Read(const DictPtr & vocab_src, const DictPtr & vocab_trg, std::istream & in, dynet::Model & model);
     void Write(std::ostream & out);
-
-    //Read from pkz
-    static EncoderAttentional* Convert(const DictPtr & vocab_src, const DictPtr & vocab_trg, const std::string & file, const boost::property_tree::ptree & json, dynet::Model & model);
 
     // Index the parameters in a computation graph
     void NewGraph(dynet::ComputationGraph & cg);

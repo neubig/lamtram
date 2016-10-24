@@ -51,38 +51,6 @@ ModelType* ModelUtils::LoadBilingualModel(const std::string & file,
     return ModelUtils::LoadBilingualModel<ModelType>(model_in, mod, vocab_src, vocab_trg);
 }
 
-// Load a model from a npz file
-// Will return a pointer to the model, and reset the passed shared pointers
-// with dynet::Model, and input, output vocabularies (if necessary)
-template <class ModelType>
-ModelType* ModelUtils::ConvertBilingualModel(const std::string & infile,
-                                          std::shared_ptr<dynet::Model> & mod,
-                                          DictPtr & vocab_src, DictPtr & vocab_trg) {
-    
-    //get information from json file
-    std::ifstream jsonFile(infile+".json");
-
-    boost::property_tree::ptree pt;
-    read_json(jsonFile, pt);
-
-    //load dictionaries
-    int source_voc_size= pt.get_child("n_words_src").get_value<int>();
-    int target_voc_size= pt.get_child("n_words").get_value<int>();
-
-    std::vector<std::string> dicts;
-    for (boost::property_tree::ptree::value_type &d : pt.get_child("dictionaries"))
-    {
-        dicts.push_back(d.second.data());
-    }
-
-    vocab_src.reset(ConvertDict(dicts[0],source_voc_size));
-    vocab_trg.reset(ConvertDict(dicts[1],target_voc_size));
-
-    mod.reset(new dynet::Model);
-    ModelType* ret = ModelType::Convert(vocab_src, vocab_trg, infile,pt, *mod);
-    return ret;
-}
-
 
 
 // Load a model from a stream
@@ -144,7 +112,3 @@ template
 NeuralLM* ModelUtils::LoadMonolingualModel<NeuralLM>(const std::string & infile,
                                                      std::shared_ptr<dynet::Model> & mod,
                                                      DictPtr & vocab_trg);
-template
-EncoderAttentional* ModelUtils::ConvertBilingualModel<EncoderAttentional>(const std::string & infile,
-                                                              std::shared_ptr<dynet::Model> & mod,
-                                                              DictPtr & vocab_src, DictPtr & vocab_trg);

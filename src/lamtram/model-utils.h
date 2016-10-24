@@ -32,12 +32,6 @@ public:
                                 std::shared_ptr<dynet::Model> & mod,
                                 DictPtr & vocab_src, DictPtr & vocab_trg);
 
-    // Load a model from a pkz file
-    template <class ModelType>
-    static ModelType* ConvertBilingualModel(const std::string & infile,
-                                std::shared_ptr<dynet::Model> & mod,
-                                DictPtr & vocab_src, DictPtr & vocab_trg);
-
 
     // Load a model from a stream
     // Will return a pointer to the model, and reset the passed shared pointers
