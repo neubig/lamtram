@@ -5,9 +5,6 @@
 #include <vector>
 #include <lamtram/sentence.h>
 
-#include "boost/property_tree/ptree.hpp"
-#include "boost/property_tree/json_parser.hpp"
-
 namespace dynet { class Dict; }
 
 namespace lamtram {
@@ -23,7 +20,6 @@ std::vector<std::string> ConvertWords(dynet::Dict & sd, const Sentence & sent, b
 void WriteDict(const dynet::Dict & dict, const std::string & file);
 void WriteDict(const dynet::Dict & dict, std::ostream & out);
 dynet::Dict* ReadDict(const std::string & file);
-dynet::Dict* ConvertDict(const std::string & file,int size);
 dynet::Dict* ReadDict(std::istream & in);
 dynet::Dict* CreateNewDict(bool add_symbols = true);
 

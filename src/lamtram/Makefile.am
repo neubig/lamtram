@@ -58,7 +58,6 @@ liblamtram_la_LDFLAGS = -version-info 0:0:0
 ####### Binary info
 
 LDADD=liblamtram.la \
-    ../cnpy/libcnpy.la \
     $(DYNET_LDFLAGS) \
     $(BOOST_LDFLAGS) \
     $(BOOST_SYSTEM_LIB) \

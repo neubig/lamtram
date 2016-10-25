@@ -10,7 +10,6 @@
 #include <vector>
 #include <iostream>
 #include <lamtram/gru-cond.h>
-#include "boost/property_tree/ptree.hpp"
 
 namespace dynet {
 class Model;
@@ -23,7 +22,6 @@ namespace lamtram {
 
 // A class to calculate extern_calcal context
 class ExternAttentional : public ExternCalculator {
-    friend class CnpyUtils;
 public:
 
     ExternAttentional(const std::vector<LinearEncoderPtr> & encoders,

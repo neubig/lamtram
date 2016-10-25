@@ -102,33 +102,6 @@ dynet::Dict* ReadDict(std::istream & in) {
   return dict;
 }
 
-dynet::Dict* ConvertDict(const std::string & file, int size) {
-  ifstream in(file);
-  if(!in) THROW_ERROR("Could not open file: " << file);
-
-  dynet::Dict * dict = new dynet::Dict;
-  
-  std::vector<std::string> voc;
-  voc.resize(size);
-  
-  boost::property_tree::ptree pt;
-  read_json(file, pt);
-  for (auto & property: pt) {
-    int index = property.second.get_value < int > ();
-    if(index < size) {
-      voc[index] = property.first;
-    }
-  }
-  for(int i = 0; i < voc.size(); i++) {
-    dict->convert(voc[i]);
-  }
-  dict->freeze();
-  dict->set_unk("UNK");
-
-  return dict;
-}
-
-
 dynet::Dict * CreateNewDict(bool add_tokens) {
   dynet::Dict * ret = new dynet::Dict;
   if(add_tokens) {

@@ -12,7 +12,6 @@ test_lamtram_SOURCES = \
 
 test_lamtram_LDADD = \
     ../lamtram/liblamtram.la \
-    ../cnpy/libcnpy.la \
     $(DYNET_LDFLAGS) \
     $(BOOST_LDFLAGS) \
     $(BOOST_UNIT_TEST_FRAMEWORK_LIB) \
