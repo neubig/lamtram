@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+# Volumes to be made visible to docker (in addition to current working
+# directory).  Examples can be /path/to/dir or /path/to/*
+VOLUME_PATHS=""
+
+# Use image name from "config"
+REPOSITORY="$(cat $(dirname $0)/config)"
+
+# Pass through environment variable telling CUDA which GPU to use (if present)
+ENV=""
+if [[ $CUDA_VISIBLE_DEVICES != "" ]]; then
+  ENV="$ENV -e CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES"
+fi
+
+# Mount any storage volumes Docker will need
+VOL=$(echo $VOLUME_PATHS |sed -re 's/(\/[^ ]+)/-v \1:\1/g')
+
+# nvidia-docker: automatically make GPUs visible to Docker container
+# run -i: run interactively (stdio)
+# -u ...: run as current user
+# -v ...: mount current working directory in container
+# $VOL: volumes to mount
+# $ENV: environment variables to populate
+# $REPOSITORY:$TAG use requested image
+# $@: run command passed as args
+nvidia-docker run -i -u $(id -u):$(id -g) -v $(readlink -f $(pwd)):/work $VOL $ENV $REPOSITORY $@

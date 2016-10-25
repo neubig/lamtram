@@ -100,12 +100,20 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
   if(vm["map_in"].as<std::string>() != "")
     mapping.reset(LoadUniqueStringMapping(vm["map_in"].as<std::string>()));
 
-  // Get the source input if necessary
-  shared_ptr<ifstream> src_in;
+  // Get the source input if necessary, "-" means stdin
+  shared_ptr<ifstream> src_in_sptr;
+  istream* src_in = NULL;
   if(encdecs.size() + encatts.size() > 0) {
-    src_in.reset(new ifstream(vm["src_in"].as<std::string>()));
-    if(!*src_in)
-      THROW_ERROR("Could not find src_in file " << vm["src_in"].as<std::string>());
+    string src_in_path = vm["src_in"].as<std::string>();
+    if (src_in_path == "-") {
+      cerr << "Reading from stdin" << endl;
+      src_in = &cin;
+    } else {
+      src_in_sptr.reset(new ifstream(src_in_path));
+      if (!*src_in_sptr)
+        THROW_ERROR("Could not find src_in file " << src_in_path);
+      src_in = src_in_sptr.get();
+    }
   }
 
 
@@ -307,12 +315,20 @@ int Lamtram::ClassifierOperation(const boost::program_options::variables_map & v
   }
   int vocab_size = vocab_trg->size();
 
-  // Get the source input
-  shared_ptr<ifstream> src_in;
-  src_in.reset(new ifstream(vm["src_in"].as<std::string>()));
-  if(!*src_in)
-    THROW_ERROR("Could not find src_in file " << vm["src_in"].as<std::string>());
-  
+  // Get the source input if necessary, "-" means stdin
+  shared_ptr<ifstream> src_in_sptr;
+  istream* src_in = NULL;
+  string src_in_path = vm["src_in"].as<std::string>();
+  if (src_in_path == "-") {
+    cerr << "Reading from stdin" << endl;
+    src_in = &cin;
+  } else {
+    src_in_sptr.reset(new ifstream(src_in_path));
+    if (!*src_in_sptr)
+      THROW_ERROR("Could not find src_in file " << src_in_path);
+    src_in = src_in_sptr.get();
+  }
+
   // Create the decoder
   EnsembleClassifier ensemble(encclss);
   ensemble.SetEnsembleOperation(vm["ensemble_op"].as<string>());
@@ -369,7 +385,7 @@ int Lamtram::main(int argc, char** argv) {
     ("operation", po::value<string>()->default_value("ppl"), "Operations (ppl: measure perplexity, nbest: score n-best list, gen: generate most likely sentence, samp: sample sentences randomly)")
     ("sent_range", po::value<string>()->default_value(""), "Optionally specify a comma-delimited range on how many sentences to process")
     ("max_len", po::value<int>()->default_value(200), "Limit on the max length of sentences")
-    ("src_in", po::value<string>()->default_value(""), "File to read the source from, if any")
+    ("src_in", po::value<string>()->default_value("-"), "File to read the source from, if any")
     ("length_file", po::value<string>()->default_value(""), "File to read the fixed length of every output sentence")
     ("word_pen", po::value<float>()->default_value(0.f), "The \"word penalty\", a larger value favors longer sentences, shorter favors shorter")
     ("unk_pen", po::value<float>()->default_value(0.f), "A penalty for unknown words, larger will create fewer unknown words when decoding")
