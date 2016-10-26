@@ -671,7 +671,7 @@ int NeuralLM::GetVocabSize() const { return vocab_->size(); }
 void NeuralLM::SetDropout(float dropout) { builder_->set_dropout(dropout); }
 void NeuralLM::SetAttention(ExternCalculatorPtr att)
 { 
-  if(hidden_spec_.type == "gru-cond") {
+  if(hidden_spec_.type == "gru-cond" || hidden_spec_.type == "lstm-cond") {
     GRUCONDBuilder * b = (GRUCONDBuilder *) builder_.get();
     b->SetAttention(att);
   }
