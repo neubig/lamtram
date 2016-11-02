@@ -129,6 +129,11 @@ Expression GRUCONDBuilder::set_h_impl(int prev, const vector<Expression>& h_new)
   return h[t].back();
 }
 
+// Current implementation : s_new is either {new_c[0],...,new_c[n]}
+// or {new_c[0],...,new_c[n],new_h[0],...,new_h[n]}
+Expression GRUCONDBuilder::set_s_impl(int prev, const std::vector<Expression>& s_new) {
+  return set_h_impl(prev, s_new);
+}
 
 
 Expression GRUCONDBuilder::add_input_impl(int prev, const Expression& x) {
