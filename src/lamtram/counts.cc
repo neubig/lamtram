@@ -4,6 +4,7 @@
 #include <lamtram/sentence.h>
 #include <lamtram/counts.h>
 #include <lamtram/dict-utils.h>
+#include <math.h>
 
 using namespace lamtram;
 using namespace std;

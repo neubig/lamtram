@@ -16,7 +16,7 @@ Install/Citation
 First, in terms of standard libraries, you must have autotools, libtool, and Boost. If
 you are on Ubuntu/Debian linux, you can install them below:
 
-    $ sudo apt-get install autotools libtool libboost-all
+    $ sudo apt-get install autotools-dev autoconf libtool libboost-all-dev
 
 You must install Eigen and DyNet separately. Follow the directions on the
 [dynet page](http://github.com/clab/dynet), which also explain about installing Eigen.
