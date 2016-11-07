@@ -23,7 +23,7 @@ to set the `LD_LIBRARY_PATH` variable to include the DyNet library. For example,
 `$DYNET_DIR` is the top directory for DyNet, then you can run the following command,
 or add it to you `.bashrc` or `.zshrc` file:
 
-    $ export LD_LIBARY_PATH="$DYNET_DIR/build/dynet:$LD_LIBRARY_PATH"
+    $ export LD_LIBRARY_PATH="$DYNET_DIR/build/dynet:$LD_LIBRARY_PATH"
 
 Once these two packages are installed and DyNet has been added to the `LD_LIBRARY_PATH`,
 run the following commands, specifying the correct paths for dynet and Eigen.
