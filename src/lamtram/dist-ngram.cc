@@ -8,6 +8,7 @@
 #include <lamtram/dict-utils.h>
 #include <lamtram/string-util.h>
 #include <lamtram/counts.h>
+#include <math.h>
 
 #define EOS_ID 0
 #define UNK_ID 1
