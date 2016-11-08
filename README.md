@@ -34,8 +34,9 @@ run the following commands, specifying the correct paths for dynet and Eigen.
     $ ./configure --with-dynet=/path/to/dynet --with-eigen=/path/to/eigen
     $ make
 
-In the instructions below, you can see how to use lamtram to train and use language
-models, translation models, or text classifiers.
+If you want to use lamtram on a GPU and have CUDA installed, first compile dynet with
+CUDA enabled, then add the option `--with-cuda=/path/to/cuda` to the `./configure`
+command.
 
 Lamtram is licensed under the LGPL 2.1 and may be used freely according to this, or
 any later versions of the license. If you want to use lamtram in your research and
