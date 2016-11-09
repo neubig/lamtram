@@ -12,7 +12,7 @@ AC_CONFIG_FILES([
     src/test/Makefile
 ])
 
-AM_INIT_AUTOMAKE([-Wall subdir-objects])
+AM_INIT_AUTOMAKE([-Wall subdir-objects foreign])
 AM_PROG_AR()
 
 AC_CONFIG_MACRO_DIR([m4])
