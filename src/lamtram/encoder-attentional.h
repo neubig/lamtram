@@ -9,6 +9,7 @@
 #include <dynet/dynet.h>
 #include <vector>
 #include <iostream>
+#include <lamtram/gru-cond.h>
 
 namespace dynet {
 class Model;
@@ -27,6 +28,7 @@ public:
                       const std::string & attention_type, const std::string & attention_hist,
                       int state_size, const std::string & lex_type,
                       const DictPtr & vocab_src, const DictPtr & vocab_trg,
+                     int attention_context, bool source_word_embedding_in_softmax, int source_word_embedding_in_softmax_context,
                       dynet::Model & mod);
     virtual ~ExternAttentional() { }
 
@@ -46,6 +48,10 @@ public:
         dynet::ComputationGraph & cg,
         std::vector<dynet::expr::Expression> & align_out,
         dynet::expr::Expression & align_sum_out) const override;
+        
+    virtual dynet::expr::Expression CalcAttentionContext(const dynet::expr::Expression align) const;
+    virtual dynet::expr::Expression CalcWordContext(const dynet::expr::Expression align) const;
+
 
     // Calculate the prior
     dynet::expr::Expression CalcPrior(
@@ -64,6 +70,8 @@ public:
     static ExternAttentional* Read(std::istream & in, const DictPtr & vocab_src, const DictPtr & vocab_trg, dynet::Model & model);
     void Write(std::ostream & out);
 
+
+
     // Setters
     void SetDropout(float dropout) {
       for(auto & enc : encoders_) enc->SetDropout(dropout);
@@ -73,27 +81,42 @@ protected:
     std::vector<LinearEncoderPtr> encoders_;
     std::string attention_type_, attention_hist_;
     int hidden_size_, state_size_;
+    
+    bool use_bias_;
+    
+
+    int attention_context_;
+    bool source_word_embedding_in_softmax_;
+    int source_word_embedding_in_softmax_context_;
+
 
     // Lexical type
     std::string lex_type_, lex_file_;
     MultipleIdMappingPtr lex_mapping_;
     float lex_alpha_;
     size_t lex_size_;
-
+    
     // Parameters
     dynet::Parameter p_ehid_h_W_;
+    dynet::Parameter p_ehid_h_b_;
     dynet::Parameter p_ehid_state_W_;
     dynet::Parameter p_e_ehid_W_;
+    dynet::Parameter p_e_ehid_b_;
     dynet::Parameter p_align_sum_W_;
+    
 
     // Interned parameters
     dynet::expr::Expression i_ehid_h_W_;
+    dynet::expr::Expression i_ehid_h_b_;
     dynet::expr::Expression i_ehid_state_W_;
     dynet::expr::Expression i_e_ehid_W_;
+    dynet::expr::Expression i_e_ehid_b_;
     dynet::expr::Expression i_align_sum_W_;
 
     // Temporary variables
     dynet::expr::Expression i_h_;
+    dynet::expr::Expression i_we_;
+    dynet::expr::Expression i_hc_;
     dynet::expr::Expression i_h_last_;
     dynet::expr::Expression i_ehid_hpart_;
     dynet::expr::Expression i_sent_len_;

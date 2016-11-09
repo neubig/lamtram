@@ -10,7 +10,7 @@ using namespace dynet::expr;
 
 
 EnsembleDecoder::EnsembleDecoder(const vector<EncoderDecoderPtr> & encdecs, const vector<EncoderAttentionalPtr> & encatts, const vector<NeuralLMPtr> & lms)
-      : encdecs_(encdecs), encatts_(encatts), word_pen_(0.f), unk_pen_(1.f), size_limit_(2000), beam_size_(1), ensemble_operation_("sum") {
+      : encdecs_(encdecs), encatts_(encatts), word_pen_(0.f), unk_pen_(1.f), size_limit_(2000), beam_size_(1), ensemble_operation_("sum"),fix_length_(false) {
   if(encdecs.size() + encatts.size() + lms.size() == 0)
     THROW_ERROR("Cannot decode with no models!");
   for(auto & ed : encdecs) {
@@ -211,12 +211,12 @@ void EnsembleDecoder::CalcSentLL<Sentence,LLStats,vector<float> >(const Sentence
 template
 void EnsembleDecoder::CalcSentLL<vector<Sentence>,vector<LLStats>,vector<vector<float> > >(const Sentence & sent_src, const vector<Sentence> & sent_trg, vector<LLStats> & ll, vector<vector<float> > & wordll);
 
-EnsembleDecoderHypPtr EnsembleDecoder::Generate(const Sentence & sent_src) {
-  auto nbest = GenerateNbest(sent_src, 1);
+EnsembleDecoderHypPtr EnsembleDecoder::Generate(const Sentence & sent_src,int length) {
+  auto nbest = GenerateNbest(sent_src, 1,length);
   return (nbest.size() > 0 ? nbest[0] : EnsembleDecoderHypPtr());
 }
 
-std::vector<EnsembleDecoderHypPtr> EnsembleDecoder::GenerateNbest(const Sentence & sent_src, int nbest_size) {
+std::vector<EnsembleDecoderHypPtr> EnsembleDecoder::GenerateNbest(const Sentence & sent_src, int nbest_size,int length) {
 
   // First initialize states
   dynet::ComputationGraph cg;
@@ -237,8 +237,14 @@ std::vector<EnsembleDecoderHypPtr> EnsembleDecoder::GenerateNbest(const Sentence
   int bid;
   Expression empty_idx;
 
+
+  int size_limit = size_limit_;
+  if(fix_length_) {
+    size_limit = length;
+  }
+
   // Perform decoding
-  for(int sent_len = 0; sent_len <= size_limit_; sent_len++) {
+  for(int sent_len = 0; sent_len <= size_limit; sent_len++) {
     // This vector will hold the best IDs
     vector<tuple<dynet::real,int,int,int> > next_beam_id(beam_size_+1, tuple<dynet::real,int,int,int>(-DBL_MAX,-1,-1,-1));
     // Go through all the hypothesis IDs
@@ -278,11 +284,31 @@ std::vector<EnsembleDecoderHypPtr> EnsembleDecoder::GenerateNbest(const Sentence
             best_align = aid;
       }
       // Find the best IDs
-      for(int wid = 0; wid < (int)softmax.size(); wid++) {
-        dynet::real my_score = curr_hyp->GetScore() + softmax[wid];
-        for(bid = beam_size_; bid > 0 && my_score > std::get<0>(next_beam_id[bid-1]); bid--)
-          next_beam_id[bid] = next_beam_id[bid-1];
-        next_beam_id[bid] = tuple<dynet::real,int,int,int>(my_score,hypid,wid,best_align);
+      if(fix_length_) {
+        if(sent_len == size_limit) {
+          dynet::real my_score = curr_hyp->GetScore() + softmax[EOS];
+          for(bid = beam_size_; bid > 0 && my_score > std::get<0>(next_beam_id[bid-1]); bid--)
+            next_beam_id[bid] = next_beam_id[bid-1];
+          next_beam_id[bid] = tuple<dynet::real,int,int,int>(my_score,hypid,EOS,best_align);
+          
+        }else {
+          for(int wid = 0; wid < (int)softmax.size(); wid++) {
+            if(wid != EOS) {
+              dynet::real my_score = curr_hyp->GetScore() + softmax[wid];
+              for(bid = beam_size_; bid > 0 && my_score > std::get<0>(next_beam_id[bid-1]); bid--)
+                next_beam_id[bid] = next_beam_id[bid-1];
+              next_beam_id[bid] = tuple<dynet::real,int,int,int>(my_score,hypid,wid,best_align);
+            }
+          }
+        }
+
+      }else {
+        for(int wid = 0; wid < (int)softmax.size(); wid++) {
+          dynet::real my_score = curr_hyp->GetScore() + softmax[wid];
+          for(bid = beam_size_; bid > 0 && my_score > std::get<0>(next_beam_id[bid-1]); bid--)
+            next_beam_id[bid] = next_beam_id[bid-1];
+          next_beam_id[bid] = tuple<dynet::real,int,int,int>(my_score,hypid,wid,best_align);
+        }
       }
     }
     // Create the new hypotheses

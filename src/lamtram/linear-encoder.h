@@ -19,6 +19,7 @@ namespace lamtram {
 
 // A class for feed-forward neural network LMs
 class LinearEncoder {
+    friend class EncoderAttentional;
 
 public:
 
@@ -52,6 +53,7 @@ public:
     int GetNumLayers() const { return hidden_spec_.layers; }
     int GetNumNodes() const { return hidden_spec_.nodes; }
     const std::vector<dynet::expr::Expression> & GetWordStates() const { return word_states_; }
+    const std::vector<dynet::expr::Expression> & GetWordEmbeddings() const { return word_embeddings_; }
 
     void SetReverse(bool reverse) { reverse_ = reverse; }
     void SetDropout(float dropout);
@@ -68,11 +70,16 @@ protected:
     // Pointers to the parameters
     dynet::LookupParameter p_wr_W_; // Wordrep weights
 
+
     // The RNN builder
     BuilderPtr builder_;
 
     // This records the last set of word states acquired during BuildSentGraph
     std::vector<dynet::expr::Expression> word_states_;
+
+    // This records the set of word embeddings acquired during BuildSentGraph
+    std::vector<dynet::expr::Expression> word_embeddings_;
+
 
 private:
     // A pointer to the current computation graph.

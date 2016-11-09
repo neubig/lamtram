@@ -29,6 +29,10 @@ public:
         dynet::ComputationGraph & cg,
         std::vector<dynet::expr::Expression> & align_out,
         dynet::expr::Expression & align_sum_out) const = 0;
+    
+    virtual dynet::expr::Expression CalcAttentionContext(const dynet::expr::Expression align) const = 0;
+    virtual dynet::expr::Expression CalcWordContext(const dynet::expr::Expression align) const = 0;
+    
 
     // Calculate the prior over the inputs
     virtual dynet::expr::Expression CalcPrior(

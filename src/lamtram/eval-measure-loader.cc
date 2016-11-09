@@ -6,6 +6,9 @@
 #include <lamtram/eval-measure-ribes.h>
 #include <lamtram/eval-measure-wer.h>
 #include <lamtram/eval-measure-interp.h>
+#include <lamtram/eval-measure-charf.h>
+#include <lamtram/eval-measure-char.h>
+#include <lamtram/eval-measure-fscore.h>
 #include <lamtram/macros.h>
 #include <dynet/dict.h>
 
@@ -29,6 +32,12 @@ EvalMeasure * EvalMeasureLoader::CreateMeasureFromString(const string & str, con
         return new EvalMeasureRibes(config);
     else if(eval == "wer")
         return new EvalMeasureWer(config);
+    else if(eval == "charf")
+        return new EvalMeasureCharF(config,vocab);
+    else if(eval == "fscore")
+        return new EvalMeasureFscore(config,vocab);
+    else if(eval == "char")
+        return new EvalMeasureChar(config,vocab);
     else if(eval == "interp")
         return new EvalMeasureInterp(config, vocab);
     else

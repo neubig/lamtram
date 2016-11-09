@@ -11,7 +11,6 @@ namespace lamtram {
 // (potentially batched) and calculates a probability distribution
 // over words
 class SoftmaxFull : public SoftmaxBase {
-
 public:
   SoftmaxFull(const std::string & sig, int input_size, const DictPtr & vocab, dynet::Model & mod);
   ~SoftmaxFull() { };

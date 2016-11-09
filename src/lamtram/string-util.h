@@ -6,6 +6,16 @@
 
 namespace lamtram {
 
+inline unsigned int UTF8Len(const unsigned char x) {
+  if (x < 0x80) return 1;
+  else if ((x >> 5) == 0x06) return 2;
+  else if ((x >> 4) == 0x0e) return 3;
+  else if ((x >> 3) == 0x1e) return 4;
+  else if ((x >> 2) == 0x3e) return 5;
+  else if ((x >> 1) == 0x7e) return 6;
+  else return 0;
+}
+
 inline std::vector<std::string> TokenizeWildcarded(const std::string & str, const std::vector<std::string> & wildcards, const std::string & delimiter) {
   std::vector<std::string> ret;
   auto end = str.find("WILD");
@@ -19,6 +29,7 @@ inline std::vector<std::string> TokenizeWildcarded(const std::string & str, cons
   }
   return ret;
 }
+
 
 inline std::vector<std::string> Tokenize(const char *str, char c = ' ') {  
   std::vector<std::string> result;

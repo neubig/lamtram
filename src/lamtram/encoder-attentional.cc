@@ -25,8 +25,10 @@ ExternAttentional::ExternAttentional(const std::vector<LinearEncoderPtr> & encod
                    const std::string & attention_type, const std::string & attention_hist, int state_size,
                    const std::string & lex_type,
                    const DictPtr & vocab_src, const DictPtr & vocab_trg,
+                   int attention_context, bool source_word_embedding_in_softmax, int source_word_embedding_in_softmax_context,
                    dynet::Model & mod)
     : ExternCalculator(0), encoders_(encoders),
+      attention_context_(attention_context),source_word_embedding_in_softmax_(source_word_embedding_in_softmax),source_word_embedding_in_softmax_context_(source_word_embedding_in_softmax_context),
       attention_type_(attention_type), attention_hist_(attention_hist), hidden_size_(0), state_size_(state_size), lex_type_(lex_type) {
 
   for(auto & enc : encoders)
@@ -42,6 +44,16 @@ ExternAttentional::ExternAttentional(const std::vector<LinearEncoderPtr> & encod
     p_ehid_h_W_ = mod.add_parameters({(unsigned int)hidden_size_, (unsigned int)context_size_});
     p_ehid_state_W_ = mod.add_parameters({(unsigned int)hidden_size_, (unsigned int)state_size_});
     p_e_ehid_W_ = mod.add_parameters({1, (unsigned int)hidden_size_});
+    use_bias_ = false;
+  } else if(attention_type_.substr(0,6) == "mlp_b:") {
+    hidden_size_ = stoi(attention_type_.substr(6));
+    assert(hidden_size_ != 0);
+    p_ehid_h_W_ = mod.add_parameters({(unsigned int)hidden_size_, (unsigned int)context_size_});
+    p_ehid_state_W_ = mod.add_parameters({(unsigned int)hidden_size_, (unsigned int)state_size_});
+    p_ehid_h_b_ = mod.add_parameters({(unsigned int)hidden_size_, 1});
+    p_e_ehid_W_ = mod.add_parameters({1, (unsigned int)hidden_size_});
+    p_e_ehid_b_ = mod.add_parameters({1, 1});
+    use_bias_ = true;
   } else {
     THROW_ERROR("Illegal attention type: " << attention_type);
   }
@@ -105,6 +117,10 @@ void ExternAttentional::NewGraph(dynet::ComputationGraph & cg) {
   if(hidden_size_) {
     i_ehid_state_W_ = parameter(cg, p_ehid_state_W_);
     i_e_ehid_W_ = parameter(cg, p_e_ehid_W_);
+    if(use_bias_) {
+      i_ehid_h_b_ = parameter(cg, p_ehid_h_b_);
+      i_e_ehid_b_ = parameter(cg, p_e_ehid_b_);
+    }
   }
   if(attention_hist_ == "sum") {
     i_align_sum_W_ = parameter(cg, p_align_sum_W_);
@@ -115,6 +131,10 @@ void ExternAttentional::NewGraph(dynet::ComputationGraph & cg) {
 ExternAttentional* ExternAttentional::Read(std::istream & in, const DictPtr & vocab_src, const DictPtr & vocab_trg, dynet::Model & model) {
   int num_encoders, state_size;
   string version_id, attention_type, attention_hist = "none", lex_type = "none", line;
+  int attention_context = 0;
+  bool source_word_embedding_in_softmax = false;
+  int source_word_embedding_in_softmax_context = 0;
+
   if(!getline(in, line))
     THROW_ERROR("Premature end of model file when expecting ExternAttentional");
   istringstream iss(line);
@@ -125,16 +145,20 @@ ExternAttentional* ExternAttentional::Read(std::istream & in, const DictPtr & vo
     iss >> num_encoders >> attention_type >> attention_hist >> state_size;
   } else if (version_id == "extatt_004") {
     iss >> num_encoders >> attention_type >> attention_hist >> lex_type >> state_size;
+  } else if (version_id == "extatt_005") {
+    iss >> num_encoders >> attention_type >> attention_hist >> lex_type >> state_size >> attention_context >> source_word_embedding_in_softmax >> source_word_embedding_in_softmax_context;
   } else {
     THROW_ERROR("Expecting a ExternAttentional of version extatt_002-extatt_004, but got something different:" << endl << line);
   }
+  
   vector<LinearEncoderPtr> encoders;
   while(num_encoders-- > 0)
     encoders.push_back(LinearEncoderPtr(LinearEncoder::Read(in, model)));
-  return new ExternAttentional(encoders, attention_type, attention_hist, state_size, lex_type, vocab_src, vocab_trg, model);
+  return new ExternAttentional(encoders, attention_type, attention_hist, state_size, lex_type, vocab_src, vocab_trg, attention_context,source_word_embedding_in_softmax, source_word_embedding_in_softmax_context, model);
 }
+
 void ExternAttentional::Write(std::ostream & out) {
-  out << "extatt_004 " << encoders_.size() << " " << attention_type_ << " " << attention_hist_ << " " << lex_type_ << " " << state_size_ << endl;
+  out << "extatt_005 " << encoders_.size() << " " << attention_type_ << " " << attention_hist_ << " " << lex_type_ << " " << state_size_ << " " << attention_context_ << " " << source_word_embedding_in_softmax_ << " " << source_word_embedding_in_softmax_context_ << endl;
   for(auto & enc : encoders_) enc->Write(out);
 }
 
@@ -144,12 +168,15 @@ void ExternAttentional::InitializeSentence(
 
   // First get the states in a digestable format
   vector<vector<dynet::expr::Expression> > hs_sep;
+  vector<vector<dynet::expr::Expression> > wes_sep;
   for(auto & enc : encoders_) {
     enc->BuildSentGraph(sent_src, true, train, cg);
     hs_sep.push_back(enc->GetWordStates());
+    wes_sep.push_back(enc->GetWordEmbeddings());
     assert(hs_sep[0].size() == hs_sep.rbegin()->size());
   }
   sent_len_ = hs_sep[0].size();
+  
   // Concatenate them if necessary
   vector<dynet::expr::Expression> hs_comb;
   if(encoders_.size() == 1) {
@@ -157,17 +184,79 @@ void ExternAttentional::InitializeSentence(
   } else {
     for(int i : boost::irange(0, sent_len_)) {
       vector<dynet::expr::Expression> vars;
-      for(int j : boost::irange(0, (int)encoders_.size()))
+      for(int j : boost::irange(0, (int)encoders_.size())) {
         vars.push_back(hs_sep[j][i]);
+      }
       hs_comb.push_back(concatenate(vars));
     }
   }
   i_h_ = concatenate_cols(hs_comb);
   i_h_last_ = *hs_comb.rbegin();
 
+  //vector for attention context
+  vector<dynet::expr::Expression> hcs_comb;
+  if(attention_context_ > 0 ) {
+    for(int i : boost::irange(0, sent_len_)) {
+      vector<dynet::expr::Expression> vars;
+      for(int k : boost::irange(1,attention_context_+1)) {
+        for(int j : boost::irange(0, (int)encoders_.size())) {
+          if(i+k < 0 || i+k >= sent_len_) {
+            vars.push_back(zeroes(cg,hs_sep[j][i].value().d));
+          }else {
+            vars.push_back(hs_sep[j][i+k]);
+          }
+          if(i-k < 0 || i-k >= sent_len_) {
+            vars.push_back(zeroes(cg,hs_sep[j][i].value().d));
+          }else {
+            vars.push_back(hs_sep[j][i-k]);
+          }
+        }
+      }
+      hcs_comb.push_back(concatenate(vars));
+    }
+    i_hc_ = concatenate_cols(hcs_comb);
+  }
+  
+  //vector for source word embedding with context  
+  vector<dynet::expr::Expression> wes_comb;
+  if(source_word_embedding_in_softmax_) {
+    if(encoders_.size() == 1 && source_word_embedding_in_softmax_context_ == 0) {
+      wes_comb = hs_sep[0];
+    }else {
+      for(int i : boost::irange(0, sent_len_)) {
+        vector<dynet::expr::Expression> vars;
+        for(int j : boost::irange(0, (int)encoders_.size())) {
+          vars.push_back(wes_sep[j][i]);
+        }
+        for(int k : boost::irange(1,source_word_embedding_in_softmax_context_+1)) {
+          for(int j : boost::irange(0, (int)encoders_.size())) {
+            if(i+k < 0 || i+k >= sent_len_) {
+              vars.push_back(zeroes(cg,wes_sep[j][i].value().d));
+            }else {
+              vars.push_back(wes_sep[j][i+k]);
+            }
+            if(i-k < 0 || i-k >= sent_len_) {
+              vars.push_back(zeroes(cg,wes_sep[j][i].value().d));
+            }else {
+              vars.push_back(wes_sep[j][i-k]);
+            }
+          }
+        }
+        wes_comb.push_back(concatenate(vars));
+      }
+    }
+    i_we_ = concatenate_cols(wes_comb);
+  }
+
+
   // Create an identity with shape
   if(hidden_size_) {
-    i_ehid_hpart_ = i_ehid_h_W_*i_h_;
+    if(use_bias_) {
+      i_ehid_hpart_ = i_ehid_h_W_ *  i_h_;
+      i_ehid_hpart_ = colwise_add(i_ehid_hpart_,i_ehid_h_b_);
+    }else {
+      i_ehid_hpart_ = i_ehid_h_W_*i_h_;
+    }
     sent_values_.resize(sent_len_, 1.0);
     i_sent_len_ = input(cg, {1, (unsigned int)sent_len_}, &sent_values_);
   } else if(attention_type_ == "dot") {
@@ -203,9 +292,11 @@ void ExternAttentional::InitializeSentence(
 
   // First get the states in a digestable format
   vector<vector<dynet::expr::Expression> > hs_sep;
+  vector<vector<dynet::expr::Expression> > wes_sep;
   for(auto & enc : encoders_) {
     enc->BuildSentGraph(sent_src, true, train, cg);
     hs_sep.push_back(enc->GetWordStates());
+    wes_sep.push_back(enc->GetWordEmbeddings());
     assert(hs_sep[0].size() == hs_sep.rbegin()->size());
   }
   sent_len_ = hs_sep[0].size();
@@ -216,17 +307,81 @@ void ExternAttentional::InitializeSentence(
   } else {
     for(int i : boost::irange(0, sent_len_)) {
       vector<dynet::expr::Expression> vars;
-      for(int j : boost::irange(0, (int)encoders_.size()))
+      for(int j : boost::irange(0, (int)encoders_.size())) {
         vars.push_back(hs_sep[j][i]);
+      }
       hs_comb.push_back(concatenate(vars));
     }
   }
   i_h_ = concatenate_cols(hs_comb);
   i_h_last_ = *hs_comb.rbegin();
 
+
+  //vector for attention context
+  vector<dynet::expr::Expression> hcs_comb;
+  if(attention_context_ > 0 ) {
+    for(int i : boost::irange(0, sent_len_)) {
+      vector<dynet::expr::Expression> vars;
+      for(int k : boost::irange(1,attention_context_+1)) {
+        for(int j : boost::irange(0, (int)encoders_.size())) {
+          if(i+k < 0 || i+k >= sent_len_) {
+            vars.push_back(zeroes(cg,hs_sep[j][i].value().d));
+          }else {
+            vars.push_back(hs_sep[j][i+k]);
+          }
+          if(i-k < 0 || i-k >= sent_len_) {
+            vars.push_back(zeroes(cg,hs_sep[j][i].value().d));
+          }else {
+            vars.push_back(hs_sep[j][i-k]);
+          }
+        }
+      }
+      hcs_comb.push_back(concatenate(vars));
+    }
+    i_hc_ = concatenate_cols(hcs_comb);
+  }
+
+
+  //vector for source word embedding with context  
+  vector<dynet::expr::Expression> wes_comb;
+  if(source_word_embedding_in_softmax_) {
+    if(encoders_.size() == 1 && source_word_embedding_in_softmax_context_ == 0) {
+      wes_comb = hs_sep[0];
+    }else {
+      for(int i : boost::irange(0, sent_len_)) {
+        vector<dynet::expr::Expression> vars;
+        for(int j : boost::irange(0, (int)encoders_.size())) {
+          vars.push_back(wes_sep[j][i]);
+        }
+        for(int k : boost::irange(1,source_word_embedding_in_softmax_context_+1)) {
+          for(int j : boost::irange(0, (int)encoders_.size())) {
+            if(i+k < 0 || i+k >= sent_len_) {
+              vars.push_back(zeroes(cg,wes_sep[j][i].value().d));
+            }else {
+              vars.push_back(wes_sep[j][i+k]);
+            }
+            if(i-k < 0 || i-k >= sent_len_) {
+              vars.push_back(zeroes(cg,wes_sep[j][i].value().d));
+            }else {
+              vars.push_back(wes_sep[j][i-k]);
+            }
+          }
+        }
+        wes_comb.push_back(concatenate(vars));
+      }
+    }
+    i_we_ = concatenate_cols(wes_comb);
+  }
+
+
   // Create an identity with shape
   if(hidden_size_) {
-    i_ehid_hpart_ = i_ehid_h_W_*i_h_;
+    if(use_bias_) {
+      i_ehid_hpart_ = i_ehid_h_W_ *  i_h_;
+      i_ehid_hpart_ = colwise_add(i_ehid_hpart_,i_ehid_h_b_);
+    }else {
+      i_ehid_hpart_ = i_ehid_h_W_*i_h_;
+    }
     sent_values_.resize(sent_len_, 1.0);
     i_sent_len_ = input(cg, {1, (unsigned int)sent_len_}, &sent_values_);
   } else if(attention_type_ == "dot") {
@@ -287,7 +442,11 @@ dynet::expr::Expression ExternAttentional::CreateContext(
     // Run through nonlinearity
     dynet::expr::Expression i_ehid_out = tanh({i_ehid});
     // i_e_ehid_W_ is {1, hidden_size}, i_ehid_out is {hidden_size, sent_len}
-    i_e = transpose(i_e_ehid_W_ * i_ehid_out);
+    if(use_bias_) {
+      i_e = transpose(colwise_add(i_e_ehid_W_ * i_ehid_out,i_e_ehid_b_));
+    }else {
+      i_e = transpose(i_e_ehid_W_ * i_ehid_out);
+    }
   // Bilinear/dot product
   } else {
     assert(state_in.size() > 0);
@@ -316,6 +475,20 @@ dynet::expr::Expression ExternAttentional::CreateContext(
   // i_h_ is {input_size, sent_len}, i_alpha is {sent_len, 1}
   return i_h_ * i_alpha; 
 }
+
+
+dynet::expr::Expression ExternAttentional::CalcAttentionContext(const dynet::expr::Expression align) const {
+
+  return i_hc_ * align;
+
+}
+
+dynet::expr::Expression ExternAttentional::CalcWordContext(const dynet::expr::Expression align) const {
+  return i_we_ * align;
+}
+
+
+
 
 EncoderAttentional::EncoderAttentional(
            const ExternAttentionalPtr & extern_calc,
@@ -415,8 +588,11 @@ EncoderAttentional* EncoderAttentional::Read(const DictPtr & vocab_src, const Di
     THROW_ERROR("Expecting a EncoderAttentional of version encatt_001, but got something different:" << endl << line);
   ExternAttentionalPtr extern_calc(ExternAttentional::Read(in, vocab_src, vocab_trg, model));
   NeuralLMPtr decoder(NeuralLM::Read(vocab_trg, in, model));
+  decoder->SetAttention(extern_calc);
   return new EncoderAttentional(extern_calc, decoder, model);
 }
+
+
 void EncoderAttentional::Write(std::ostream & out) {
   out << "encatt_001" << endl;
   extern_calc_->Write(out);

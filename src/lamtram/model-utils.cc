@@ -51,6 +51,8 @@ ModelType* ModelUtils::LoadBilingualModel(const std::string & file,
     return ModelUtils::LoadBilingualModel<ModelType>(model_in, mod, vocab_src, vocab_trg);
 }
 
+
+
 // Load a model from a stream
 // Will return a pointer to the model, and reset the passed shared pointers
 // with dynet::Model, and input, output vocabularies (if necessary)

@@ -1,5 +1,5 @@
 
-#include <lamtram/lamtram-train.h>
+#include <lamtram/lamtram-train-multitask.h>
 #include <lamtram/neural-lm.h>
 #include <lamtram/encoder-decoder.h>
 #include <lamtram/encoder-attentional.h>
@@ -28,16 +28,20 @@ using namespace lamtram;
 using namespace dynet::expr;
 namespace po = boost::program_options;
 
-int LamtramTrain::main(int argc, char** argv) {
-  po::options_description desc("*** lamtram-train (by Graham Neubig) ***");
+int LamtramTrainMultitask::main(int argc, char** argv) {
+  po::options_description desc("*** lamtram-train-multitask (by Jan Niehues) ***");
   desc.add_options()
     ("help", "Produce help message")
     ("train_trg", po::value<string>()->default_value(""), "Training files, possibly separated by pipes")
     ("dev_trg", po::value<string>()->default_value(""), "Development files")
     ("train_src", po::value<string>()->default_value(""), "Training source files for TMs, possibly separated by pipes")
     ("dev_src", po::value<string>()->default_value(""), "Development source file for TMs")
+    ("train_task", po::value<string>()->default_value(""), "Task index for training files")
+    ("dev_task", po::value<string>()->default_value(""), "Task index for development files")
+    ("voc_src", po::value<string>()->default_value(""), "Source voc used for every training file")
+    ("voc_trg", po::value<string>()->default_value(""), "Source voc used for every training file")
     ("model_out", po::value<string>()->default_value(""), "File to write the model to")
-    ("model_type", po::value<string>()->default_value("nlm"), "Model type (Neural LM nlm, Encoder Decoder encdec, Attentional Model encatt, or Encoder Classifier enccls)")
+    ("model_type", po::value<string>()->default_value("nlm"), "Model type (Attentional Model encatt)")
     ("layer_size", po::value<int>()->default_value(512), "The default size of all hidden layers (word rep, hidden state, mlp attention, mlp softmax) if not specified otherwise")
     ("attention_feed", po::value<bool>()->default_value(true), "Whether to perform the input feeding of Luong et al.")
     ("attention_hist", po::value<string>()->default_value("none"), "How to pass information about the attention into the score function (none/sum)")
@@ -99,9 +103,9 @@ int LamtramTrain::main(int argc, char** argv) {
 
   // Sanity check for model type
   string model_type = vm_["model_type"].as<std::string>();
-  if(model_type != "nlm" && model_type != "encdec" && model_type != "encatt" && model_type != "enccls") {
+  if( model_type != "encatt" ) {
     cerr << desc << endl;
-    THROW_ERROR("Model type must be neural LM (nlm) encoder decoder (encdec), attentional model (encatt), or encoder classifier (enccls)");
+    THROW_ERROR("Model type must be attentional model (encatt)");
   }
   bool use_src = model_type == "encdec" || model_type == "enccls" || model_type == "encatt";
 
@@ -110,6 +114,9 @@ int LamtramTrain::main(int argc, char** argv) {
 
   // Other sanity checks
   try { train_files_trg_ = TokenizeWildcarded(vm_["train_trg"].as<string>(), wildcards_, "|"); } catch(std::exception & e) { }
+  std::vector<std::string> voc_trg;
+  try { voc_trg = TokenizeWildcarded(vm_["voc_trg"].as<string>(), wildcards_, "|"); } catch(std::exception & e) { }
+  for(int i = 0; i < voc_trg.size(); i++) voc_trg_.push_back(atoi(voc_trg[i].c_str()));
   try { dev_file_trg_ = vm_["dev_trg"].as<string>(); } catch(std::exception & e) { }
   try { model_out_file_ = vm_["model_out"].as<string>(); } catch(std::exception & e) { }
   if(!train_files_trg_.size())
@@ -119,6 +126,9 @@ int LamtramTrain::main(int argc, char** argv) {
 
   // Sanity checks for the source
   try { train_files_src_ = TokenizeWildcarded(vm_["train_src"].as<string>(), wildcards_, "|"); } catch(std::exception & e) { }
+  std::vector<std::string> voc_src;
+  try { voc_src = TokenizeWildcarded(vm_["voc_src"].as<string>(), wildcards_, "|"); } catch(std::exception & e) { }
+  for(int i = 0; i < voc_src.size(); i++) voc_src_.push_back(atoi(voc_src[i].c_str()));
   try { dev_file_src_ = vm_["dev_src"].as<string>(); } catch(std::exception & e) { }
   try {
     string train_weights_string = vm_["train_weights"].as<string>();
@@ -140,11 +150,9 @@ int LamtramTrain::main(int argc, char** argv) {
   scheduled_samp_ = vm_["scheduled_samp"].as<float>();
   dropout_ = vm_["dropout"].as<float>();
 
+
   // Perform appropriate training
-  if(model_type == "nlm")           TrainLM();
-  else if(model_type == "encdec")   TrainEncDec();
-  else if(model_type == "encatt")   TrainEncAtt();
-  else if(model_type == "enccls")   TrainEncCls();
+  if(model_type == "encatt")   TrainEncAtt();
   else                THROW_ERROR("Bad model type " << model_type);
 
   return 0;
@@ -158,7 +166,7 @@ struct DoubleLength
   const vector<Sentence> & vec;
   const vector<OutputType> & wec;
 };
-
+/*
 template <>
 bool DoubleLength<Sentence>::operator() (int i1, int i2) {
   if(vec[i2].size() != vec[i1].size()) return (vec[i2].size() < vec[i1].size());
@@ -169,7 +177,7 @@ template <>
 bool DoubleLength<int>::operator() (int i1, int i2) {
   return (vec[i2].size() < vec[i1].size());
 }
-
+*/
 struct SingleLength
 {
   SingleLength(const vector<Sentence> & v) : vec(v) { }
@@ -267,236 +275,24 @@ inline void CreateMinibatches(const std::vector<Sentence> & train_trg,
   if(train_cache_next.size()) train_cache_minibatch.push_back(train_cache_next);
 }
 
-void LamtramTrain::TrainLM() {
+
+
+void LamtramTrainMultitask::TrainEncAtt() {
 
   // dynet::Dict
-  DictPtr vocab_trg, vocab_src;
-  std::shared_ptr<dynet::Model> model;
-  std::shared_ptr<NeuralLM> nlm;
-  if(model_in_file_.size()) {
-    nlm.reset(ModelUtils::LoadMonolingualModel<NeuralLM>(model_in_file_, model, vocab_trg));
-  } else {
-    vocab_trg.reset(CreateNewDict());
-    model.reset(new dynet::Model);
-  }
-  // if(!trg_sent) vocab_trg = dynet::Dict("");
-
-  // Read the training files
-  vector<Sentence> train_trg, dev_trg, train_cache;
-  vector<int> train_trg_ids;
-  for(size_t i = 0; i < train_files_trg_.size(); i++) {
-    LoadFile(train_files_trg_[i], true, *vocab_trg, train_trg);
-    train_trg_ids.resize(train_trg.size(), i);
-  }
-  if(!vocab_trg->is_frozen()) { vocab_trg->freeze(); vocab_trg->set_unk("<unk>"); }
-  if(dev_file_trg_.size()) LoadFile(dev_file_trg_, true, *vocab_trg, dev_trg);
-  if(train_files_weights_.size())
-    THROW_ERROR("Instance weighting only supported for encdec and encatt models")
-  if(eval_every_ == -1) eval_every_ = train_trg.size();
-
-  // Create the model
-  int wordrep = vm_["wordrep"].as<int>();
-  if(wordrep <= 0) wordrep = GlobalVars::layer_size;
-  if(model_in_file_.size() == 0)
-    nlm.reset(new NeuralLM(vocab_trg, context_, 0, false, vm_["wordrep"].as<int>(), vm_["layers"].as<string>(), vocab_trg->get_unk_id(), softmax_sig_, vm_["word_embedding_in_softmax"].as<bool>(),
-    vm_["attention_context"].as<int>(), vm_["source_word_embedding_in_softmax"].as<bool>(), vm_["source_word_embedding_in_softmax_context"].as<int>(),*model));
-  TrainerPtr trainer = GetTrainer(vm_["trainer"].as<string>(), vm_["learning_rate"].as<float>(), *model);
-
-  // If necessary, cache the softmax
-  nlm->GetSoftmax().Cache(train_trg, train_trg_ids, train_cache);
-
-  // Create minibatches
-  vector<vector<Sentence> > train_trg_minibatch, train_cache_minibatch, dev_trg_minibatch, dev_cache_minibatch;
-  vector<Sentence> empty_minibatch;
-  CreateMinibatches(train_trg, train_cache, vm_["minibatch_size"].as<int>(), train_trg_minibatch, train_cache_minibatch);
-  // CreateMinibatches(dev_trg, empty_minibatch, vm_["minibatch_size"].as<int>(), dev_trg_minibatch, dev_cache_minibatch);
-  CreateMinibatches(dev_trg, empty_minibatch, 1, dev_trg_minibatch, dev_cache_minibatch);
-  
-  // TODO: Learning rate
-  dynet::real learning_rate = vm_["learning_rate"].as<float>();
-  dynet::real learning_scale = 1.0;
-
-  // Create a sentence list and random generator
-  std::vector<int> train_ids(train_trg_minibatch.size());
-  std::iota(train_ids.begin(), train_ids.end(), 0);
-  // Perform the training
-  std::vector<dynet::expr::Expression> empty_hist;
-  dynet::real last_loss = 1e99, best_loss = 1e99;
-  bool is_likelihood = (softmax_sig_ != "hinge");
-  bool do_dev = dev_trg.size() != 0;
-  int loc = 0, sent_loc = 0, last_print = 0;
-  float epoch_frac = 0.f, samp_prob = 0.f;
-  int epoch = 0;
-  std::shuffle(train_ids.begin(), train_ids.end(), *dynet::rndeng);
-  while(true) {
-    // Start the training
-    LLStats train_ll(nlm->GetVocabSize()), dev_ll(nlm->GetVocabSize());
-    train_ll.is_likelihood_ = is_likelihood; dev_ll.is_likelihood_ = is_likelihood;
-    Timer time;
-    nlm->SetDropout(dropout_);
-    for(int curr_sent_loc = 0; curr_sent_loc < eval_every_; ) {
-      if(loc == (int)train_ids.size()) {
-        // Shuffle the access order
-        std::shuffle(train_ids.begin(), train_ids.end(), *dynet::rndeng);
-        loc = 0;
-        sent_loc = 0;
-        last_print = 0;
-        ++epoch;
-        if(epoch >= epochs_) return;
-      }
-      if(scheduled_samp_) {
-        float val = (epoch_frac-scheduled_samp_)/scheduled_samp_;
-        samp_prob = 1/(1+exp(val));
-      }
-      dynet::ComputationGraph cg;
-      nlm->NewGraph(cg);
-      dynet::expr::Expression loss_exp = nlm->BuildSentGraph(train_trg_minibatch[train_ids[loc]], (train_cache_minibatch.size() ? train_cache_minibatch[train_ids[loc]] : empty_minibatch), nullptr, NULL, empty_hist, samp_prob, true, cg, train_ll);
-      sent_loc += train_trg_minibatch[train_ids[loc]].size();
-      curr_sent_loc += train_trg_minibatch[train_ids[loc]].size();
-      epoch_frac += 1.f/train_ids.size();
-      // cg.PrintGraphviz();
-      train_ll.loss_ += as_scalar(cg.incremental_forward(loss_exp));
-      cg.backward(loss_exp);
-      trainer->update();
-      ++loc;
-      if(sent_loc / 100 != last_print || curr_sent_loc >= eval_every_ || epochs_ == epoch) {
-        last_print = sent_loc / 100;
-        float elapsed = time.Elapsed();
-        cerr << "Epoch " << epoch+1 << " sent " << sent_loc << ": " << train_ll.PrintStats() << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << train_ll.words_/elapsed << " w/s)" << endl;
-        if(epochs_ == epoch) break;
-      }
-    }
-    // Measure development perplexity
-    if(do_dev) {
-      time = Timer();
-      nlm->SetDropout(0.f);
-      for(auto & sent : dev_trg_minibatch) {
-        dynet::ComputationGraph cg;
-        nlm->NewGraph(cg);
-        dynet::expr::Expression loss_exp = nlm->BuildSentGraph(sent, empty_minibatch, nullptr, NULL, empty_hist, 0.f, false, cg, dev_ll);
-        dev_ll.loss_ += as_scalar(cg.incremental_forward(loss_exp));
-      }
-      float elapsed = time.Elapsed();
-      cerr << "Epoch " << epoch+1 << " dev: " << dev_ll.PrintStats() << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << dev_ll.words_/elapsed << " w/s)" << endl;
-    }
-    // Adjust the learning rate
-    trainer->update_epoch();
-    // trainer->status(); cerr << endl;
-    // Check the learning rate
-    if(last_loss != last_loss)
-      THROW_ERROR("Likelihood is not a number, dying...");
-    dynet::real my_loss = do_dev ? dev_ll.loss_ : train_ll.loss_;
-    if(my_loss > last_loss) {
-      learning_scale *= rate_decay_;
-    }
-    last_loss = my_loss;
-    if(best_loss > my_loss) {
-      // Open the output stream
-      ofstream out(model_out_file_.c_str());
-      if(!out) THROW_ERROR("Could not open output file: " << model_out_file_);
-      cerr << "*** Found the best model yet! Printing model to " << model_out_file_ << endl;
-      // Write the model (TODO: move this to a separate file?)
-      WriteDict(*vocab_trg, out);
-      // vocab_trg->Write(out);
-      nlm->Write(out);
-      ModelUtils::WriteModelText(out, *model);
-      best_loss = my_loss;
-    }
-    // If the rate is less than the threshold
-    if(learning_scale*learning_rate < rate_thresh_)
-      break;
-  }
-}
-
-void LamtramTrain::TrainEncDec() {
-
-  // dynet::Dict
-  DictPtr vocab_trg, vocab_src;
-  std::shared_ptr<dynet::Model> model;
-  std::shared_ptr<EncoderDecoder> encdec;
-  NeuralLMPtr decoder;
-  if(model_in_file_.size()) {
-    encdec.reset(ModelUtils::LoadBilingualModel<EncoderDecoder>(model_in_file_, model, vocab_src, vocab_trg));
-    decoder = encdec->GetDecoderPtr();
-  } else {
-    vocab_src.reset(CreateNewDict());
-    vocab_trg.reset(CreateNewDict());
-    model.reset(new dynet::Model);
-  }
-  // if(!trg_sent) vocab_trg = dynet::Dict("");
-
-  // Read the training files
-  vector<Sentence> train_trg, dev_trg, train_src, dev_src, train_cache_ids;
-  vector<int> train_trg_ids, train_src_ids;
-  vector<float> train_weights;
-  for(size_t i = 0; i < train_files_trg_.size(); i++) {
-    LoadFile(train_files_trg_[i], true, *vocab_trg, train_trg);
-    train_trg_ids.resize(train_trg.size(), i);
-  }
-  if(!vocab_trg->is_frozen()) { vocab_trg->freeze(); vocab_trg->set_unk("<unk>"); }
-  if(dev_file_trg_.size()) LoadFile(dev_file_trg_, true, *vocab_trg, dev_trg);
-  for(size_t i = 0; i < train_files_src_.size(); i++) {
-    LoadFile(train_files_src_[i], false, *vocab_src, train_src);
-    train_src_ids.resize(train_src.size(), i);
-  }
-  if(!vocab_src->is_frozen()) { vocab_src->freeze(); vocab_src->set_unk("<unk>"); }
-  if(dev_file_src_.size()) LoadFile(dev_file_src_, false, *vocab_src, dev_src);
-  for(size_t i = 0; i < train_files_weights_.size(); i++)
-    LoadWeights(train_files_weights_[i], train_weights);
-  if(eval_every_ == -1) eval_every_ = train_trg.size();
-
-  // Create the model
-  if(model_in_file_.size() == 0) {
-    vector<LinearEncoderPtr> encoders;
-    vector<string> encoder_types;
-    boost::algorithm::split(encoder_types, vm_["encoder_types"].as<string>(), boost::is_any_of("|"));
-    BuilderSpec dec_layer_spec(vm_["layers"].as<string>());
-    if(dec_layer_spec.nodes % encoder_types.size() != 0)
-      THROW_ERROR("The number of nodes in the decoder (" << dec_layer_spec.nodes << ") must be divisible by the number of encoders (" << encoder_types.size() << ")");
-    BuilderSpec enc_layer_spec(dec_layer_spec); enc_layer_spec.nodes /= encoder_types.size();
-    int wordrep = vm_["wordrep"].as<int>();
-    if(wordrep <= 0) wordrep = GlobalVars::layer_size;
-    for(auto & spec : encoder_types) {
-      LinearEncoderPtr enc(new LinearEncoder(vocab_src->size(), wordrep, enc_layer_spec, vocab_src->get_unk_id(), *model));
-      if(spec == "for") { }
-      else if(spec == "rev") { enc->SetReverse(true); }
-      else { THROW_ERROR("Illegal encoder type: " << spec); }
-      encoders.push_back(enc);
-    }
-    decoder.reset(new NeuralLM(vocab_trg, context_, 0, false, vm_["wordrep"].as<int>(), dec_layer_spec, vocab_trg->get_unk_id(), softmax_sig_, vm_["word_embedding_in_softmax"].as<bool>(),
-     vm_["attention_context"].as<int>(), vm_["source_word_embedding_in_softmax"].as<bool>(), vm_["source_word_embedding_in_softmax_context"].as<int>(),*model));
-    encdec.reset(new EncoderDecoder(encoders, decoder, *model));
-  }
-
-  string crit = vm_["learning_criterion"].as<string>();
-  if(crit == "ml") {
-    // If necessary, cache the softmax
-    decoder->GetSoftmax().Cache(train_trg, train_trg_ids, train_cache_ids);
-    BilingualTraining(train_src, train_trg, train_cache_ids, train_weights, dev_src, dev_trg,
-                      *vocab_src, *vocab_trg, *model, *encdec);
-  } else if(crit == "minrisk") {
-    // Get the evaluator
-    std::shared_ptr<EvalMeasure> eval(EvalMeasureLoader::CreateMeasureFromString(vm_["eval_meas"].as<string>(), *vocab_trg));
-    MinRiskTraining(train_src, train_trg, train_trg_ids, dev_src, dev_trg,
-                    *vocab_src, *vocab_trg, *eval, *model, *encdec);
-  } else {
-    THROW_ERROR("Illegal learning criterion: " << crit);
-  }
-}
-
-void LamtramTrain::TrainEncAtt() {
-
-  // dynet::Dict
-  DictPtr vocab_trg, vocab_src;
+  vector<DictPtr> vocab_trg, vocab_src;
   std::shared_ptr<dynet::Model> model;
   std::shared_ptr<EncoderAttentional> encatt;
   NeuralLMPtr decoder;
+  
+  
   if(model_in_file_.size()) {
-    encatt.reset(ModelUtils::LoadBilingualModel<EncoderAttentional>(model_in_file_, model, vocab_src, vocab_trg));
-    decoder = encatt->GetDecoderPtr();
+    cerr << "TO DO!!!" << endl;
+    //encatt.reset(ModelUtils::LoadBilingualModel<EncoderAttentional>(model_in_file_, model, vocab_src, vocab_trg));
+    //decoder = encatt->GetDecoderPtr();
   } else {
-    vocab_src.reset(CreateNewDict());
-    vocab_trg.reset(CreateNewDict());
+    //vocab_src.reset(CreateNewDict());
+    //vocab_trg.reset(CreateNewDict());
     model.reset(new dynet::Model);
   }
 
@@ -505,23 +301,38 @@ void LamtramTrain::TrainEncAtt() {
   vector<int> train_trg_ids, train_src_ids;
   vector<float> train_weights;
   for(size_t i = 0; i < train_files_trg_.size(); i++) {
-    LoadFile(train_files_trg_[i], true, *vocab_trg, train_trg);
+    if(voc_trg_[i] >= vocab_trg.size()) {
+      for(int i = vocab_trg.size(); i <= voc_trg_[i]; i++) {vocab_trg.push_back(DictPtr(CreateNewDict()));};
+    }
+    LoadFile(train_files_trg_[i], true, *(vocab_trg[voc_trg_[i]]), train_trg);
     train_trg_ids.resize(train_trg.size(), i);
   }
-  if(!vocab_trg->is_frozen()) { vocab_trg->freeze(); vocab_trg->set_unk("<unk>"); }
-  if(dev_file_trg_.size()) LoadFile(dev_file_trg_, true, *vocab_trg, dev_trg);
   for(size_t i = 0; i < train_files_src_.size(); i++) {
-    LoadFile(train_files_src_[i], false, *vocab_src, train_src);
+    if(voc_src_[i] >= vocab_src.size()) {
+      for(int i = vocab_src.size(); i <= voc_src_[i]; i++) {vocab_src.push_back(DictPtr(CreateNewDict()));};
+    }
+    LoadFile(train_files_src_[i], false, *(vocab_src[voc_src_[i]]), train_src);
     train_src_ids.resize(train_src.size(), i);
   }
-  if(!vocab_src->is_frozen()) { vocab_src->freeze(); vocab_src->set_unk("<unk>"); }
-  if(dev_file_src_.size()) LoadFile(dev_file_src_, false, *vocab_src, dev_src);
+  for (int i = 0; i < vocab_trg.size(); i++) 
+    if(!vocab_trg[i]->is_frozen()) { vocab_trg[i]->freeze(); vocab_trg[i]->set_unk("<unk>"); }
+  for (int i = 0; i < vocab_src.size(); i++) 
+    if(!vocab_src[i]->is_frozen()) { vocab_src[i]->freeze(); vocab_src[i]->set_unk("<unk>"); }
+  if(dev_file_trg_.size()) LoadFile(dev_file_trg_, true, *(vocab_trg[0]), dev_trg);
+  if(dev_file_src_.size()) LoadFile(dev_file_src_, false, *(vocab_src[0]), dev_src);
   for(size_t i = 0; i < train_files_weights_.size(); i++)
     LoadWeights(train_files_weights_[i], train_weights);
   if(eval_every_ == -1) eval_every_ = train_trg.size();
 
+  cout << "Target voc sizes:" << endl;
+  for (int i = 0; i < vocab_trg.size(); i++) cout << i << ": " << vocab_trg[i]->size() << endl;
+  cout << "Source voc sizes:" << endl;
+  for (int i = 0; i < vocab_src.size(); i++) cout << i << ": " << vocab_src[i]->size() << endl;
+
+
+
   // Create the model
-  if(model_in_file_.size() == 0) {
+/*  if(model_in_file_.size() == 0) {
     vector<LinearEncoderPtr> encoders;
     vector<string> encoder_types;
     boost::algorithm::split(encoder_types, vm_["encoder_types"].as<string>(), boost::is_any_of("|"));
@@ -555,7 +366,8 @@ void LamtramTrain::TrainEncAtt() {
     }
     encatt.reset(new EncoderAttentional(extatt, decoder, *model));
   }
-
+*/
+/*
   string crit = vm_["learning_criterion"].as<string>();
   if(crit == "ml") {
     // If necessary, cache the softmax
@@ -570,68 +382,12 @@ void LamtramTrain::TrainEncAtt() {
   } else {
     THROW_ERROR("Illegal learning criterion: " << crit);
   }
+  */
 }
 
-void LamtramTrain::TrainEncCls() {
-
-  // dynet::Dict
-  DictPtr vocab_trg, vocab_src;
-  std::shared_ptr<dynet::Model> model;
-  std::shared_ptr<EncoderClassifier> enccls;
-  if(model_in_file_.size()) {
-    enccls.reset(ModelUtils::LoadBilingualModel<EncoderClassifier>(model_in_file_, model, vocab_src, vocab_trg));
-  } else {
-    vocab_src.reset(CreateNewDict());
-    vocab_trg.reset(CreateNewDict(false));
-    model.reset(new dynet::Model);
-  }
-  // if(!trg_sent) vocab_trg = dynet::Dict("");
-
-  // Read the training file
-  vector<Sentence> train_src, dev_src;
-  vector<int> train_trg, dev_trg;
-  vector<int> train_trg_ids, train_src_ids;
-  vector<float> train_weights;
-  for(size_t i = 0; i < train_files_trg_.size(); i++) {
-    LoadLabels(train_files_trg_[i], *vocab_trg, train_trg);
-    train_trg_ids.resize(train_trg.size(), i);
-  }
-  vocab_trg->freeze();
-  if(dev_file_trg_.size()) LoadLabels(dev_file_trg_, *vocab_trg, dev_trg);
-  for(size_t i = 0; i < train_files_src_.size(); i++) {
-    LoadFile(train_files_src_[i], false, *vocab_src, train_src);
-    train_src_ids.resize(train_src.size(), i);
-  }
-  if(!vocab_src->is_frozen()) { vocab_src->freeze(); vocab_src->set_unk("<unk>"); }
-  if(dev_file_src_.size()) LoadFile(dev_file_src_, false, *vocab_src, dev_src);
-  if(train_files_weights_.size())
-    THROW_ERROR("Instance weighting only supported for encdec and encatt models")
-  if(eval_every_ == -1) eval_every_ = train_trg.size();
-
-  // Create the model
-  if(model_in_file_.size() == 0) {
-    vector<LinearEncoderPtr> encoders;
-    vector<string> encoder_types;
-    boost::algorithm::split(encoder_types, vm_["encoder_types"].as<string>(), boost::is_any_of("|"));
-    int wordrep = vm_["wordrep"].as<int>();
-    if(wordrep <= 0) wordrep = GlobalVars::layer_size;
-    for(auto & spec : encoder_types) {
-      LinearEncoderPtr enc(new LinearEncoder(vocab_src->size(), wordrep, vm_["layers"].as<string>(), vocab_src->get_unk_id(), *model));
-      if(spec == "rev") enc->SetReverse(true);
-      encoders.push_back(enc);
-    }
-    BuilderSpec bspec(vm_["layers"].as<string>());
-    ClassifierPtr classifier(new Classifier(bspec.nodes * encoders.size(), vocab_trg->size(), vm_["cls_layers"].as<string>(), vm_["softmax"].as<string>(), *model));
-    enccls.reset(new EncoderClassifier(encoders, classifier, *model));
-  }
-
-  vector<int> train_cache_ids(train_trg.size());
-  BilingualTraining(train_src, train_trg, train_cache_ids, train_weights, dev_src, dev_trg,
-                    *vocab_src, *vocab_trg, *model, *enccls);
-}
 
 template<class ModelType, class OutputType>
-void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
+void LamtramTrainMultitask::BilingualTraining(const vector<Sentence> & train_src,
                                      const vector<OutputType> & train_trg,
                                      const vector<OutputType> & train_cache,
                                      const vector<float> & train_weights,
@@ -800,7 +556,7 @@ inline dynet::expr::Expression CalcRisk(const Sentence & ref,
 //  Minimum Risk Training for Neural Machine Translation
 //  Shen et al. (http://arxiv.org/abs/1512.02433)
 template<class ModelType>
-void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
+void LamtramTrainMultitask::MinRiskTraining(const vector<Sentence> & train_src,
                                    const vector<Sentence> & train_trg,
                                    const vector<int> & train_fold_ids,
                                    const vector<Sentence> & dev_src,
@@ -934,7 +690,7 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
   }
 }
 
-void LamtramTrain::LoadFile(const std::string filename, bool add_last, dynet::Dict & vocab, std::vector<Sentence> & sents) {
+void LamtramTrainMultitask::LoadFile(const std::string filename, bool add_last, dynet::Dict & vocab, std::vector<Sentence> & sents) {
   ifstream iftrain(filename.c_str());
   if(!iftrain) THROW_ERROR("Could not find training file: " << filename);
   string line;
@@ -949,7 +705,7 @@ void LamtramTrain::LoadFile(const std::string filename, bool add_last, dynet::Di
   iftrain.close();
 }
 
-void LamtramTrain::LoadLabels(const std::string filename, dynet::Dict & vocab, std::vector<int> & labs) {
+void LamtramTrainMultitask::LoadLabels(const std::string filename, dynet::Dict & vocab, std::vector<int> & labs) {
   ifstream iftrain(filename.c_str());
   if(!iftrain) THROW_ERROR("Could not find training file: " << filename);
   string line;
@@ -958,7 +714,7 @@ void LamtramTrain::LoadLabels(const std::string filename, dynet::Dict & vocab, s
   iftrain.close();
 }
 
-void LamtramTrain::LoadWeights(const std::string filename, std::vector<float> & weights) {
+void LamtramTrainMultitask::LoadWeights(const std::string filename, std::vector<float> & weights) {
   ifstream ifweights(filename.c_str());
   if(!ifweights) THROW_ERROR("Could not find weights file: " << filename);
   string line;
@@ -967,7 +723,7 @@ void LamtramTrain::LoadWeights(const std::string filename, std::vector<float> & 
   ifweights.close();
 }
 
-LamtramTrain::TrainerPtr LamtramTrain::GetTrainer(const std::string & trainer_id, const dynet::real learning_rate, dynet::Model & model) {
+LamtramTrainMultitask::TrainerPtr LamtramTrainMultitask::GetTrainer(const std::string & trainer_id, const dynet::real learning_rate, dynet::Model & model) {
   TrainerPtr trainer;
   if(trainer_id == "sgd") {
     trainer.reset(new dynet::SimpleSGDTrainer(&model, learning_rate));

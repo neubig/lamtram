@@ -20,9 +20,11 @@ struct RNNBuilder;
 namespace lamtram {
 
 class ExternCalculator;
+typedef std::shared_ptr<ExternCalculator> ExternCalculatorPtr;
 
 // A class for feed-forward neural network LMs
 class NeuralLM {
+    friend class EncoderAttentional;
 
 public:
 
@@ -40,8 +42,18 @@ public:
     NeuralLM(const DictPtr & vocab, int ngram_context, int extern_context,
              bool extern_feed,
              int wordrep_size, const BuilderSpec & hidden_spec, int unk_id,
-             const std::string & softmax_sig,
+             const std::string & softmax_sig, bool word_embedding_in_softmax,
+             int attention_context, bool source_word_embedding_in_softmax, int source_word_embedding_in_softmax_context,
              dynet::Model & model);
+
+    NeuralLM(const DictPtr & vocab, int ngram_context, int extern_context,
+             bool extern_feed,
+             int wordrep_size, const BuilderSpec & hidden_spec, int unk_id,
+             const std::string & softmax_sig,bool word_embedding_in_softmax,
+             int attention_context, bool source_word_embedding_in_softmax, int source_word_embedding_in_softmax_context,
+             ExternCalculatorPtr & att,
+             dynet::Model & model);
+
     ~NeuralLM() { }
 
     // Build the computation graph for the sentence including loss
@@ -137,6 +149,7 @@ public:
 
     // Setters
     void SetDropout(float dropout);
+    void SetAttention(ExternCalculatorPtr att);
 
 protected:
 
@@ -147,6 +160,11 @@ protected:
     int ngram_context_, extern_context_;
     bool extern_feed_;
     int wordrep_size_, unk_id_;
+    bool intermediate_att_;
+    bool word_embedding_in_softmax_;
+    int attention_context_;
+    bool source_word_embedding_in_softmax_;
+    int source_word_embedding_in_softmax_context_;
     BuilderSpec hidden_spec_;
 
     // Pointers to the parameters
@@ -157,6 +175,7 @@ protected:
 
     // The RNN builder
     BuilderPtr builder_;
+    CondBuilderPtr cond_builder_;
 
 private:
     // A pointer to the current computation graph.

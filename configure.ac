@@ -29,8 +29,8 @@ AC_ARG_WITH(dynet,
 	[AC_HELP_STRING([--with-dynet=DIR], [dynet in DIR])],
 	[dynet_dir="${withval}"], [dynet_dir=''])
 if test "x$dynet_dir" != "x"; then
-  DYNET_CPPFLAGS="-I${dynet_dir}"
-  DYNET_LDFLAGS="-L${dynet_dir}/build/dynet/ -ldynet"
+  DYNET_CPPFLAGS="-I${dynet_dir}/include/"
+  DYNET_LDFLAGS="-L${dynet_dir}/lib/ -ldynet"
 else
   AS_ERROR("Must specify --with-dynet=[DYNET_DIR]")
 fi
@@ -40,8 +40,8 @@ AC_ARG_WITH(cuda,
 	[AC_HELP_STRING([--with-cuda=DIR], [cuda in DIR])],
 	[cuda_dir="${withval}"], [cuda_dir=''])
 if test "x$cuda_dir" != "x"; then
-  DYNET_CPPFLAGS="-I${dynet_dir} -I${cuda_dir}/include -DHAVE_CUDA -DEIGEN_USE_GPU -DEIGEN_HAS_CUDA_FP16"
-  DYNET_LDFLAGS="-L${dynet_dir}/build/dynet/ -lgdynet -ldynetcuda -L${cuda_dir}/lib -lcudart -lcublas"
+  DYNET_CPPFLAGS="-I${dynet_dir}/include/ -I${cuda_dir}/include -DHAVE_CUDA -DEIGEN_USE_GPU -DEIGEN_HAS_CUDA_FP16"
+  DYNET_LDFLAGS="-L${dynet_dir}/lib/ -lgdynet -ldynetcuda -L${cuda_dir}/lib -lcudart -lcublas"
 fi
 AC_SUBST(DYNET_CPPFLAGS)
 AC_SUBST(DYNET_LDFLAGS)

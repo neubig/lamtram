@@ -101,6 +101,7 @@ dynet::Dict* ReadDict(std::istream & in) {
     dict->set_unk("<unk>");
   return dict;
 }
+
 dynet::Dict * CreateNewDict(bool add_tokens) {
   dynet::Dict * ret = new dynet::Dict;
   if(add_tokens) {

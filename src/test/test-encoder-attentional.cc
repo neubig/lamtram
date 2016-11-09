@@ -50,9 +50,9 @@ struct TestEncoderAttentional {
     }
     // Create the model
     mod = shared_ptr<dynet::Model>(new dynet::Model);
-    NeuralLMPtr lmptr(new NeuralLM(vocab_trg_, 1, (attention_feed ? 5 : 0), attention_feed, 5, BuilderSpec("lstm:5:1"), -1, "full", *mod));
+    NeuralLMPtr lmptr(new NeuralLM(vocab_trg_, 1, (attention_feed ? 5 : 0), attention_feed, 5, BuilderSpec("lstm:5:1"), -1, "full", false,0,false,0,*mod));
     vector<LinearEncoderPtr> encs(1, LinearEncoderPtr(new LinearEncoder(vocab_src_->size(), 5, BuilderSpec("lstm:5:1"), -1, *mod)));
-    ExternAttentionalPtr ext(new ExternAttentional(encs, attention_type, attention_hist, 5, my_lex_type, vocab_src_, vocab_trg_, *mod));
+    ExternAttentionalPtr ext(new ExternAttentional(encs, attention_type, attention_hist, 5, my_lex_type, vocab_src_, vocab_trg_,0,false,0, *mod));
     encatt = shared_ptr<EncoderAttentional>(new EncoderAttentional(ext, lmptr, *mod));
     // Create the ensemble decoder
     vector<EncoderDecoderPtr> encdecs;
@@ -108,7 +108,7 @@ struct TestEncoderAttentional {
     Sentence decode_sent;
     // Perform decoding
     {
-      vector<EnsembleDecoderHypPtr> hyps = ensdec->GenerateNbest(sent_src_, 1);
+      vector<EnsembleDecoderHypPtr> hyps = ensdec->GenerateNbest(sent_src_, 1,0);
       decode_ll = hyps[0]->GetScore();
       decode_sent = hyps[0]->GetSentence();
     }
@@ -138,9 +138,9 @@ BOOST_AUTO_TEST_CASE(TestWriteRead) {
   shared_ptr<dynet::Model> act_mod(new dynet::Model), exp_mod(new dynet::Model);
   DictPtr exp_src_vocab(CreateNewDict()); exp_src_vocab->convert("hola");
   DictPtr exp_trg_vocab(CreateNewDict()); exp_trg_vocab->convert("hello");
-  NeuralLMPtr exp_lm(new NeuralLM(exp_trg_vocab, 2, 2, false, 3, BuilderSpec("rnn:2:1"), -1, "full", *exp_mod));
+  NeuralLMPtr exp_lm(new NeuralLM(exp_trg_vocab, 2, 2, false, 3, BuilderSpec("rnn:2:1"), -1, "full", false, 0,false, 0 ,*exp_mod));
   vector<LinearEncoderPtr> exp_encs(1, LinearEncoderPtr(new LinearEncoder(3, 2, BuilderSpec("rnn:2:1"), -1, *exp_mod)));
-  ExternAttentionalPtr exp_ext(new ExternAttentional(exp_encs, "mlp:2", "none", 3, "none", vocab_src_, vocab_trg_, *exp_mod));
+  ExternAttentionalPtr exp_ext(new ExternAttentional(exp_encs, "mlp:2", "none", 3, "none", vocab_src_, vocab_trg_, 0,false, 0,*exp_mod));
   EncoderAttentional exp_encatt(exp_ext, exp_lm, *exp_mod);
   // Write the Model
   ostringstream out;
@@ -225,7 +225,7 @@ BOOST_AUTO_TEST_CASE(TestBeamDecodingScores) {
   // Perform decoding
   {
     ensdec->SetBeamSize(5);
-    vector<EnsembleDecoderHypPtr> hyps = ensdec->GenerateNbest(sent_src_, 1);
+    vector<EnsembleDecoderHypPtr> hyps = ensdec->GenerateNbest(sent_src_, 1,0);
     ensdec->SetBeamSize(1);
     decode_ll = hyps[0]->GetScore();
     decode_sent = hyps[0]->GetSentence();
@@ -252,7 +252,7 @@ BOOST_AUTO_TEST_CASE(TestBeamSearchImproves) {
   vector<float> scores(max_beam_size);
   for(size_t i = 0; i < max_beam_size; i++) {
     ensdec->SetBeamSize(i+1);
-    vector<EnsembleDecoderHypPtr> hyps = ensdec->GenerateNbest(sent_src_, 1);
+    vector<EnsembleDecoderHypPtr> hyps = ensdec->GenerateNbest(sent_src_, 1,0);
     scores[i] = hyps[0]->GetScore();
     if(i != 0) BOOST_CHECK_LE(scores[i-1], scores[i]);
   }

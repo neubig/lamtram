@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <iostream>
+#include <vector>
 #include <lamtram/sentence.h>
 
 namespace dynet { class Dict; }
