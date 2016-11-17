@@ -33,6 +33,7 @@ public:
                            const std::vector<OutputType> & train_trg,
                            const std::vector<OutputType> & train_cache,
                            const std::vector<float> & train_weights,
+                           const std::vector<float> & train_kickout_keep,
                            const std::vector<Sentence> & dev_src,
                            const std::vector<OutputType> & dev_trg,
                            const dynet::Dict & vocab_src,
@@ -75,7 +76,7 @@ protected:
     int epochs_, context_, eval_every_;
     float scheduled_samp_, dropout_;
     std::string model_in_file_, model_out_file_;
-    std::vector<std::string> train_files_trg_, train_files_src_, train_files_weights_;
+    std::vector<std::string> train_files_trg_, train_files_src_, train_files_weights_, train_files_kickout_keep_;
     std::string dev_file_trg_, dev_file_src_;
     std::string softmax_sig_;
 
