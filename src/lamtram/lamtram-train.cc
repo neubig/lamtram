@@ -1066,5 +1066,6 @@ LamtramTrain::TrainerPtr LamtramTrain::GetTrainer(const std::string & trainer_id
   } else {
     THROW_ERROR("Illegal trainer variety: " << trainer_id);
   }
+  trainer->sparse_updates_enabled = false;
   return trainer;
 }
