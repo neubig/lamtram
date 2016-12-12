@@ -1054,15 +1054,15 @@ void LamtramTrain::LoadWeights(const std::string filename, std::vector<float> & 
 LamtramTrain::TrainerPtr LamtramTrain::GetTrainer(const std::string & trainer_id, const dynet::real learning_rate, dynet::Model & model) {
   TrainerPtr trainer;
   if(trainer_id == "sgd") {
-    trainer.reset(new dynet::SimpleSGDTrainer(&model, learning_rate));
+    trainer.reset(new dynet::SimpleSGDTrainer(model, learning_rate));
   } else if(trainer_id == "momentum") {
-    trainer.reset(new dynet::MomentumSGDTrainer(&model, learning_rate));
+    trainer.reset(new dynet::MomentumSGDTrainer(model, learning_rate));
   } else if(trainer_id == "adagrad") {
-    trainer.reset(new dynet::AdagradTrainer(&model, learning_rate));
+    trainer.reset(new dynet::AdagradTrainer(model, learning_rate));
   } else if(trainer_id == "adadelta") {
-    trainer.reset(new dynet::AdadeltaTrainer(&model, learning_rate));
+    trainer.reset(new dynet::AdadeltaTrainer(model, learning_rate));
   } else if(trainer_id == "adam") {
-    trainer.reset(new dynet::AdamTrainer(&model, learning_rate));
+    trainer.reset(new dynet::AdamTrainer(model, learning_rate));
   } else {
     THROW_ERROR("Illegal trainer variety: " << trainer_id);
   }

@@ -25,12 +25,12 @@ BuilderSpec::BuilderSpec(const std::string & spec) {
 BuilderPtr BuilderFactory::CreateBuilder(const BuilderSpec & spec, int input_dim, dynet::Model & model) {
     // cerr << "BuilderFactor::CreateBuilder(" << spec << ", " << input_dim << ", " << (long)&model << ")" << endl;
     if(spec.type == "rnn") {
-        return BuilderPtr(new dynet::SimpleRNNBuilder(spec.layers, input_dim, spec.nodes, &model));
+        return BuilderPtr(new dynet::SimpleRNNBuilder(spec.layers, input_dim, spec.nodes, model));
     } else if(spec.type == "lstm") {
-        return BuilderPtr(new dynet::LSTMBuilder(spec.layers, input_dim, spec.nodes, &model));
+        return BuilderPtr(new dynet::LSTMBuilder(spec.layers, input_dim, spec.nodes, model));
     } else if(spec.type == "gru") {
         THROW_ERROR("GRU spec.nodes are not supported yet.");
-        // return BuilderPtr(new dynet::GRUBuilder(spec.layers, input_dim, spec.nodes, &model));
+        // return BuilderPtr(new dynet::GRUBuilder(spec.layers, input_dim, spec.nodes, model));
     } else {
         THROW_ERROR("Unknown layer type " << spec.type);
     }

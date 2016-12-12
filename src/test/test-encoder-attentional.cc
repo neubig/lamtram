@@ -63,7 +63,7 @@ struct TestEncoderAttentional {
     if(lex_type == "prior")
       std::remove("/tmp/lex_prior.txt");
     // Perform a few rounds of training
-    dynet::SimpleSGDTrainer sgd(mod.get());
+    dynet::SimpleSGDTrainer sgd(*mod);
     LLStats train_stat(vocab_trg_->size());
     for(size_t i = 0; i < 100; ++i) {
       dynet::ComputationGraph cg;

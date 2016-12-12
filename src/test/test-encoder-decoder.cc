@@ -34,7 +34,7 @@ struct TestEncoderDecoder {
     ensdec_ = shared_ptr<EnsembleDecoder>(new EnsembleDecoder(encdecs, encatts, lms));
     ensdec_->SetSizeLimit(100);
     // Perform a few rounds of training
-    dynet::SimpleSGDTrainer sgd(mod_.get());
+    dynet::SimpleSGDTrainer sgd(*mod_);
     LLStats train_stat(vocab_trg_->size());
     for(size_t i = 0; i < 100; ++i) {
       dynet::ComputationGraph cg;

@@ -11,7 +11,7 @@ using namespace std;
 SoftmaxClass::SoftmaxClass(const std::string & sig, int input_size, const DictPtr & vocab, dynet::Model & mod) : SoftmaxBase(sig,input_size,vocab,mod) {
   vector<string> strs = Tokenize(sig, ":");
   if(strs.size() != 2 || strs[0] != "class") THROW_ERROR("Bad signature in SoftmaxClass: " << sig);
-  cfsm_builder_.reset(new dynet::ClassFactoredSoftmaxBuilder(input_size, strs[1], vocab.get(), &mod));
+  cfsm_builder_.reset(new dynet::ClassFactoredSoftmaxBuilder(input_size, strs[1], *vocab, mod));
 }
 
 void SoftmaxClass::NewGraph(dynet::ComputationGraph & cg) {
