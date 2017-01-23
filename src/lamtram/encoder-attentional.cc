@@ -90,9 +90,9 @@ ExternAttentional::ExternAttentional(const std::vector<LinearEncoderPtr> & encod
 }
 
 
-dynet::expr::Expression ExternAttentional::CalcPrior(
-                      const dynet::expr::Expression & align_vec) const {
-  return (i_lexicon_.pg != nullptr ? i_lexicon_ * align_vec : dynet::expr::Expression());
+dynet::Expression ExternAttentional::CalcPrior(
+                      const dynet::Expression & align_vec) const {
+  return (i_lexicon_.pg != nullptr ? i_lexicon_ * align_vec : dynet::Expression());
 }
 
 
@@ -143,7 +143,7 @@ void ExternAttentional::InitializeSentence(
       const Sentence & sent_src, bool train, dynet::ComputationGraph & cg) {
 
   // First get the states in a digestable format
-  vector<vector<dynet::expr::Expression> > hs_sep;
+  vector<vector<dynet::Expression> > hs_sep;
   for(auto & enc : encoders_) {
     enc->BuildSentGraph(sent_src, true, train, cg);
     hs_sep.push_back(enc->GetWordStates());
@@ -151,12 +151,12 @@ void ExternAttentional::InitializeSentence(
   }
   sent_len_ = hs_sep[0].size();
   // Concatenate them if necessary
-  vector<dynet::expr::Expression> hs_comb;
+  vector<dynet::Expression> hs_comb;
   if(encoders_.size() == 1) {
     hs_comb = hs_sep[0];
   } else {
     for(int i : boost::irange(0, sent_len_)) {
-      vector<dynet::expr::Expression> vars;
+      vector<dynet::Expression> vars;
       for(int j : boost::irange(0, (int)encoders_.size()))
         vars.push_back(hs_sep[j][i]);
       hs_comb.push_back(concatenate(vars));
@@ -202,7 +202,7 @@ void ExternAttentional::InitializeSentence(
       const std::vector<Sentence> & sent_src, bool train, dynet::ComputationGraph & cg) {
 
   // First get the states in a digestable format
-  vector<vector<dynet::expr::Expression> > hs_sep;
+  vector<vector<dynet::Expression> > hs_sep;
   for(auto & enc : encoders_) {
     enc->BuildSentGraph(sent_src, true, train, cg);
     hs_sep.push_back(enc->GetWordStates());
@@ -210,12 +210,12 @@ void ExternAttentional::InitializeSentence(
   }
   sent_len_ = hs_sep[0].size();
   // Concatenate them if necessary
-  vector<dynet::expr::Expression> hs_comb;
+  vector<dynet::Expression> hs_comb;
   if(encoders_.size() == 1) {
     hs_comb = hs_sep[0];
   } else {
     for(int i : boost::irange(0, sent_len_)) {
-      vector<dynet::expr::Expression> vars;
+      vector<dynet::Expression> vars;
       for(int j : boost::irange(0, (int)encoders_.size()))
         vars.push_back(hs_sep[j][i]);
       hs_comb.push_back(concatenate(vars));
@@ -260,32 +260,32 @@ void ExternAttentional::InitializeSentence(
 
 }
 
-dynet::expr::Expression ExternAttentional::GetEmptyContext(dynet::ComputationGraph & cg) const {
+dynet::Expression ExternAttentional::GetEmptyContext(dynet::ComputationGraph & cg) const {
   return zeroes(cg, {(unsigned int)state_size_});
 }
 
 // Create a variable encoding the context
-dynet::expr::Expression ExternAttentional::CreateContext(
-    const std::vector<dynet::expr::Expression> & state_in,
-    const dynet::expr::Expression & align_sum_in,
+dynet::Expression ExternAttentional::CreateContext(
+    const std::vector<dynet::Expression> & state_in,
+    const dynet::Expression & align_sum_in,
     bool train,
     dynet::ComputationGraph & cg,
-    std::vector<dynet::expr::Expression> & align_out,
-    dynet::expr::Expression & align_sum_out) const {
+    std::vector<dynet::Expression> & align_out,
+    dynet::Expression & align_sum_out) const {
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match."); 
-  dynet::expr::Expression i_ehid, i_e;
+  dynet::Expression i_ehid, i_e;
   // MLP
   if(hidden_size_) {
     if(state_in.size()) {
       // i_ehid_state_W_ is {hidden_size, state_size}, state_in is {state_size, 1}
-      dynet::expr::Expression i_ehid_spart = i_ehid_state_W_ * *state_in.rbegin();
+      dynet::Expression i_ehid_spart = i_ehid_state_W_ * *state_in.rbegin();
       i_ehid = affine_transform({i_ehid_hpart_, i_ehid_spart, i_sent_len_});
     } else {
       i_ehid = i_ehid_hpart_;
     }
     // Run through nonlinearity
-    dynet::expr::Expression i_ehid_out = tanh({i_ehid});
+    dynet::Expression i_ehid_out = tanh({i_ehid});
     // i_e_ehid_W_ is {1, hidden_size}, i_ehid_out is {hidden_size, sent_len}
     i_e = transpose(i_e_ehid_W_ * i_ehid_out);
   // Bilinear/dot product
@@ -293,7 +293,7 @@ dynet::expr::Expression ExternAttentional::CreateContext(
     assert(state_in.size() > 0);
     i_e = i_ehid_hpart_ * (*state_in.rbegin());
   }
-  dynet::expr::Expression i_alpha;
+  dynet::Expression i_alpha;
   // Calculate the softmax, adding the previous sum if necessary
   if(align_sum_in.pg != nullptr) {
     i_alpha = softmax(i_e + align_sum_in * i_align_sum_W_);
@@ -339,11 +339,11 @@ void EncoderAttentional::NewGraph(dynet::ComputationGraph & cg) {
 }
 
 template <class SentData>
-std::vector<dynet::expr::Expression> EncoderAttentional::GetEncodedState(const SentData & sent_src, bool train, dynet::ComputationGraph & cg) {
+std::vector<dynet::Expression> EncoderAttentional::GetEncodedState(const SentData & sent_src, bool train, dynet::ComputationGraph & cg) {
   extern_calc_->InitializeSentence(sent_src, train, cg);
-  dynet::expr::Expression i_decin = affine_transform({i_enc2dec_b_, i_enc2dec_W_, extern_calc_->GetState()});
+  dynet::Expression i_decin = affine_transform({i_enc2dec_b_, i_enc2dec_W_, extern_calc_->GetState()});
   // Perform transformation
-  vector<dynet::expr::Expression> decoder_in(decoder_->GetNumLayers() * decoder_->GetLayerMultiplier());
+  vector<dynet::Expression> decoder_in(decoder_->GetNumLayers() * decoder_->GetLayerMultiplier());
   for (int i = 0; i < decoder_->GetNumLayers(); ++i) {
     decoder_in[i] = (decoder_->GetNumLayers() == 1 ?
                      i_decin :
@@ -358,11 +358,11 @@ std::vector<dynet::expr::Expression> EncoderAttentional::GetEncodedState(const S
 }
 
 template
-std::vector<dynet::expr::Expression> EncoderAttentional::GetEncodedState<Sentence>(const Sentence & sent_src, bool train, dynet::ComputationGraph & cg);
+std::vector<dynet::Expression> EncoderAttentional::GetEncodedState<Sentence>(const Sentence & sent_src, bool train, dynet::ComputationGraph & cg);
 template
-std::vector<dynet::expr::Expression> EncoderAttentional::GetEncodedState<std::vector<Sentence> >(const std::vector<Sentence> & sent_src, bool train, dynet::ComputationGraph & cg);
+std::vector<dynet::Expression> EncoderAttentional::GetEncodedState<std::vector<Sentence> >(const std::vector<Sentence> & sent_src, bool train, dynet::ComputationGraph & cg);
 
-dynet::expr::Expression EncoderAttentional::BuildSentGraph(const Sentence & sent_src,
+dynet::Expression EncoderAttentional::BuildSentGraph(const Sentence & sent_src,
                                                      const Sentence & sent_trg,
                                                      const Sentence & cache_trg,
                                                      const float * weight,
@@ -373,11 +373,11 @@ dynet::expr::Expression EncoderAttentional::BuildSentGraph(const Sentence & sent
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
   // Perform encoding with each encoder
-  vector<dynet::expr::Expression> decoder_in = GetEncodedState(sent_src, train, cg);
+  vector<dynet::Expression> decoder_in = GetEncodedState(sent_src, train, cg);
   return decoder_->BuildSentGraph(sent_trg, cache_trg, weight, extern_calc_.get(), decoder_in, samp_percent, train, cg, ll);
 }
 
-dynet::expr::Expression EncoderAttentional::BuildSentGraph(const std::vector<Sentence> & sent_src,
+dynet::Expression EncoderAttentional::BuildSentGraph(const std::vector<Sentence> & sent_src,
                                                      const std::vector<Sentence> & sent_trg,
                                                      const std::vector<Sentence> & cache_trg,
                                                      const std::vector<float> * weights,
@@ -388,11 +388,11 @@ dynet::expr::Expression EncoderAttentional::BuildSentGraph(const std::vector<Sen
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
   // Perform encoding with each encoder
-  vector<dynet::expr::Expression> decoder_in = GetEncodedState(sent_src, train, cg);
+  vector<dynet::Expression> decoder_in = GetEncodedState(sent_src, train, cg);
   return decoder_->BuildSentGraph(sent_trg, cache_trg, weights, extern_calc_.get(), decoder_in, samp_percent, train, cg, ll);
 }
 
-dynet::expr::Expression EncoderAttentional::SampleTrgSentences(const Sentence & sent_src,
+dynet::Expression EncoderAttentional::SampleTrgSentences(const Sentence & sent_src,
                                                              const Sentence * sent_trg,
                                                              int num_samples,
                                                              int max_len,
@@ -401,7 +401,7 @@ dynet::expr::Expression EncoderAttentional::SampleTrgSentences(const Sentence & 
                                                              vector<Sentence> & samples) {
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match."); 
-  std::vector<dynet::expr::Expression> decoder_in = GetEncodedState(sent_src, train, cg);
+  std::vector<dynet::Expression> decoder_in = GetEncodedState(sent_src, train, cg);
   return decoder_->SampleTrgSentences(extern_calc_.get(), decoder_in, sent_trg, num_samples, max_len, train, cg, samples);
 }
 

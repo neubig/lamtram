@@ -38,27 +38,27 @@ public:
     virtual void InitializeSentence(const std::vector<Sentence> & sent, bool train, dynet::ComputationGraph & cg) override;
 
     // Create a variable encoding the context
-    virtual dynet::expr::Expression CreateContext(
+    virtual dynet::Expression CreateContext(
         // const Sentence & sent, int loc,
-        const std::vector<dynet::expr::Expression> & state_in,
-        const dynet::expr::Expression & align_sum_in,
+        const std::vector<dynet::Expression> & state_in,
+        const dynet::Expression & align_sum_in,
         bool train,
         dynet::ComputationGraph & cg,
-        std::vector<dynet::expr::Expression> & align_out,
-        dynet::expr::Expression & align_sum_out) const override;
+        std::vector<dynet::Expression> & align_out,
+        dynet::Expression & align_sum_out) const override;
 
     // Calculate the prior
-    dynet::expr::Expression CalcPrior(
-        const dynet::expr::Expression & align_vec) const override;
+    dynet::Expression CalcPrior(
+        const dynet::Expression & align_vec) const override;
 
     // Create an empty context
-    virtual dynet::expr::Expression GetEmptyContext(dynet::ComputationGraph & cg) const override;
+    virtual dynet::Expression GetEmptyContext(dynet::ComputationGraph & cg) const override;
 
     int GetHiddenSize() const { return hidden_size_; }
     int GetStateSize() const { return state_size_; }
     int GetContextSize() const { return context_size_; }
 
-    dynet::expr::Expression GetState() { return i_h_last_; }
+    dynet::Expression GetState() { return i_h_last_; }
 
     // Reading/writing functions
     static ExternAttentional* Read(std::istream & in, const DictPtr & vocab_src, const DictPtr & vocab_trg, dynet::Model & model);
@@ -87,17 +87,17 @@ protected:
     dynet::Parameter p_align_sum_W_;
 
     // Interned parameters
-    dynet::expr::Expression i_ehid_h_W_;
-    dynet::expr::Expression i_ehid_state_W_;
-    dynet::expr::Expression i_e_ehid_W_;
-    dynet::expr::Expression i_align_sum_W_;
+    dynet::Expression i_ehid_h_W_;
+    dynet::Expression i_ehid_state_W_;
+    dynet::Expression i_e_ehid_W_;
+    dynet::Expression i_align_sum_W_;
 
     // Temporary variables
-    dynet::expr::Expression i_h_;
-    dynet::expr::Expression i_h_last_;
-    dynet::expr::Expression i_ehid_hpart_;
-    dynet::expr::Expression i_sent_len_;
-    dynet::expr::Expression i_lexicon_;
+    dynet::Expression i_h_;
+    dynet::Expression i_h_last_;
+    dynet::Expression i_ehid_hpart_;
+    dynet::Expression i_sent_len_;
+    dynet::Expression i_lexicon_;
 
 private:
     // A pointer to the current computation graph.
@@ -126,7 +126,7 @@ public:
     ~EncoderAttentional() { }
 
     // Build the computation graph for the sentence including loss
-    dynet::expr::Expression BuildSentGraph(const Sentence & sent_src,
+    dynet::Expression BuildSentGraph(const Sentence & sent_src,
                                          const Sentence & sent_trg,
                                          const Sentence & cache_trg,
                                          const float * weight,
@@ -134,7 +134,7 @@ public:
                                          bool train,
                                          dynet::ComputationGraph & cg,
                                          LLStats & ll);
-    dynet::expr::Expression BuildSentGraph(const std::vector<Sentence> & sent_src,
+    dynet::Expression BuildSentGraph(const std::vector<Sentence> & sent_src,
                                          const std::vector<Sentence> & sent_trg,
                                          const std::vector<Sentence> & cache_trg,
                                          const std::vector<float> * weights,
@@ -144,7 +144,7 @@ public:
                                          LLStats & ll);
 
     // Sample sentences and return an expression of the vector of probabilities
-    dynet::expr::Expression SampleTrgSentences(const Sentence & sent_src,
+    dynet::Expression SampleTrgSentences(const Sentence & sent_src,
                                              const Sentence * sent_trg,
                                              int num_samples,
                                              int max_len,
@@ -153,7 +153,7 @@ public:
                                              std::vector<Sentence> & samples);    
 
     template <class SentData>
-    std::vector<dynet::expr::Expression> GetEncodedState(
+    std::vector<dynet::Expression> GetEncodedState(
                                     const SentData & sent_src, bool train, dynet::ComputationGraph & cg);
 
     // Reading/writing functions
@@ -204,8 +204,8 @@ protected:
     dynet::Parameter p_enc2dec_b_; // Encoder to decoder bias
 
     // Interned Parameters
-    dynet::expr::Expression i_enc2dec_W_;
-    dynet::expr::Expression i_enc2dec_b_;
+    dynet::Expression i_enc2dec_W_;
+    dynet::Expression i_enc2dec_b_;
 
 private:
     // A pointer to the current computation graph.

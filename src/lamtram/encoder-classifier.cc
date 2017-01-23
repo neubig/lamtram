@@ -32,24 +32,24 @@ void EncoderClassifier::NewGraph(dynet::ComputationGraph & cg) {
 }
 
 template <class SentData>
-dynet::expr::Expression EncoderClassifier::GetEncodedState(
+dynet::Expression EncoderClassifier::GetEncodedState(
                         const SentData & sent_src, bool train, dynet::ComputationGraph & cg) const {
     // Perform encoding with each encoder
-    vector<dynet::expr::Expression> inputs;
+    vector<dynet::Expression> inputs;
     for(auto & enc : encoders_) {
         enc->BuildSentGraph(sent_src, true, train, cg);
         for(auto & id : enc->GetFinalHiddenLayers())
             inputs.push_back(id);
     }
     // Perform transformation
-    dynet::expr::Expression i_combined;
+    dynet::Expression i_combined;
     assert(inputs.size() > 0);
     if(inputs.size() == 1) { i_combined = inputs[0]; }
     else                   { i_combined = concatenate(inputs); }
     return tanh(affine_transform({i_enc2cls_b_, i_enc2cls_W_, i_combined}));
 }
 
-dynet::expr::Expression EncoderClassifier::BuildSentGraph(const Sentence & sent_src,
+dynet::Expression EncoderClassifier::BuildSentGraph(const Sentence & sent_src,
                                                         const int & trg,
                                                         const int & cache,
                                                         const float * weight,
@@ -60,12 +60,12 @@ dynet::expr::Expression EncoderClassifier::BuildSentGraph(const Sentence & sent_
     if(&cg != curr_graph_)
         THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
     // Perform encoding with each encoder
-    dynet::expr::Expression classifier_in = GetEncodedState(sent_src, train, cg);
+    dynet::Expression classifier_in = GetEncodedState(sent_src, train, cg);
     ll.words_ += classifier_in.value().d.bd;
     return classifier_->BuildGraph(classifier_in, trg, train, cg);
 }
 
-dynet::expr::Expression EncoderClassifier::BuildSentGraph(const std::vector<Sentence> & sent_src,
+dynet::Expression EncoderClassifier::BuildSentGraph(const std::vector<Sentence> & sent_src,
                                                         const std::vector<int> & trg,
                                                         const std::vector<int> & cache,
                                                         const std::vector<float> * weights,
@@ -76,29 +76,29 @@ dynet::expr::Expression EncoderClassifier::BuildSentGraph(const std::vector<Sent
     if(&cg != curr_graph_)
         THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
     // Perform encoding with each encoder
-    dynet::expr::Expression classifier_in = GetEncodedState(sent_src, train, cg);
+    dynet::Expression classifier_in = GetEncodedState(sent_src, train, cg);
     ll.words_ += classifier_in.value().d.bd;
     return classifier_->BuildGraph(classifier_in, trg, train, cg);
 }
 
 template <class SoftmaxOp>
-dynet::expr::Expression EncoderClassifier::Forward(const Sentence & sent_src,
+dynet::Expression EncoderClassifier::Forward(const Sentence & sent_src,
                                                  bool train, 
                                                  dynet::ComputationGraph & cg) const {
     if(&cg != curr_graph_)
         THROW_ERROR("Initialized computation graph and passed comptuation graph don't match."); 
     // Perform encoding with each encoder
-    dynet::expr::Expression classifier_in = GetEncodedState(sent_src, train, cg);
+    dynet::Expression classifier_in = GetEncodedState(sent_src, train, cg);
     return classifier_->Forward<SoftmaxOp>(classifier_in, cg);
 }
 
 // Instantiate
 template
-dynet::expr::Expression EncoderClassifier::Forward<dynet::Softmax>(const Sentence & sent_src, 
+dynet::Expression EncoderClassifier::Forward<dynet::Softmax>(const Sentence & sent_src, 
                                                                bool train,
                                                                dynet::ComputationGraph & cg) const;
 template
-dynet::expr::Expression EncoderClassifier::Forward<dynet::LogSoftmax>(const Sentence & sent_src, 
+dynet::Expression EncoderClassifier::Forward<dynet::LogSoftmax>(const Sentence & sent_src, 
                                                                bool train,
                                                                dynet::ComputationGraph & cg) const;
 

@@ -53,31 +53,31 @@ public:
     //   train: Whether we're training or not (so we know whether to use dropout, etc.)
     //   cg: The computation graph.
     //   ll: The log likelihood statistics will be used here.
-    dynet::expr::Expression BuildSentGraph(
+    dynet::Expression BuildSentGraph(
                                    const Sentence & sent,
                                    const Sentence & cache_ids,
                                    const float * weight,
                                    const ExternCalculator * extern_calc,
-                                   const std::vector<dynet::expr::Expression> & layer_in,
+                                   const std::vector<dynet::Expression> & layer_in,
                                    float samp_percent,
                                    bool train,
                                    dynet::ComputationGraph & cg,
                                    LLStats & ll);
-    dynet::expr::Expression BuildSentGraph(
+    dynet::Expression BuildSentGraph(
                                    const std::vector<Sentence> & sent,
                                    const std::vector<Sentence> & cache_ids,
                                    const std::vector<float> * weights,
                                    const ExternCalculator * extern_calc,
-                                   const std::vector<dynet::expr::Expression> & layer_in,
+                                   const std::vector<dynet::Expression> & layer_in,
                                    float samp_percent,
                                    bool train,
                                    dynet::ComputationGraph & cg,
                                    LLStats & ll);
 
     // Acquire samples from this sentence and return their log probabilities as a vector
-    dynet::expr::Expression SampleTrgSentences(
+    dynet::Expression SampleTrgSentences(
                                    const ExternCalculator * extern_calc,
-                                   const std::vector<dynet::expr::Expression> & layer_in,
+                                   const std::vector<dynet::Expression> & layer_in,
                                    const Sentence * answer,                                   
                                    int num_samples,
                                    int max_len,
@@ -98,17 +98,17 @@ public:
     //   cg: The computation graph.
     //   align_out: The alignments.
     template <class Sent>
-    dynet::expr::Expression Forward(const Sent & sent, int id, 
+    dynet::Expression Forward(const Sent & sent, int id, 
                                const ExternCalculator * extern_calc,
                                bool log_prob,
-                               const std::vector<dynet::expr::Expression> & layer_in,
-                               const dynet::expr::Expression & extern_in,
-                               const dynet::expr::Expression & extern_sum_in,
-                               std::vector<dynet::expr::Expression> & layer_out,
-                               dynet::expr::Expression & extern_out,
-                               dynet::expr::Expression & extern_sum_out,
+                               const std::vector<dynet::Expression> & layer_in,
+                               const dynet::Expression & extern_in,
+                               const dynet::Expression & extern_sum_in,
+                               std::vector<dynet::Expression> & layer_out,
+                               dynet::Expression & extern_out,
+                               dynet::Expression & extern_sum_out,
                                dynet::ComputationGraph & cg,
-                               std::vector<dynet::expr::Expression> & align_out);
+                               std::vector<dynet::Expression> & align_out);
 
     template <class Sent>
     Sent CreateContext(const Sent & sent, int t);

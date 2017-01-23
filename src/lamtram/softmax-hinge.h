@@ -20,22 +20,22 @@ public:
   virtual void NewGraph(dynet::ComputationGraph & cg) override;
 
   // Calculate training loss for one word
-  virtual dynet::expr::Expression CalcLoss(dynet::expr::Expression & in, dynet::expr::Expression & prior, const Sentence & ngram, bool train) override;
+  virtual dynet::Expression CalcLoss(dynet::Expression & in, dynet::Expression & prior, const Sentence & ngram, bool train) override;
   // Calculate training loss for multiple words
-  virtual dynet::expr::Expression CalcLoss(dynet::expr::Expression & in, dynet::expr::Expression & prior, const std::vector<Sentence> & ngrams, bool train) override;
+  virtual dynet::Expression CalcLoss(dynet::Expression & in, dynet::Expression & prior, const std::vector<Sentence> & ngrams, bool train) override;
   
   // Calculate the full probability distribution
-  virtual dynet::expr::Expression CalcProb(dynet::expr::Expression & in, dynet::expr::Expression & prior, const Sentence & ctxt, bool train) override;
-  virtual dynet::expr::Expression CalcProb(dynet::expr::Expression & in, dynet::expr::Expression & prior, const std::vector<Sentence> & ctxt, bool train) override;
-  virtual dynet::expr::Expression CalcLogProb(dynet::expr::Expression & in, dynet::expr::Expression & prior, const Sentence & ctxt, bool train) override;
-  virtual dynet::expr::Expression CalcLogProb(dynet::expr::Expression & in, dynet::expr::Expression & prior, const std::vector<Sentence> & ctxt, bool train) override;
+  virtual dynet::Expression CalcProb(dynet::Expression & in, dynet::Expression & prior, const Sentence & ctxt, bool train) override;
+  virtual dynet::Expression CalcProb(dynet::Expression & in, dynet::Expression & prior, const std::vector<Sentence> & ctxt, bool train) override;
+  virtual dynet::Expression CalcLogProb(dynet::Expression & in, dynet::Expression & prior, const Sentence & ctxt, bool train) override;
+  virtual dynet::Expression CalcLogProb(dynet::Expression & in, dynet::Expression & prior, const std::vector<Sentence> & ctxt, bool train) override;
 
 protected:
   dynet::Parameter p_sm_W_; // Softmax weights
   dynet::Parameter p_sm_b_; // Softmax bias
 
-  dynet::expr::Expression i_sm_W_;
-  dynet::expr::Expression i_sm_b_;
+  dynet::Expression i_sm_W_;
+  dynet::Expression i_sm_b_;
 
   float margin_;
 

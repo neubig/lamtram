@@ -57,7 +57,7 @@ int EnsembleClassifier::Predict(const Sentence & sent_src) {
             i_sms.push_back(tm->Forward<dynet::LogSoftmax>(sent_src, false, cg));
         }
     }
-    dynet::expr::Expression prob_exp = sum(i_sms);
+    dynet::Expression prob_exp = sum(i_sms);
     return MaxElement(dynet::as_vector(cg.incremental_forward(prob_exp)));
 }
 

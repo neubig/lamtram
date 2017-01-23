@@ -26,28 +26,28 @@ public:
 
   // Calculate training loss for one word. train_time indicates that we are training, in 
   // case we want to do something differently (such as dropout)
-  virtual dynet::expr::Expression CalcLoss(dynet::expr::Expression & in, dynet::expr::Expression & prior, const Sentence & ngram, bool train) = 0;
+  virtual dynet::Expression CalcLoss(dynet::Expression & in, dynet::Expression & prior, const Sentence & ngram, bool train) = 0;
   // Calculate training loss for a multi-word batch
-  virtual dynet::expr::Expression CalcLoss(dynet::expr::Expression & in, dynet::expr::Expression & prior, const std::vector<Sentence> & ngrams, bool train) = 0;
+  virtual dynet::Expression CalcLoss(dynet::Expression & in, dynet::Expression & prior, const std::vector<Sentence> & ngrams, bool train) = 0;
 
   // Calculate loss using cached info
-  virtual dynet::expr::Expression CalcLossCache(dynet::expr::Expression & in, dynet::expr::Expression & prior, int cache_id, const Sentence & ngram, bool train) {
+  virtual dynet::Expression CalcLossCache(dynet::Expression & in, dynet::Expression & prior, int cache_id, const Sentence & ngram, bool train) {
     return CalcLoss(in, prior, ngram, train);
   }
-  virtual dynet::expr::Expression CalcLossCache(dynet::expr::Expression & in, dynet::expr::Expression & prior, const std::vector<int> & cache_ids, const std::vector<Sentence> & ngrams, bool train) {
+  virtual dynet::Expression CalcLossCache(dynet::Expression & in, dynet::Expression & prior, const std::vector<int> & cache_ids, const std::vector<Sentence> & ngrams, bool train) {
     return CalcLoss(in, prior, ngrams, train);
   }
   
   // Calculate the full probability distribution
-  virtual dynet::expr::Expression CalcProb(dynet::expr::Expression & in, dynet::expr::Expression & prior, const Sentence & ctxt, bool train) = 0;
-  virtual dynet::expr::Expression CalcProb(dynet::expr::Expression & in, dynet::expr::Expression & prior, const std::vector<Sentence> & ctxt, bool train) = 0;
-  virtual dynet::expr::Expression CalcLogProb(dynet::expr::Expression & in, dynet::expr::Expression & prior, const Sentence & ctxt, bool train) = 0;
-  virtual dynet::expr::Expression CalcLogProb(dynet::expr::Expression & in, dynet::expr::Expression & prior, const std::vector<Sentence> & ctxt, bool train) = 0;
+  virtual dynet::Expression CalcProb(dynet::Expression & in, dynet::Expression & prior, const Sentence & ctxt, bool train) = 0;
+  virtual dynet::Expression CalcProb(dynet::Expression & in, dynet::Expression & prior, const std::vector<Sentence> & ctxt, bool train) = 0;
+  virtual dynet::Expression CalcLogProb(dynet::Expression & in, dynet::Expression & prior, const Sentence & ctxt, bool train) = 0;
+  virtual dynet::Expression CalcLogProb(dynet::Expression & in, dynet::Expression & prior, const std::vector<Sentence> & ctxt, bool train) = 0;
 
-  virtual dynet::expr::Expression CalcProbCache(dynet::expr::Expression & in, dynet::expr::Expression & prior, int cache_id,                       const Sentence & ctxt, bool train) { return CalcProb(in,prior,ctxt,train); }
-  virtual dynet::expr::Expression CalcProbCache(dynet::expr::Expression & in, dynet::expr::Expression & prior, const Sentence & cache_ids, const std::vector<Sentence> & ctxt, bool train) { return CalcProb(in,prior,ctxt,train); }
-  virtual dynet::expr::Expression CalcLogProbCache(dynet::expr::Expression & in, dynet::expr::Expression & prior, int cache_id,                       const Sentence & ctxt, bool train) { return CalcLogProb(in,prior,ctxt,train); }
-  virtual dynet::expr::Expression CalcLogProbCache(dynet::expr::Expression & in, dynet::expr::Expression & prior, const Sentence & cache_ids, const std::vector<Sentence> & ctxt, bool train) { return CalcLogProb(in,prior,ctxt,train); }
+  virtual dynet::Expression CalcProbCache(dynet::Expression & in, dynet::Expression & prior, int cache_id,                       const Sentence & ctxt, bool train) { return CalcProb(in,prior,ctxt,train); }
+  virtual dynet::Expression CalcProbCache(dynet::Expression & in, dynet::Expression & prior, const Sentence & cache_ids, const std::vector<Sentence> & ctxt, bool train) { return CalcProb(in,prior,ctxt,train); }
+  virtual dynet::Expression CalcLogProbCache(dynet::Expression & in, dynet::Expression & prior, int cache_id,                       const Sentence & ctxt, bool train) { return CalcLogProb(in,prior,ctxt,train); }
+  virtual dynet::Expression CalcLogProbCache(dynet::Expression & in, dynet::Expression & prior, const Sentence & cache_ids, const std::vector<Sentence> & ctxt, bool train) { return CalcLogProb(in,prior,ctxt,train); }
 
   // Cache data for the entire training corpus if necessary
   //  data is the data, set_ids is which data set the sentences belong to

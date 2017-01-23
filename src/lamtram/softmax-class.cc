@@ -19,26 +19,26 @@ void SoftmaxClass::NewGraph(dynet::ComputationGraph & cg) {
 }
 
 // Calculate training loss for one word
-dynet::expr::Expression SoftmaxClass::CalcLoss(dynet::expr::Expression & in, dynet::expr::Expression & prior, const Sentence & ngram, bool train) {
+dynet::Expression SoftmaxClass::CalcLoss(dynet::Expression & in, dynet::Expression & prior, const Sentence & ngram, bool train) {
   assert(prior.pg == nullptr);
   return cfsm_builder_->neg_log_softmax(in, *ngram.rbegin());
 }
 // Calculate training loss for multiple words
-dynet::expr::Expression SoftmaxClass::CalcLoss(dynet::expr::Expression & in, dynet::expr::Expression & prior, const std::vector<Sentence> & ngrams, bool train) {
+dynet::Expression SoftmaxClass::CalcLoss(dynet::Expression & in, dynet::Expression & prior, const std::vector<Sentence> & ngrams, bool train) {
   THROW_ERROR("SoftmaxClass::CalcLoss Not implemented for batches yet");
 }
 
 // Calculate the full probability distribution
-dynet::expr::Expression SoftmaxClass::CalcProb(dynet::expr::Expression & in, dynet::expr::Expression & prior, const Sentence & ctxt, bool train) {
+dynet::Expression SoftmaxClass::CalcProb(dynet::Expression & in, dynet::Expression & prior, const Sentence & ctxt, bool train) {
   THROW_ERROR("SoftmaxClass::CalcProb Not implemented yet");
 }
-dynet::expr::Expression SoftmaxClass::CalcProb(dynet::expr::Expression & in, dynet::expr::Expression & prior, const vector<Sentence> & ctxt, bool train) {
+dynet::Expression SoftmaxClass::CalcProb(dynet::Expression & in, dynet::Expression & prior, const vector<Sentence> & ctxt, bool train) {
   THROW_ERROR("SoftmaxClass::CalcProb Not implemented yet");
 }
-dynet::expr::Expression SoftmaxClass::CalcLogProb(dynet::expr::Expression & in, dynet::expr::Expression & prior, const Sentence & ctxt, bool train) {
+dynet::Expression SoftmaxClass::CalcLogProb(dynet::Expression & in, dynet::Expression & prior, const Sentence & ctxt, bool train) {
   THROW_ERROR("SoftmaxClass::CalcLogProb Not implemented yet");
 }
-dynet::expr::Expression SoftmaxClass::CalcLogProb(dynet::expr::Expression & in, dynet::expr::Expression & prior, const vector<Sentence> & ctxt, bool train) {
+dynet::Expression SoftmaxClass::CalcLogProb(dynet::Expression & in, dynet::Expression & prior, const vector<Sentence> & ctxt, bool train) {
   THROW_ERROR("SoftmaxClass::CalcLogProb Not implemented yet");
 }
 

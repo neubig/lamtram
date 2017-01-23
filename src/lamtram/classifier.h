@@ -18,13 +18,13 @@ public:
 
     // Calculate the log likelihood
     template <class OutputData>
-    dynet::expr::Expression BuildGraph(const dynet::expr::Expression & input, const OutputData & label,
+    dynet::Expression BuildGraph(const dynet::Expression & input, const OutputData & label,
                                      bool train,
                                      dynet::ComputationGraph & cg) const;
 
     // Calculate the probabilities from the model, or predict
     template <class SoftmaxOp>
-    dynet::expr::Expression Forward(const dynet::expr::Expression & input,
+    dynet::Expression Forward(const dynet::Expression & input,
                                   dynet::ComputationGraph & cg) const;
 
     // Accessors
@@ -50,8 +50,8 @@ protected:
     std::vector<dynet::Parameter> p_W_; // Layer weights
     std::vector<dynet::Parameter> p_b_; // Layer bias
 
-    std::vector<dynet::expr::Expression> i_W_; // Layer weights
-    std::vector<dynet::expr::Expression> i_b_; // Layer bias
+    std::vector<dynet::Expression> i_W_; // Layer weights
+    std::vector<dynet::Expression> i_b_; // Layer bias
 
 private:
     // A pointer to the current computation graph.

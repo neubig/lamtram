@@ -29,7 +29,7 @@ public:
     ~EncoderDecoder() { }
 
     // Build the computation graph for the sentence including loss
-    dynet::expr::Expression BuildSentGraph(const Sentence & sent_src,
+    dynet::Expression BuildSentGraph(const Sentence & sent_src,
                                          const Sentence & sent_trg,
                                          const Sentence & cache_trg,
                                          const float * weight,
@@ -37,7 +37,7 @@ public:
                                          bool train,
                                          dynet::ComputationGraph & cg,
                                          LLStats & ll);
-    dynet::expr::Expression BuildSentGraph(const std::vector<Sentence> & sent_src,
+    dynet::Expression BuildSentGraph(const std::vector<Sentence> & sent_src,
                                          const std::vector<Sentence> & sent_trg,
                                          const std::vector<Sentence> & cache_trg,
                                          const std::vector<float> * weights,
@@ -47,7 +47,7 @@ public:
                                          LLStats & ll);
 
     // Sample sentences and return an expression of the vector of probabilities
-    dynet::expr::Expression SampleTrgSentences(const Sentence & sent_src,
+    dynet::Expression SampleTrgSentences(const Sentence & sent_src,
                                              const Sentence * sent_trg,   
                                              int num_samples,
                                              int max_len,
@@ -56,7 +56,7 @@ public:
                                              std::vector<Sentence> & samples);
 
     template <class SentData>
-    std::vector<dynet::expr::Expression> GetEncodedState(
+    std::vector<dynet::Expression> GetEncodedState(
                                         const SentData & sent_src, bool train, dynet::ComputationGraph & cg);
 
     // Reading/writing functions
@@ -103,8 +103,8 @@ protected:
     dynet::Parameter p_enc2dec_b_; // Encoder to decoder bias
     
     // Indicies in the current computation graph for each parameter
-    dynet::expr::Expression i_enc2dec_W_;
-    dynet::expr::Expression i_enc2dec_b_;
+    dynet::Expression i_enc2dec_W_;
+    dynet::Expression i_enc2dec_b_;
 
 private:
     // A pointer to the current computation graph.

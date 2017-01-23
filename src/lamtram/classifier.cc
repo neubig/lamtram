@@ -30,12 +30,12 @@ Classifier::Classifier(int input_size, int label_size,
 namespace lamtram {
 
 template <>
-dynet::expr::Expression Classifier::BuildGraph<int>(const dynet::expr::Expression & input, const int & label,
+dynet::Expression Classifier::BuildGraph<int>(const dynet::Expression & input, const int & label,
                           bool train,
                           dynet::ComputationGraph & cg) const {
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
-  dynet::expr::Expression last_expr = input, aff;
+  dynet::Expression last_expr = input, aff;
   int i;
   for(i = 0; i < (int)p_W_.size()-1; i++) {
     aff = affine_transform({i_b_[i], i_W_[i], last_expr});
@@ -53,12 +53,12 @@ dynet::expr::Expression Classifier::BuildGraph<int>(const dynet::expr::Expressio
 }
 
 template <>
-dynet::expr::Expression Classifier::BuildGraph<vector<int> >(const dynet::expr::Expression & input, const vector<int> & label,
+dynet::Expression Classifier::BuildGraph<vector<int> >(const dynet::Expression & input, const vector<int> & label,
                                bool train,
                                dynet::ComputationGraph & cg) const {
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
-  dynet::expr::Expression last_expr = input, aff;
+  dynet::Expression last_expr = input, aff;
   int i;
   for(i = 0; i < (int)p_W_.size()-1; i++) {
     aff = affine_transform({i_b_[i], i_W_[i], last_expr});
@@ -82,11 +82,11 @@ dynet::expr::Expression Classifier::BuildGraph<vector<int> >(const dynet::expr::
 
 
 template <class SoftmaxOp>
-dynet::expr::Expression Classifier::Forward(const dynet::expr::Expression & input,
+dynet::Expression Classifier::Forward(const dynet::Expression & input,
                       dynet::ComputationGraph & cg) const {
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
-  dynet::expr::Expression last_expr = input, aff;
+  dynet::Expression last_expr = input, aff;
   int i;
   for(i = 0; i < (int)p_W_.size()-1; i++) {
     aff = affine_transform({i_b_[i], i_W_[i], last_expr});
@@ -94,21 +94,21 @@ dynet::expr::Expression Classifier::Forward(const dynet::expr::Expression & inpu
     if(dropout_) last_expr = dropout(last_expr, dropout_);
   }
   aff = affine_transform({i_b_[i], i_W_[i], last_expr});
-  return dynet::expr::Expression(aff.pg, aff.pg->add_function<SoftmaxOp>({aff.i}));
+  return dynet::Expression(aff.pg, aff.pg->add_function<SoftmaxOp>({aff.i}));
 }
 
 // Instantiate
 template
-dynet::expr::Expression Classifier::Forward<dynet::Softmax>(
-                   const dynet::expr::Expression & input,
+dynet::Expression Classifier::Forward<dynet::Softmax>(
+                   const dynet::Expression & input,
                    dynet::ComputationGraph & cg) const;
 template
-dynet::expr::Expression Classifier::Forward<dynet::LogSoftmax>(
-                   const dynet::expr::Expression & input,
+dynet::Expression Classifier::Forward<dynet::LogSoftmax>(
+                   const dynet::Expression & input,
                    dynet::ComputationGraph & cg) const;
 template
-dynet::expr::Expression Classifier::Forward<dynet::Identity>(
-                   const dynet::expr::Expression & input,
+dynet::Expression Classifier::Forward<dynet::Identity>(
+                   const dynet::Expression & input,
                    dynet::ComputationGraph & cg) const;
 
 void Classifier::NewGraph(dynet::ComputationGraph & cg) {

@@ -21,13 +21,13 @@ LinearEncoder::LinearEncoder(int vocab_size, int wordrep_size,
   p_wr_W_ = model.add_lookup_parameters(vocab_size, {(unsigned int)wordrep_size}); 
 }
 
-dynet::expr::Expression LinearEncoder::BuildSentGraph(const Sentence & sent, bool add, bool train, dynet::ComputationGraph & cg) {
+dynet::Expression LinearEncoder::BuildSentGraph(const Sentence & sent, bool add, bool train, dynet::ComputationGraph & cg) {
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
   word_states_.resize(sent.size() + (add ? 1 : 0));
   builder_->start_new_sequence();
   // First get all the word representations
-  dynet::expr::Expression i_wr_t, i_h_t;
+  dynet::Expression i_wr_t, i_h_t;
   if(!reverse_) {
     for(int t = 0; t < (int)sent.size(); t++) {
       i_wr_t = lookup(cg, p_wr_W_, sent[t]);
@@ -47,7 +47,7 @@ dynet::expr::Expression LinearEncoder::BuildSentGraph(const Sentence & sent, boo
   return i_h_t;
 }
 
-dynet::expr::Expression LinearEncoder::BuildSentGraph(const vector<Sentence> & sent, bool add, bool train, dynet::ComputationGraph & cg) {
+dynet::Expression LinearEncoder::BuildSentGraph(const vector<Sentence> & sent, bool add, bool train, dynet::ComputationGraph & cg) {
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
   assert(sent.size());
@@ -58,7 +58,7 @@ dynet::expr::Expression LinearEncoder::BuildSentGraph(const vector<Sentence> & s
   word_states_.resize(max_len + (add ? 1 : 0));
   builder_->start_new_sequence();
   // First get all the word representations
-  dynet::expr::Expression i_wr_t, i_h_t;
+  dynet::Expression i_wr_t, i_h_t;
   vector<unsigned> words(sent.size());
   if(!reverse_) {
     for(int t = 0; t < max_len; t++) {
@@ -115,7 +115,7 @@ void LinearEncoder::Write(std::ostream & out) {
   out << "linenc_001 " << vocab_size_ << " " << wordrep_size_ << " " << hidden_spec_ << " " << unk_id_ << " " << (reverse_?"rev":"for") << endl;
 }
 
-vector<dynet::expr::Expression> LinearEncoder::GetFinalHiddenLayers() const {
+vector<dynet::Expression> LinearEncoder::GetFinalHiddenLayers() const {
   return builder_->final_h();
 }
 

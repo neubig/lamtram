@@ -31,11 +31,11 @@ public:
 
     // Encode the input sentence as a vector to be input to the classifier
     template <class SentData>
-    dynet::expr::Expression GetEncodedState(
+    dynet::Expression GetEncodedState(
                       const SentData & sent_src, bool train, dynet::ComputationGraph & cg) const;
 
     // Build the computation graph for the sentence including loss
-    dynet::expr::Expression BuildSentGraph(const Sentence & sent_src,
+    dynet::Expression BuildSentGraph(const Sentence & sent_src,
                                          const int & trg,
                                          const int & cache,
                                          const float * weight,
@@ -43,7 +43,7 @@ public:
                                          bool train,
                                          dynet::ComputationGraph & cg,
                                          LLStats & ll);
-    dynet::expr::Expression BuildSentGraph(const std::vector<Sentence> & sent_src,
+    dynet::Expression BuildSentGraph(const std::vector<Sentence> & sent_src,
                                          const std::vector<int> & trg,
                                          const std::vector<int> & cache,
                                          const std::vector<float> * weights,
@@ -54,7 +54,7 @@ public:
 
     // Calculate the probabilities from the model, or predict
     template <class SoftmaxOp>
-    dynet::expr::Expression Forward(const Sentence & sent_src, 
+    dynet::Expression Forward(const Sentence & sent_src, 
                                   bool train,
                                   dynet::ComputationGraph & cg) const;
 
@@ -90,8 +90,8 @@ protected:
     dynet::Parameter p_enc2cls_b_; // Encoder to classifier bias
     
     // Indicies in the current computation graph for each parameter
-    dynet::expr::Expression i_enc2cls_W_;
-    dynet::expr::Expression i_enc2cls_b_;
+    dynet::Expression i_enc2cls_W_;
+    dynet::Expression i_enc2cls_b_;
 
 private:
     // A pointer to the current computation graph.

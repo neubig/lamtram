@@ -28,32 +28,32 @@ void SoftmaxMultiLayer::NewGraph(dynet::ComputationGraph & cg) {
 }
 
 // Calculate training loss for one word
-dynet::expr::Expression SoftmaxMultiLayer::CalcLoss(dynet::expr::Expression & in, dynet::expr::Expression & prior, const Sentence & ngram, bool train) {
+dynet::Expression SoftmaxMultiLayer::CalcLoss(dynet::Expression & in, dynet::Expression & prior, const Sentence & ngram, bool train) {
   Expression score = affine_transform({i_sm_b_, i_sm_W_, in});
   score = tanh(score);
   return softmax_->CalcLoss(score,prior,ngram,train);
 }
 // Calculate training loss for multiple words
-dynet::expr::Expression SoftmaxMultiLayer::CalcLoss(dynet::expr::Expression & in, dynet::expr::Expression & prior, const std::vector<Sentence> & ngrams, bool train) {
+dynet::Expression SoftmaxMultiLayer::CalcLoss(dynet::Expression & in, dynet::Expression & prior, const std::vector<Sentence> & ngrams, bool train) {
   Expression score = affine_transform({i_sm_b_, i_sm_W_, in});
   score = tanh(score);
   return softmax_->CalcLoss(score,prior,ngrams,train);
 }
 
 // Calculate the full probability distribution
-dynet::expr::Expression SoftmaxMultiLayer::CalcProb(dynet::expr::Expression & in, dynet::expr::Expression & prior, const Sentence & ctxt, bool train) {
-  dynet::expr::Expression h = tanh(affine_transform({i_sm_b_, i_sm_W_, in}));
+dynet::Expression SoftmaxMultiLayer::CalcProb(dynet::Expression & in, dynet::Expression & prior, const Sentence & ctxt, bool train) {
+  dynet::Expression h = tanh(affine_transform({i_sm_b_, i_sm_W_, in}));
   return softmax_->CalcProb(h,prior,ctxt,train);
 }
-dynet::expr::Expression SoftmaxMultiLayer::CalcProb(dynet::expr::Expression & in, dynet::expr::Expression & prior, const vector<Sentence> & ctxt, bool train) {
-  dynet::expr::Expression h = tanh(affine_transform({i_sm_b_, i_sm_W_, in}));
+dynet::Expression SoftmaxMultiLayer::CalcProb(dynet::Expression & in, dynet::Expression & prior, const vector<Sentence> & ctxt, bool train) {
+  dynet::Expression h = tanh(affine_transform({i_sm_b_, i_sm_W_, in}));
   return softmax_->CalcProb(h,prior,ctxt,train);
 }
-dynet::expr::Expression SoftmaxMultiLayer::CalcLogProb(dynet::expr::Expression & in, dynet::expr::Expression & prior, const Sentence & ctxt, bool train) {
-  dynet::expr::Expression h = tanh(affine_transform({i_sm_b_, i_sm_W_, in}));
+dynet::Expression SoftmaxMultiLayer::CalcLogProb(dynet::Expression & in, dynet::Expression & prior, const Sentence & ctxt, bool train) {
+  dynet::Expression h = tanh(affine_transform({i_sm_b_, i_sm_W_, in}));
   return softmax_->CalcLogProb(h,prior,ctxt,train);
 }
-dynet::expr::Expression SoftmaxMultiLayer::CalcLogProb(dynet::expr::Expression & in, dynet::expr::Expression & prior, const vector<Sentence> & ctxt, bool train) {
-  dynet::expr::Expression h = tanh(affine_transform({i_sm_b_, i_sm_W_, in}));
+dynet::Expression SoftmaxMultiLayer::CalcLogProb(dynet::Expression & in, dynet::Expression & prior, const vector<Sentence> & ctxt, bool train) {
+  dynet::Expression h = tanh(affine_transform({i_sm_b_, i_sm_W_, in}));
   return softmax_->CalcLogProb(h,prior,ctxt,train);
 }

@@ -24,23 +24,23 @@ public:
   virtual void NewGraph(dynet::ComputationGraph & cg) override;
 
   // Calculate training loss for one word
-  virtual dynet::expr::Expression CalcLoss(dynet::expr::Expression & in, dynet::expr::Expression & prior, const Sentence & ngram, bool train) override;
+  virtual dynet::Expression CalcLoss(dynet::Expression & in, dynet::Expression & prior, const Sentence & ngram, bool train) override;
   // Calculate training loss for multiple words
-  virtual dynet::expr::Expression CalcLoss(dynet::expr::Expression & in, dynet::expr::Expression & prior, const std::vector<Sentence> & ngrams, bool train) override;
+  virtual dynet::Expression CalcLoss(dynet::Expression & in, dynet::Expression & prior, const std::vector<Sentence> & ngrams, bool train) override;
 
   // Calculate loss using cached info
-  virtual dynet::expr::Expression CalcLossCache(dynet::expr::Expression & in, dynet::expr::Expression & prior, int cache_id, const Sentence & ngram, bool train) override;
-  virtual dynet::expr::Expression CalcLossCache(dynet::expr::Expression & in, dynet::expr::Expression & prior, const std::vector<int> & cache_ids, const std::vector<Sentence> & ngrams, bool train) override;
+  virtual dynet::Expression CalcLossCache(dynet::Expression & in, dynet::Expression & prior, int cache_id, const Sentence & ngram, bool train) override;
+  virtual dynet::Expression CalcLossCache(dynet::Expression & in, dynet::Expression & prior, const std::vector<int> & cache_ids, const std::vector<Sentence> & ngrams, bool train) override;
   
   // Calculate the full probability distribution
-  virtual dynet::expr::Expression CalcProb(dynet::expr::Expression & in, dynet::expr::Expression & prior, const Sentence & ctxt, bool train) override;
-  virtual dynet::expr::Expression CalcProb(dynet::expr::Expression & in, dynet::expr::Expression & prior, const std::vector<Sentence> & ctxt, bool train) override;
-  virtual dynet::expr::Expression CalcLogProb(dynet::expr::Expression & in, dynet::expr::Expression & prior, const Sentence & ctxt, bool train) override;
-  virtual dynet::expr::Expression CalcLogProb(dynet::expr::Expression & in, dynet::expr::Expression & prior, const std::vector<Sentence> & ctxt, bool train) override;
-  virtual dynet::expr::Expression CalcProbCache(dynet::expr::Expression & in, dynet::expr::Expression & prior, int cache_id,               const Sentence & ctxt, bool train) override;
-  virtual dynet::expr::Expression CalcProbCache(dynet::expr::Expression & in, dynet::expr::Expression & prior, const Sentence & cache_ids, const std::vector<Sentence> & ctxt, bool train) override;
-  virtual dynet::expr::Expression CalcLogProbCache(dynet::expr::Expression & in, dynet::expr::Expression & prior, int cache_id,               const Sentence & ctxt, bool train) override;
-  virtual dynet::expr::Expression CalcLogProbCache(dynet::expr::Expression & in, dynet::expr::Expression & prior, const Sentence & cache_ids, const std::vector<Sentence> & ctxt, bool train) override;
+  virtual dynet::Expression CalcProb(dynet::Expression & in, dynet::Expression & prior, const Sentence & ctxt, bool train) override;
+  virtual dynet::Expression CalcProb(dynet::Expression & in, dynet::Expression & prior, const std::vector<Sentence> & ctxt, bool train) override;
+  virtual dynet::Expression CalcLogProb(dynet::Expression & in, dynet::Expression & prior, const Sentence & ctxt, bool train) override;
+  virtual dynet::Expression CalcLogProb(dynet::Expression & in, dynet::Expression & prior, const std::vector<Sentence> & ctxt, bool train) override;
+  virtual dynet::Expression CalcProbCache(dynet::Expression & in, dynet::Expression & prior, int cache_id,               const Sentence & ctxt, bool train) override;
+  virtual dynet::Expression CalcProbCache(dynet::Expression & in, dynet::Expression & prior, const Sentence & cache_ids, const std::vector<Sentence> & ctxt, bool train) override;
+  virtual dynet::Expression CalcLogProbCache(dynet::Expression & in, dynet::Expression & prior, int cache_id,               const Sentence & ctxt, bool train) override;
+  virtual dynet::Expression CalcLogProbCache(dynet::Expression & in, dynet::Expression & prior, const Sentence & cache_ids, const std::vector<Sentence> & ctxt, bool train) override;
 
   virtual void Cache(const std::vector<Sentence> & sents, const std::vector<int> & set_ids, std::vector<Sentence> & cache_ids) override;
 
@@ -48,8 +48,8 @@ public:
 
 protected:
 
-  dynet::expr::Expression CalcLossExpr(dynet::expr::Expression & in, dynet::expr::Expression & prior, const CtxtDist & ctxt_dist, WordId wid, bool train);
-  dynet::expr::Expression CalcLossExpr(dynet::expr::Expression & in, dynet::expr::Expression & prior, const CtxtDist & ctxt_dist_batched, const std::vector<unsigned> & wids, bool train);
+  dynet::Expression CalcLossExpr(dynet::Expression & in, dynet::Expression & prior, const CtxtDist & ctxt_dist, WordId wid, bool train);
+  dynet::Expression CalcLossExpr(dynet::Expression & in, dynet::Expression & prior, const CtxtDist & ctxt_dist_batched, const std::vector<unsigned> & wids, bool train);
 
   void LoadDists(int id);
 
@@ -64,8 +64,8 @@ protected:
   dynet::Parameter p_sms_W_, p_smd_W_; // Softmax weights
   dynet::Parameter p_sms_b_, p_smd_b_; // Softmax bias
 
-  dynet::expr::Expression i_sms_W_, i_smd_W_;
-  dynet::expr::Expression i_sms_b_, i_smd_b_;
+  dynet::Expression i_sms_W_, i_smd_W_;
+  dynet::Expression i_sms_b_, i_smd_b_;
 
   float dropout_; // How much to drop out the dense distributions (at training)
   std::vector<DistPtr> dist_ptrs_;

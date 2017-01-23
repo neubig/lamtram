@@ -343,7 +343,7 @@ void LamtramTrain::TrainLM() {
   std::vector<int> train_ids(train_trg_minibatch.size());
   std::iota(train_ids.begin(), train_ids.end(), 0);
   // Perform the training
-  std::vector<dynet::expr::Expression> empty_hist;
+  std::vector<dynet::Expression> empty_hist;
   dynet::real last_loss = 1e99, best_loss = 1e99;
   bool is_likelihood = (softmax_sig_ != "hinge");
   bool do_dev = dev_trg.size() != 0;
@@ -373,7 +373,7 @@ void LamtramTrain::TrainLM() {
       }
       dynet::ComputationGraph cg;
       nlm->NewGraph(cg);
-      dynet::expr::Expression loss_exp = nlm->BuildSentGraph(train_trg_minibatch[train_ids[loc]], (train_cache_minibatch.size() ? train_cache_minibatch[train_ids[loc]] : empty_minibatch), nullptr, NULL, empty_hist, samp_prob, true, cg, train_ll);
+      dynet::Expression loss_exp = nlm->BuildSentGraph(train_trg_minibatch[train_ids[loc]], (train_cache_minibatch.size() ? train_cache_minibatch[train_ids[loc]] : empty_minibatch), nullptr, NULL, empty_hist, samp_prob, true, cg, train_ll);
       sent_loc += train_trg_minibatch[train_ids[loc]].size();
       curr_sent_loc += train_trg_minibatch[train_ids[loc]].size();
       epoch_frac += 1.f/train_ids.size();
@@ -396,7 +396,7 @@ void LamtramTrain::TrainLM() {
       for(auto & sent : dev_trg_minibatch) {
         dynet::ComputationGraph cg;
         nlm->NewGraph(cg);
-        dynet::expr::Expression loss_exp = nlm->BuildSentGraph(sent, empty_minibatch, nullptr, NULL, empty_hist, 0.f, false, cg, dev_ll);
+        dynet::Expression loss_exp = nlm->BuildSentGraph(sent, empty_minibatch, nullptr, NULL, empty_hist, 0.f, false, cg, dev_ll);
         dev_ll.loss_ += as_scalar(cg.incremental_forward(loss_exp));
       }
       float elapsed = time.Elapsed();
@@ -729,7 +729,7 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
   int early_stop = vm_["early_stop"].as<int>();
 
   // Perform the training
-  std::vector<dynet::expr::Expression> empty_hist;
+  std::vector<dynet::Expression> empty_hist;
   dynet::real last_loss = 1e99, best_loss = 1e99;
   bool is_likelihood = (softmax_sig_ != "hinge");
   bool do_dev = dev_src.size() != 0;
@@ -775,7 +775,7 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
         float val = (epoch_frac-scheduled_samp_)/scheduled_samp_;
         samp_prob = 1/(1+exp(val));
       }
-      dynet::expr::Expression loss_exp = encdec.BuildSentGraph(
+      dynet::Expression loss_exp = encdec.BuildSentGraph(
           train_src_minibatch[train_ids_minibatch[loc]],
           train_trg_minibatch[train_ids_minibatch[loc]],
           (train_cache_minibatch.size() ? train_cache_minibatch[train_ids_minibatch[loc]] : empty_cache),
@@ -808,7 +808,7 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
         dynet::ComputationGraph cg;
         encdec.NewGraph(cg);
         // encdec.BuildSentGraph(dev_src[i], dev_trg[i], empty_cache, false, cg, dev_ll);
-        dynet::expr::Expression loss_exp = encdec.BuildSentGraph(dev_src_minibatch[i], dev_trg_minibatch[i], empty_cache, nullptr, 0.f, false, cg, dev_ll);
+        dynet::Expression loss_exp = encdec.BuildSentGraph(dev_src_minibatch[i], dev_trg_minibatch[i], empty_cache, nullptr, 0.f, false, cg, dev_ll);
         dev_ll.loss_ += as_scalar(cg.incremental_forward(loss_exp));
       }
       float elapsed = time.Elapsed();
@@ -849,9 +849,9 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
   }
 }
 
-inline dynet::expr::Expression CalcRisk(const Sentence & ref,
+inline dynet::Expression CalcRisk(const Sentence & ref,
                                       const vector<Sentence> & trg_samples,
-                                      dynet::expr::Expression trg_log_probs,
+                                      dynet::Expression trg_log_probs,
                                       const EvalMeasure & eval,
                                       float scaling,
                                       bool dedup,
@@ -924,7 +924,7 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
   std::vector<int> train_ids(train_src.size());
   std::iota(train_ids.begin(), train_ids.end(), 0);
   // Perform the training
-  std::vector<dynet::expr::Expression> empty_hist;
+  std::vector<dynet::Expression> empty_hist;
   dynet::real last_loss = 1e99, best_loss = 1e99;
   bool do_dev = dev_src.size() != 0;
   int loc = train_ids.size(), epoch = -1, sent_loc = 0, last_print = 0;
@@ -951,10 +951,10 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
       encdec.NewGraph(cg);
       // Sample sentences
       std::vector<Sentence> trg_samples;
-      dynet::expr::Expression trg_log_probs = encdec.SampleTrgSentences(train_src[train_ids[loc]], 
+      dynet::Expression trg_log_probs = encdec.SampleTrgSentences(train_src[train_ids[loc]], 
                                                                       (include_ref ? &train_trg[train_ids[loc]] : NULL),
                                                                       num_samples, max_len, true, cg, trg_samples);
-      dynet::expr::Expression trg_loss = CalcRisk(train_trg[train_ids[loc]], trg_samples, trg_log_probs, eval, scaling, dedup, cg);
+      dynet::Expression trg_loss = CalcRisk(train_trg[train_ids[loc]], trg_samples, trg_log_probs, eval, scaling, dedup, cg);
       // Increment
       sent_loc++; curr_sent_loc++;
       epoch_frac += 1.f/train_src.size(); 
@@ -983,7 +983,7 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
           Expression trg_log_probs = encdec.SampleTrgSentences(dev_src[i], 
                                                                (include_ref ? &dev_trg[i] : NULL),
                                                                num_samples, max_len, true, cg, trg_samples);
-          dynet::expr::Expression loss_exp = CalcRisk(dev_trg[i], trg_samples, trg_log_probs, eval, scaling, dedup, cg);
+          dynet::Expression loss_exp = CalcRisk(dev_trg[i], trg_samples, trg_log_probs, eval, scaling, dedup, cg);
           dev_loss.loss_ += as_scalar(cg.incremental_forward(loss_exp));
           dev_loss.sents_++;
       }

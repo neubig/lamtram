@@ -21,20 +21,20 @@ public:
     virtual void InitializeSentence(const std::vector<Sentence> & sent, bool train, dynet::ComputationGraph & cg) { }
 
     // Create a variable encoding the context
-    virtual dynet::expr::Expression CreateContext(
+    virtual dynet::Expression CreateContext(
         // const Sentence & sent, int loc,
-        const std::vector<dynet::expr::Expression> & state_in,
-        const dynet::expr::Expression & align_sum_in,
+        const std::vector<dynet::Expression> & state_in,
+        const dynet::Expression & align_sum_in,
         bool train,
         dynet::ComputationGraph & cg,
-        std::vector<dynet::expr::Expression> & align_out,
-        dynet::expr::Expression & align_sum_out) const = 0;
+        std::vector<dynet::Expression> & align_out,
+        dynet::Expression & align_sum_out) const = 0;
 
     // Calculate the prior over the inputs
-    virtual dynet::expr::Expression CalcPrior(
-        const dynet::expr::Expression & align_vec) const { return dynet::expr::Expression(); };
+    virtual dynet::Expression CalcPrior(
+        const dynet::Expression & align_vec) const { return dynet::Expression(); };
 
-    virtual dynet::expr::Expression GetEmptyContext(dynet::ComputationGraph & cg) const = 0;
+    virtual dynet::Expression GetEmptyContext(dynet::ComputationGraph & cg) const = 0;
 
     int GetSize() const { return context_size_; }
 

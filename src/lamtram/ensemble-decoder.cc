@@ -129,7 +129,7 @@ Expression EnsembleDecoder::EnsembleSingleLogProb(const std::vector<Expression> 
 }
 
 template <>
-void EnsembleDecoder::AddLik<Sentence,LLStats,vector<float> >(const Sentence & sent, const dynet::expr::Expression & exp, const std::vector<dynet::expr::Expression> & exps, LLStats & ll, vector<float> & wordll) {
+void EnsembleDecoder::AddLik<Sentence,LLStats,vector<float> >(const Sentence & sent, const dynet::Expression & exp, const std::vector<dynet::Expression> & exps, LLStats & ll, vector<float> & wordll) {
   ll.loss_ -= as_scalar(exp.value());
   ll.words_ += sent.size();
   for(unsigned t = 0; t < sent.size(); t++) {
@@ -139,7 +139,7 @@ void EnsembleDecoder::AddLik<Sentence,LLStats,vector<float> >(const Sentence & s
   }
 }
 template <>
-void EnsembleDecoder::AddLik<vector<Sentence>,vector<LLStats>,vector<vector<float> > >(const vector<Sentence> & sent, const dynet::expr::Expression & exp, const std::vector<dynet::expr::Expression> & exps, std::vector<LLStats> & ll, std::vector<std::vector<float> > & wordll) {
+void EnsembleDecoder::AddLik<vector<Sentence>,vector<LLStats>,vector<vector<float> > >(const vector<Sentence> & sent, const dynet::Expression & exp, const std::vector<dynet::Expression> & exps, std::vector<LLStats> & ll, std::vector<std::vector<float> > & wordll) {
   vector<float> ret = as_vector(exp.value());
   assert(ret.size() == ll.size());
   vector<vector<float> > exp_floats;
@@ -270,7 +270,7 @@ std::vector<EnsembleDecoderHypPtr> EnsembleDecoder::GenerateNbest(const Sentence
       // Find the best aligned source, if any alignments exists
       WordId best_align = -1;
       if(i_aligns.size() != 0) {
-        dynet::expr::Expression ens_align = sum(i_aligns);
+        dynet::Expression ens_align = sum(i_aligns);
         vector<dynet::real> align = as_vector(cg.incremental_forward(ens_align));
         best_align = 0;
         for(size_t aid = 0; aid < align.size(); aid++)

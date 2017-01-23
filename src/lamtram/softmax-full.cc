@@ -18,13 +18,13 @@ void SoftmaxFull::NewGraph(dynet::ComputationGraph & cg) {
 }
 
 // Calculate training loss for one word
-dynet::expr::Expression SoftmaxFull::CalcLoss(dynet::expr::Expression & in, dynet::expr::Expression & prior, const Sentence & ngram, bool train) {
+dynet::Expression SoftmaxFull::CalcLoss(dynet::Expression & in, dynet::Expression & prior, const Sentence & ngram, bool train) {
   Expression score = affine_transform({i_sm_b_, i_sm_W_, in});
   if(prior.pg != nullptr) score = score + prior;
   return pickneglogsoftmax(score, *ngram.rbegin());
 }
 // Calculate training loss for multiple words
-dynet::expr::Expression SoftmaxFull::CalcLoss(dynet::expr::Expression & in, dynet::expr::Expression & prior, const std::vector<Sentence> & ngrams, bool train) {
+dynet::Expression SoftmaxFull::CalcLoss(dynet::Expression & in, dynet::Expression & prior, const std::vector<Sentence> & ngrams, bool train) {
   Expression score = affine_transform({i_sm_b_, i_sm_W_, in});
   if(prior.pg != nullptr) score = score + prior;
   std::vector<unsigned> wvec(ngrams.size());
@@ -34,22 +34,22 @@ dynet::expr::Expression SoftmaxFull::CalcLoss(dynet::expr::Expression & in, dyne
 }
 
 // Calculate the full probability distribution
-dynet::expr::Expression SoftmaxFull::CalcProb(dynet::expr::Expression & in, dynet::expr::Expression & prior, const Sentence & ctxt, bool train) {
+dynet::Expression SoftmaxFull::CalcProb(dynet::Expression & in, dynet::Expression & prior, const Sentence & ctxt, bool train) {
   return (prior.pg != nullptr ? 
           softmax(affine_transform({i_sm_b_, i_sm_W_, in}) + prior) :
           softmax(affine_transform({i_sm_b_, i_sm_W_, in})));
 }
-dynet::expr::Expression SoftmaxFull::CalcProb(dynet::expr::Expression & in, dynet::expr::Expression & prior, const vector<Sentence> & ctxt, bool train) {
+dynet::Expression SoftmaxFull::CalcProb(dynet::Expression & in, dynet::Expression & prior, const vector<Sentence> & ctxt, bool train) {
   return (prior.pg != nullptr ? 
           softmax(affine_transform({i_sm_b_, i_sm_W_, in}) + prior) :
           softmax(affine_transform({i_sm_b_, i_sm_W_, in})));
 }
-dynet::expr::Expression SoftmaxFull::CalcLogProb(dynet::expr::Expression & in, dynet::expr::Expression & prior, const Sentence & ctxt, bool train) {
+dynet::Expression SoftmaxFull::CalcLogProb(dynet::Expression & in, dynet::Expression & prior, const Sentence & ctxt, bool train) {
   return (prior.pg != nullptr ? 
           log_softmax(affine_transform({i_sm_b_, i_sm_W_, in}) + prior) :
           log_softmax(affine_transform({i_sm_b_, i_sm_W_, in})));
 }
-dynet::expr::Expression SoftmaxFull::CalcLogProb(dynet::expr::Expression & in, dynet::expr::Expression & prior, const vector<Sentence> & ctxt, bool train) {
+dynet::Expression SoftmaxFull::CalcLogProb(dynet::Expression & in, dynet::Expression & prior, const vector<Sentence> & ctxt, bool train) {
   return (prior.pg != nullptr ? 
           log_softmax(affine_transform({i_sm_b_, i_sm_W_, in}) + prior) :
           log_softmax(affine_transform({i_sm_b_, i_sm_W_, in})));
