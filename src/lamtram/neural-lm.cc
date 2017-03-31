@@ -7,6 +7,7 @@
 #include <dynet/model.h>
 #include <dynet/nodes.h>
 #include <dynet/rnn.h>
+#include <dynet/globals.h>
 #include <boost/range/irange.hpp>
 #include <ctime>
 #include <fstream>

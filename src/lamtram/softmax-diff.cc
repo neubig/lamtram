@@ -6,6 +6,7 @@
 #include <lamtram/hashes.h>
 #include <dynet/expr.h>
 #include <dynet/dict.h>
+#include <dynet/globals.h>
 
 using namespace lamtram;
 using namespace dynet::expr;

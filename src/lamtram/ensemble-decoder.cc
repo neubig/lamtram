@@ -309,7 +309,7 @@ std::vector<EnsembleDecoderHypPtr> EnsembleDecoder::GenerateNbest(const Sentence
       sort(nbest.begin(), nbest.end());
       if(nbest.size() > nbest_size)
         nbest.resize(nbest_size);
-      if(nbest.size() == nbest_size && (*nbest.rbegin())->GetScore() >= next_beam[0]->GetScore())
+      if(nbest.size() == nbest_size && (next_beam.size() == 0 || (*nbest.rbegin())->GetScore() >= next_beam[0]->GetScore()))
         return nbest;
     }
   }

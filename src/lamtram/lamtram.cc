@@ -56,6 +56,7 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
   DictPtr vocab_src, vocab_trg;
 
   int max_minibatch_size = vm["minibatch_size"].as<int>();
+  int nbest_size = vm["nbest_size"].as<int>();
   
   // Buffers
   string line;
@@ -237,18 +238,29 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
         sent_src = ParseWords(*vocab_src, str_src, false);
       }
       if(i >= sent_range.first) {
-        EnsembleDecoderHypPtr trg_hyp = decoder.Generate(sent_src);
-        if(trg_hyp.get() == nullptr) {
-          sent_trg.clear();
-          align.clear();
-          str_trg.clear();
+        if(nbest_size == 1) {
+          EnsembleDecoderHypPtr trg_hyp = decoder.Generate(sent_src);
+          if(trg_hyp.get() == nullptr) {
+            cout << endl;
+          } else {
+            sent_trg = trg_hyp->GetSentence();
+            align = trg_hyp->GetAlignment();
+            str_trg = ConvertWords(*vocab_trg, sent_trg, false);
+            MapWords(str_src, sent_trg, align, mapping, str_trg);
+            cout << PrintWords(str_trg) << endl;
+          }
         } else {
-          sent_trg = trg_hyp->GetSentence();
-          align = trg_hyp->GetAlignment();
-          str_trg = ConvertWords(*vocab_trg, sent_trg, false);
-          MapWords(str_src, sent_trg, align, mapping, str_trg);
+          auto trg_hyps = decoder.GenerateNbest(sent_src, nbest_size);
+          for(auto & trg_hyp : trg_hyps) {
+            if(trg_hyp.get() != nullptr) {
+              sent_trg = trg_hyp->GetSentence();
+              align = trg_hyp->GetAlignment();
+              str_trg = ConvertWords(*vocab_trg, sent_trg, false);
+              MapWords(str_src, sent_trg, align, mapping, str_trg);
+              cout << i << " ||| " << PrintWords(str_trg) << " ||| " << trg_hyp->GetScore() << endl;
+            }
+          }
         }
-        cout << PrintWords(str_trg) << endl;
       }
     }
   } else {
@@ -359,6 +371,7 @@ int Lamtram::main(int argc, char** argv) {
     ("map_in", po::value<string>()->default_value(""), "A file containing a mapping table (\"src trg prob\" format)")
     ("minibatch_size", po::value<int>()->default_value(1), "Max size of a minibatch in words (may be exceeded if there are longer sentences)")
     ("models_in", po::value<string>()->default_value(""), "Model files in format \"{encdec,encatt,nlm}=filename\" with encdec for encoder-decoders, encatt for attentional models, nlm for language models. When multiple, separate by a pipe.")
+    ("nbest_size", po::value<int>()->default_value(1), "The size of an n-best to generate when generating n-best")
     ("operation", po::value<string>()->default_value("ppl"), "Operations (ppl: measure perplexity, nbest: score n-best list, gen: generate most likely sentence, samp: sample sentences randomly)")
     ("sent_range", po::value<string>()->default_value(""), "Optionally specify a comma-delimited range on how many sentences to process")
     ("max_len", po::value<int>()->default_value(200), "Limit on the max length of sentences")

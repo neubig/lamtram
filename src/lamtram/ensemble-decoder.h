@@ -35,6 +35,8 @@ protected:
 
 typedef std::shared_ptr<EnsembleDecoderHyp> EnsembleDecoderHypPtr;
 inline bool operator<(const EnsembleDecoderHypPtr & lhs, const EnsembleDecoderHypPtr & rhs) {
+  assert(lhs.get() != nullptr);
+  assert(rhs.get() != nullptr);
   if(lhs->GetScore() != rhs->GetScore()) return lhs->GetScore() > rhs->GetScore();
   return lhs->GetSentence() < rhs->GetSentence();
 }
