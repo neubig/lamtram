@@ -61,6 +61,8 @@ int LamtramTrain::main(int argc, char** argv) {
     ("minrisk_num_samples", po::value<int>()->default_value(50), "The number of samples to perform for minimum risk training")
     ("minrisk_scaling", po::value<float>()->default_value(0.005), "The scaling factor for min risk training")
     ("model_in", po::value<string>()->default_value(""), "If resuming training, read the model in")
+    ("source_vocab", po::value<string>()->default_value(""), "Load source vocab")
+    ("target_vocab", po::value<string>()->default_value(""), "Load target vocab")
     ("rate_decay", po::value<float>()->default_value(0.5), "Learning rate decay when dev perplexity gets worse")
     ("rate_thresh",  po::value<float>()->default_value(1e-5), "Threshold for the learning rate")
     ("scheduled_samp", po::value<float>()->default_value(0.f), "If set to 1 or more, perform scheduled sampling where the selected value is the number of iterations after which the sampling value reaches 0.5")
@@ -74,7 +76,7 @@ int LamtramTrain::main(int argc, char** argv) {
     ("wordrep", po::value<int>()->default_value(0), "Size of the word representations (0 to match layer_size)")
     ;
   po::store(po::parse_command_line(argc, argv, desc), vm_);
-  po::notify(vm_);   
+  po::notify(vm_);
   if (vm_.count("help")) {
     cout << desc << endl;
     return 1;
@@ -134,6 +136,8 @@ int LamtramTrain::main(int argc, char** argv) {
   context_ = vm_["context"].as<int>();
   model_in_file_ = vm_["model_in"].as<string>();
   model_out_file_ = vm_["model_out"].as<string>();
+  source_vocab_file_ = vm_["source_vocab"].as<string>();
+  target_vocab_file_ = vm_["target_vocab"].as<string>();
   eval_every_ = vm_["eval_every"].as<int>();
   softmax_sig_ = vm_["softmax"].as<string>();
   scheduled_samp_ = vm_["scheduled_samp"].as<float>();
@@ -298,7 +302,11 @@ void LamtramTrain::TrainLM() {
   if(model_in_file_.size()) {
     nlm.reset(ModelUtils::LoadMonolingualModel<NeuralLM>(model_in_file_, model, vocab_trg));
   } else {
-    vocab_trg.reset(CreateNewDict());
+    if(target_vocab_file_.size()) {
+      vocab_trg.reset(ReadDict(target_vocab_file_));
+    } else {
+      vocab_trg.reset(CreateNewDict());
+    }
     model.reset(new dynet::Model);
   }
   // if(!trg_sent) vocab_trg = dynet::Dict("");
@@ -334,7 +342,7 @@ void LamtramTrain::TrainLM() {
   CreateMinibatches(train_trg, train_cache, vm_["minibatch_size"].as<int>(), train_trg_minibatch, train_cache_minibatch);
   // CreateMinibatches(dev_trg, empty_minibatch, vm_["minibatch_size"].as<int>(), dev_trg_minibatch, dev_cache_minibatch);
   CreateMinibatches(dev_trg, empty_minibatch, 1, dev_trg_minibatch, dev_cache_minibatch);
-  
+
   // TODO: Learning rate
   dynet::real learning_rate = vm_["learning_rate"].as<float>();
   dynet::real learning_scale = 1.0;
@@ -442,8 +450,16 @@ void LamtramTrain::TrainEncDec() {
     encdec.reset(ModelUtils::LoadBilingualModel<EncoderDecoder>(model_in_file_, model, vocab_src, vocab_trg));
     decoder = encdec->GetDecoderPtr();
   } else {
-    vocab_src.reset(CreateNewDict());
-    vocab_trg.reset(CreateNewDict());
+    if(source_vocab_file_.size()) {
+      vocab_src.reset(ReadDict(source_vocab_file_));
+    } else {
+      vocab_src.reset(CreateNewDict());
+    }
+    if(target_vocab_file_.size()) {
+      vocab_trg.reset(ReadDict(target_vocab_file_));
+    } else {
+      vocab_trg.reset(CreateNewDict());
+    }
     model.reset(new dynet::Model);
   }
   // if(!trg_sent) vocab_trg = dynet::Dict("");
@@ -527,8 +543,16 @@ void LamtramTrain::TrainEncAtt() {
     encatt.reset(ModelUtils::LoadBilingualModel<EncoderAttentional>(model_in_file_, model, vocab_src, vocab_trg));
     decoder = encatt->GetDecoderPtr();
   } else {
-    vocab_src.reset(CreateNewDict());
-    vocab_trg.reset(CreateNewDict());
+    if(source_vocab_file_.size()) {
+      vocab_src.reset(ReadDict(source_vocab_file_));
+    } else {
+      vocab_src.reset(CreateNewDict());
+    }
+    if(target_vocab_file_.size()) {
+      vocab_trg.reset(ReadDict(target_vocab_file_));
+    } else {
+      vocab_trg.reset(CreateNewDict());
+    }
     model.reset(new dynet::Model);
   }
 
@@ -608,7 +632,11 @@ void LamtramTrain::TrainEncCls() {
   if(model_in_file_.size()) {
     enccls.reset(ModelUtils::LoadBilingualModel<EncoderClassifier>(model_in_file_, model, vocab_src, vocab_trg));
   } else {
-    vocab_src.reset(CreateNewDict());
+    if(source_vocab_file_.size()) {
+      vocab_src.reset(ReadDict(source_vocab_file_));
+    } else {
+      vocab_src.reset(CreateNewDict());
+    }
     vocab_trg.reset(CreateNewDict(false));
     model.reset(new dynet::Model);
   }
@@ -720,7 +748,7 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
                     dev_weights_minibatch,
                     dev_ids_minibatch);
   TrainerPtr trainer = GetTrainer(vm_["trainer"].as<string>(), vm_["learning_rate"].as<float>(), model);
-  
+
   // Learning rate
   dynet::real learning_rate = vm_["learning_rate"].as<float>();
   dynet::real learning_scale = 1.0;
@@ -865,7 +893,7 @@ inline dynet::Expression CalcRisk(const Sentence & ref,
     vector<float> mask(trg_samples.size(), 0.f);
     for(size_t i = 0; i < trg_samples.size(); i++) {
         auto it = sent_dup.find(trg_samples[i]);
-        if(it != sent_dup.end()) { 
+        if(it != sent_dup.end()) {
             mask[i] = FLT_MAX;
         } else {
             eval_scores[i] = eval.CalculateStats(ref, trg_samples[i])->ConvertToScore();
@@ -915,7 +943,7 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
       fold_id_spans[train_fold_ids[i]].second = i+1;
     }
   }
-  
+
   // Learning rate
   dynet::real learning_rate = vm_["learning_rate"].as<float>();
   dynet::real learning_scale = 1.0;
@@ -951,13 +979,13 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
       encdec.NewGraph(cg);
       // Sample sentences
       std::vector<Sentence> trg_samples;
-      dynet::Expression trg_log_probs = encdec.SampleTrgSentences(train_src[train_ids[loc]], 
+      dynet::Expression trg_log_probs = encdec.SampleTrgSentences(train_src[train_ids[loc]],
                                                                       (include_ref ? &train_trg[train_ids[loc]] : NULL),
                                                                       num_samples, max_len, true, cg, trg_samples);
       dynet::Expression trg_loss = CalcRisk(train_trg[train_ids[loc]], trg_samples, trg_log_probs, eval, scaling, dedup, cg);
       // Increment
       sent_loc++; curr_sent_loc++;
-      epoch_frac += 1.f/train_src.size(); 
+      epoch_frac += 1.f/train_src.size();
       train_loss.loss_ += as_scalar(cg.incremental_forward(trg_loss));
       train_loss.sents_++;
       // cg.PrintGraphviz();
@@ -980,7 +1008,7 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
           encdec.NewGraph(cg);
           // Sample sentences
           std::vector<Sentence> trg_samples;
-          Expression trg_log_probs = encdec.SampleTrgSentences(dev_src[i], 
+          Expression trg_log_probs = encdec.SampleTrgSentences(dev_src[i],
                                                                (include_ref ? &dev_trg[i] : NULL),
                                                                num_samples, max_len, true, cg, trg_samples);
           dynet::Expression loss_exp = CalcRisk(dev_trg[i], trg_samples, trg_log_probs, eval, scaling, dedup, cg);
