@@ -57,38 +57,38 @@ struct TestEncoderDecoder {
 // ****** The tests *******
 BOOST_FIXTURE_TEST_SUITE(encoder_decoder, TestEncoderDecoder)
 
-// Test whether reading and writing works.
-// Note that this is just checking if serialized strings is equal,
-// which is a hack for now because dynet::Model doesn't have an equality operator.
-BOOST_AUTO_TEST_CASE(TestWriteRead) {
-  // Create a randomized lm
-  shared_ptr<dynet::Model> act_mod(new dynet::Model), exp_mod(new dynet::Model);
-  DictPtr exp_src_vocab(CreateNewDict()); exp_src_vocab->convert("hola");
-  DictPtr exp_trg_vocab(CreateNewDict()); exp_trg_vocab->convert("hello");
-  NeuralLMPtr exp_lm(new NeuralLM(exp_trg_vocab, 2, 2, false, 3, BuilderSpec("rnn:2:1"), -1, "full", *exp_mod));
-  vector<LinearEncoderPtr> exp_encs(1, LinearEncoderPtr(new LinearEncoder(exp_src_vocab->size(), 2, BuilderSpec("rnn:2:1"), -1, *exp_mod)));
-  EncoderDecoder exp_encatt(exp_encs, exp_lm, *exp_mod);
-  // Write the Model
-  ostringstream out;
-  WriteDict(*exp_src_vocab, out);
-  WriteDict(*exp_trg_vocab, out);
-  exp_encatt.Write(out);
-  ModelUtils::WriteModelText(out, *exp_mod);
-  // Read the Model
-  DictPtr act_src_vocab(new dynet::Dict), act_trg_vocab(new dynet::Dict);
-  string first_string = out.str();
-  istringstream in(out.str());
-  EncoderDecoderPtr act_lm(ModelUtils::LoadBilingualModel<EncoderDecoder>(in, act_mod, act_src_vocab, act_trg_vocab));
-  // Write to a second string
-  ostringstream out2;
-  WriteDict(*act_src_vocab, out2);
-  WriteDict(*act_trg_vocab, out2);
-  act_lm->Write(out2);
-  ModelUtils::WriteModelText(out2, *act_mod);
-  string second_string = out2.str();
-  // Check if the two
-  BOOST_CHECK_EQUAL(first_string, second_string);
-}
+// // Test whether reading and writing works.
+// // Note that this is just checking if serialized strings is equal,
+// // which is a hack for now because dynet::Model doesn't have an equality operator.
+// BOOST_AUTO_TEST_CASE(TestWriteRead) {
+//   // Create a randomized lm
+//   shared_ptr<dynet::Model> act_mod(new dynet::Model), exp_mod(new dynet::Model);
+//   DictPtr exp_src_vocab(CreateNewDict()); exp_src_vocab->convert("hola");
+//   DictPtr exp_trg_vocab(CreateNewDict()); exp_trg_vocab->convert("hello");
+//   NeuralLMPtr exp_lm(new NeuralLM(exp_trg_vocab, 2, 2, false, 3, BuilderSpec("rnn:2:1"), -1, "full", *exp_mod));
+//   vector<LinearEncoderPtr> exp_encs(1, LinearEncoderPtr(new LinearEncoder(exp_src_vocab->size(), 2, BuilderSpec("rnn:2:1"), -1, *exp_mod)));
+//   EncoderDecoder exp_encatt(exp_encs, exp_lm, *exp_mod);
+//   // Write the Model
+//   ostringstream out;
+//   WriteDict(*exp_src_vocab, out);
+//   WriteDict(*exp_trg_vocab, out);
+//   exp_encatt.Write(out);
+//   ModelUtils::WriteModelText(out, *exp_mod);
+//   // Read the Model
+//   DictPtr act_src_vocab(new dynet::Dict), act_trg_vocab(new dynet::Dict);
+//   string first_string = out.str();
+//   istringstream in(out.str());
+//   EncoderDecoderPtr act_lm(ModelUtils::LoadBilingualModel<EncoderDecoder>(in, act_mod, act_src_vocab, act_trg_vocab));
+//   // Write to a second string
+//   ostringstream out2;
+//   WriteDict(*act_src_vocab, out2);
+//   WriteDict(*act_trg_vocab, out2);
+//   act_lm->Write(out2);
+//   ModelUtils::WriteModelText(out2, *act_mod);
+//   string second_string = out2.str();
+//   // Check if the two
+//   BOOST_CHECK_EQUAL(first_string, second_string);
+// }
 
 // Test whether scores during likelihood calculation are the same as training
 BOOST_AUTO_TEST_CASE(TestLLScores) {

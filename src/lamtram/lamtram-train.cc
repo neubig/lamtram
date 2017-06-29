@@ -16,6 +16,7 @@
 #include <dynet/globals.h>
 #include <dynet/training.h>
 #include <dynet/tensor.h>
+#include <dynet/io.h>
 #include <boost/program_options.hpp>
 #include <boost/range/irange.hpp>
 #include <boost/algorithm/string.hpp>
@@ -297,6 +298,8 @@ void LamtramTrain::TrainLM() {
   std::shared_ptr<NeuralLM> nlm;
   if(model_in_file_.size()) {
     nlm.reset(ModelUtils::LoadMonolingualModel<NeuralLM>(model_in_file_, model, vocab_trg));
+    dynet::TextFileLoader loader(model_in_file_ + ".data");
+    loader.populate(*model);
   } else {
     vocab_trg.reset(CreateNewDict());
     model.reset(new dynet::Model);
@@ -422,7 +425,8 @@ void LamtramTrain::TrainLM() {
       WriteDict(*vocab_trg, out);
       // vocab_trg->Write(out);
       nlm->Write(out);
-      ModelUtils::WriteModelText(out, *model);
+      dynet::TextFileSaver saver(model_out_file_ + ".data");
+      saver.save(*model);
       best_loss = my_loss;
     }
     // If the rate is less than the threshold
@@ -440,6 +444,8 @@ void LamtramTrain::TrainEncDec() {
   NeuralLMPtr decoder;
   if(model_in_file_.size()) {
     encdec.reset(ModelUtils::LoadBilingualModel<EncoderDecoder>(model_in_file_, model, vocab_src, vocab_trg));
+    dynet::TextFileLoader loader(model_in_file_ + ".data");
+    loader.populate(*model);
     decoder = encdec->GetDecoderPtr();
   } else {
     vocab_src.reset(CreateNewDict());
@@ -525,6 +531,8 @@ void LamtramTrain::TrainEncAtt() {
   NeuralLMPtr decoder;
   if(model_in_file_.size()) {
     encatt.reset(ModelUtils::LoadBilingualModel<EncoderAttentional>(model_in_file_, model, vocab_src, vocab_trg));
+    dynet::TextFileLoader loader(model_in_file_ + ".data");
+    loader.populate(*model);
     decoder = encatt->GetDecoderPtr();
   } else {
     vocab_src.reset(CreateNewDict());
@@ -607,6 +615,8 @@ void LamtramTrain::TrainEncCls() {
   std::shared_ptr<EncoderClassifier> enccls;
   if(model_in_file_.size()) {
     enccls.reset(ModelUtils::LoadBilingualModel<EncoderClassifier>(model_in_file_, model, vocab_src, vocab_trg));
+    dynet::TextFileLoader loader(model_in_file_ + ".data");
+    loader.populate(*model);
   } else {
     vocab_src.reset(CreateNewDict());
     vocab_trg.reset(CreateNewDict(false));
@@ -833,7 +843,8 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
       WriteDict(vocab_src, out);
       WriteDict(vocab_trg, out);
       encdec.Write(out);
-      ModelUtils::WriteModelText(out, model);
+      dynet::TextFileSaver saver(model_out_file_ + ".data");
+      saver.save(model);
       best_loss = my_loss;
       evals_since_improvement = 0;
     } else {
@@ -1009,7 +1020,8 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
       WriteDict(vocab_src, out);
       WriteDict(vocab_trg, out);
       encdec.Write(out);
-      ModelUtils::WriteModelText(out, model);
+      dynet::TextFileSaver saver(model_out_file_ + ".data");
+      saver.save(model);
       best_loss = my_loss;
     }
     // If the rate is less than the threshold

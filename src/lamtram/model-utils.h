@@ -13,8 +13,6 @@ namespace lamtram {
 
 class ModelUtils {
 public:
-    static void WriteModelText(std::ostream & out, const dynet::Model & mod);
-    static void ReadModelText(std::istream & in, dynet::Model & mod);
 
     // Load a model from a stream
     // Will return a pointer to the model, and reset the passed shared pointers

@@ -8,6 +8,7 @@
 #include <lamtram/ensemble-decoder.h>
 #include <lamtram/model-utils.h>
 #include <dynet/dict.h>
+#include <dynet/dict.h>
 
 using namespace std;
 using namespace lamtram;
@@ -27,33 +28,33 @@ struct TestNeuralLM {
 // ****** The tests *******
 BOOST_FIXTURE_TEST_SUITE(neural_lm, TestNeuralLM)
 
-// Test whether reading and writing works.
-// Note that this is just checking if serialized strings is equal,
-// which is a hack for now because dynet::Model doesn't have an equality operator.
-BOOST_AUTO_TEST_CASE(TestWriteRead) {
-  std::shared_ptr<dynet::Model> act_mod(new dynet::Model), exp_mod(new dynet::Model);
-  // Create a randomized lm
-  DictPtr exp_vocab(CreateNewDict()); exp_vocab->convert("hello");
-  NeuralLM exp_lm(exp_vocab, 2, 2, false, 3, BuilderSpec("rnn:2:1"), -1, "full", *exp_mod);
-  // Write the LM
-  ostringstream out;
-  WriteDict(*exp_vocab, out);
-  exp_lm.Write(out);
-  ModelUtils::WriteModelText(out, *exp_mod);
-  // Read the LM
-  DictPtr act_src(new dynet::Dict), act_trg(new dynet::Dict);
-  string first_string = out.str();
-  istringstream in(out.str());
-  NeuralLMPtr act_lm(ModelUtils::LoadMonolingualModel<NeuralLM>(in, act_mod, act_trg));
-  // Write to a second string
-  ostringstream out2;
-  WriteDict(*act_trg, out2);
-  act_lm->Write(out2);
-  ModelUtils::WriteModelText(out2, *act_mod);
-  string second_string = out2.str();
-  // Check if the two
-  BOOST_CHECK_EQUAL(first_string, second_string);
-}
+// // Test whether reading and writing works.
+// // Note that this is just checking if serialized strings is equal,
+// // which is a hack for now because dynet::Model doesn't have an equality operator.
+// BOOST_AUTO_TEST_CASE(TestWriteRead) {
+//   std::shared_ptr<dynet::Model> act_mod(new dynet::Model), exp_mod(new dynet::Model);
+//   // Create a randomized lm
+//   DictPtr exp_vocab(CreateNewDict()); exp_vocab->convert("hello");
+//   NeuralLM exp_lm(exp_vocab, 2, 2, false, 3, BuilderSpec("rnn:2:1"), -1, "full", *exp_mod);
+//   // Write the LM
+//   ostringstream out;
+//   WriteDict(*exp_vocab, out);
+//   exp_lm.Write(out);
+//   ModelUtils::WriteModelText(out, *exp_mod);
+//   // Read the LM
+//   DictPtr act_src(new dynet::Dict), act_trg(new dynet::Dict);
+//   string first_string = out.str();
+//   istringstream in(out.str());
+//   NeuralLMPtr act_lm(ModelUtils::LoadMonolingualModel<NeuralLM>(in, act_mod, act_trg));
+//   // Write to a second string
+//   ostringstream out2;
+//   WriteDict(*act_trg, out2);
+//   act_lm->Write(out2);
+//   ModelUtils::WriteModelText(out2, *act_mod);
+//   string second_string = out2.str();
+//   // Check if the two
+//   BOOST_CHECK_EQUAL(first_string, second_string);
+// }
 
 // Test whether scores during decoding are the same as those during training
 BOOST_AUTO_TEST_CASE(TestDecodingScores) {

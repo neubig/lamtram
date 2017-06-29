@@ -14,16 +14,6 @@
 using namespace std;
 using namespace lamtram;
 
-void ModelUtils::WriteModelText(ostream & out, const dynet::Model & mod) {
-    boost::archive::text_oarchive oa(out);
-    oa << mod;
-}
-void ModelUtils::ReadModelText(istream & in, dynet::Model & mod) {
-    boost::archive::text_iarchive ia(in);
-    ia >> mod;
-}
-
-
 // Load a model from a stream
 // Will return a pointer to the model, and reset the passed shared pointers
 // with dynet::Model, and input, output vocabularies (if necessary)
@@ -35,7 +25,6 @@ ModelType* ModelUtils::LoadBilingualModel(std::istream & model_in,
     vocab_trg.reset(ReadDict(model_in));
     mod.reset(new dynet::Model);
     ModelType* ret = ModelType::Read(vocab_src, vocab_trg, model_in, *mod);
-    ModelUtils::ReadModelText(model_in, *mod);
     return ret;
 }
 
@@ -61,7 +50,6 @@ ModelType* ModelUtils::LoadMonolingualModel(std::istream & model_in,
     vocab_trg.reset(ReadDict(model_in));
     mod.reset(new dynet::Model);
     ModelType* ret = ModelType::Read(vocab_trg, model_in, *mod);
-    ModelUtils::ReadModelText(model_in, *mod);
     return ret;
 }
 
