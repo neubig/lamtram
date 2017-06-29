@@ -5,7 +5,7 @@
 #include <memory>
 
 namespace dynet {
-class Model;
+class ParameterCollection;
 struct RNNBuilder;
 }
 
@@ -24,7 +24,7 @@ inline std::ostream & operator<<(std::ostream & out, const BuilderSpec & spec) {
 typedef std::shared_ptr<dynet::RNNBuilder> BuilderPtr;
 class BuilderFactory {
 public:
-    static BuilderPtr CreateBuilder(const BuilderSpec & spec, int input_dim, dynet::Model & model);
+    static BuilderPtr CreateBuilder(const BuilderSpec & spec, int input_dim, dynet::ParameterCollection & model);
 };
 
 }

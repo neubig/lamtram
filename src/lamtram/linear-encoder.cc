@@ -13,7 +13,7 @@ using namespace lamtram;
 
 LinearEncoder::LinearEncoder(int vocab_size, int wordrep_size,
            const BuilderSpec & hidden_spec, int unk_id,
-           dynet::Model & model) :
+           dynet::ParameterCollection & model) :
       vocab_size_(vocab_size), wordrep_size_(wordrep_size), unk_id_(unk_id), hidden_spec_(hidden_spec), reverse_(false) {
   // Hidden layers
   builder_ = BuilderFactory::CreateBuilder(hidden_spec_, wordrep_size, model);
@@ -98,7 +98,7 @@ void LinearEncoder::NewGraph(dynet::ComputationGraph & cg) {
 //   builder_.copy(enc.builder_);
 // }
 
-LinearEncoder* LinearEncoder::Read(std::istream & in, dynet::Model & model) {
+LinearEncoder* LinearEncoder::Read(std::istream & in, dynet::ParameterCollection & model) {
   int vocab_size, wordrep_size, unk_id;
   string version_id, hidden_spec, line, reverse;
   if(!getline(in, line))

@@ -25,7 +25,7 @@ public:
     // Create a new EncoderDecoder and add it to the existing model
     EncoderDecoder(const std::vector<LinearEncoderPtr> & encoders,
                    const NeuralLMPtr & decoder,
-                   dynet::Model & model);
+                   dynet::ParameterCollection & model);
     ~EncoderDecoder() { }
 
     // Build the computation graph for the sentence including loss
@@ -60,7 +60,7 @@ public:
                                         const SentData & sent_src, bool train, dynet::ComputationGraph & cg);
 
     // Reading/writing functions
-    static EncoderDecoder* Read(const DictPtr & vocab_src, const DictPtr & vocab_trg, std::istream & in, dynet::Model & model);
+    static EncoderDecoder* Read(const DictPtr & vocab_src, const DictPtr & vocab_trg, std::istream & in, dynet::ParameterCollection & model);
     void Write(std::ostream & out);
 
     // Index the parameters in a computation graph

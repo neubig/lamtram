@@ -22,7 +22,7 @@ BuilderSpec::BuilderSpec(const std::string & spec) {
     multiplier = (type == "lstm" ? 2 : 1);
 }
 
-BuilderPtr BuilderFactory::CreateBuilder(const BuilderSpec & spec, int input_dim, dynet::Model & model) {
+BuilderPtr BuilderFactory::CreateBuilder(const BuilderSpec & spec, int input_dim, dynet::ParameterCollection & model) {
     // cerr << "BuilderFactor::CreateBuilder(" << spec << ", " << input_dim << ", " << (long)&model << ")" << endl;
     if(spec.type == "rnn") {
         return BuilderPtr(new dynet::SimpleRNNBuilder(spec.layers, input_dim, spec.nodes, model));

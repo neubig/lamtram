@@ -16,7 +16,7 @@ class SoftmaxMultiLayer : public SoftmaxBase {
     friend class CnpyUtils;
 
 public:
-  SoftmaxMultiLayer(const std::string & sig, int input_size, const DictPtr & vocab, dynet::Model & mod);
+  SoftmaxMultiLayer(const std::string & sig, int input_size, const DictPtr & vocab, dynet::ParameterCollection & mod);
   ~SoftmaxMultiLayer() { };
 
   // Create a new graph

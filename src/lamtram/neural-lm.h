@@ -41,7 +41,7 @@ public:
              bool extern_feed,
              int wordrep_size, const BuilderSpec & hidden_spec, int unk_id,
              const std::string & softmax_sig,
-             dynet::Model & model);
+             dynet::ParameterCollection & model);
     ~NeuralLM() { }
 
     // Build the computation graph for the sentence including loss
@@ -117,7 +117,7 @@ public:
     void NewGraph(dynet::ComputationGraph & cg);
 
     // Reading/writing functions
-    static NeuralLM* Read(const DictPtr & vocab, std::istream & in, dynet::Model & model);
+    static NeuralLM* Read(const DictPtr & vocab, std::istream & in, dynet::ParameterCollection & model);
     void Write(std::ostream & out);
 
     // Information functions

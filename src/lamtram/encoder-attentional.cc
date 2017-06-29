@@ -12,6 +12,7 @@
 
 using namespace std;
 using namespace lamtram;
+using namespace dynet;
 
 template <class T>
 inline std::string print_vec(const std::vector<T> & vec) {
@@ -25,7 +26,7 @@ ExternAttentional::ExternAttentional(const std::vector<LinearEncoderPtr> & encod
                    const std::string & attention_type, const std::string & attention_hist, int state_size,
                    const std::string & lex_type,
                    const DictPtr & vocab_src, const DictPtr & vocab_trg,
-                   dynet::Model & mod)
+                   ParameterCollection & mod)
     : ExternCalculator(0), encoders_(encoders),
       attention_type_(attention_type), attention_hist_(attention_hist), hidden_size_(0), state_size_(state_size), lex_type_(lex_type) {
 
@@ -90,14 +91,14 @@ ExternAttentional::ExternAttentional(const std::vector<LinearEncoderPtr> & encod
 }
 
 
-dynet::Expression ExternAttentional::CalcPrior(
-                      const dynet::Expression & align_vec) const {
-  return (i_lexicon_.pg != nullptr ? i_lexicon_ * align_vec : dynet::Expression());
+Expression ExternAttentional::CalcPrior(
+                      const Expression & align_vec) const {
+  return (i_lexicon_.pg != nullptr ? i_lexicon_ * align_vec : Expression());
 }
 
 
 // Index the parameters in a computation graph
-void ExternAttentional::NewGraph(dynet::ComputationGraph & cg) {
+void ExternAttentional::NewGraph(ComputationGraph & cg) {
   for(auto & enc : encoders_)
     enc->NewGraph(cg);
   if(attention_type_ != "dot")
@@ -112,7 +113,7 @@ void ExternAttentional::NewGraph(dynet::ComputationGraph & cg) {
   curr_graph_ = &cg;
 }
 
-ExternAttentional* ExternAttentional::Read(std::istream & in, const DictPtr & vocab_src, const DictPtr & vocab_trg, dynet::Model & model) {
+ExternAttentional* ExternAttentional::Read(std::istream & in, const DictPtr & vocab_src, const DictPtr & vocab_trg, ParameterCollection & model) {
   int num_encoders, state_size;
   string version_id, attention_type, attention_hist = "none", lex_type = "none", line;
   if(!getline(in, line))
@@ -140,10 +141,10 @@ void ExternAttentional::Write(std::ostream & out) {
 
 
 void ExternAttentional::InitializeSentence(
-      const Sentence & sent_src, bool train, dynet::ComputationGraph & cg) {
+      const Sentence & sent_src, bool train, ComputationGraph & cg) {
 
   // First get the states in a digestable format
-  vector<vector<dynet::Expression> > hs_sep;
+  vector<vector<Expression> > hs_sep;
   for(auto & enc : encoders_) {
     enc->BuildSentGraph(sent_src, true, train, cg);
     hs_sep.push_back(enc->GetWordStates());
@@ -151,12 +152,12 @@ void ExternAttentional::InitializeSentence(
   }
   sent_len_ = hs_sep[0].size();
   // Concatenate them if necessary
-  vector<dynet::Expression> hs_comb;
+  vector<Expression> hs_comb;
   if(encoders_.size() == 1) {
     hs_comb = hs_sep[0];
   } else {
     for(int i : boost::irange(0, sent_len_)) {
-      vector<dynet::Expression> vars;
+      vector<Expression> vars;
       for(int j : boost::irange(0, (int)encoders_.size()))
         vars.push_back(hs_sep[j][i]);
       hs_comb.push_back(concatenate(vars));
@@ -199,10 +200,10 @@ void ExternAttentional::InitializeSentence(
 }
 
 void ExternAttentional::InitializeSentence(
-      const std::vector<Sentence> & sent_src, bool train, dynet::ComputationGraph & cg) {
+      const std::vector<Sentence> & sent_src, bool train, ComputationGraph & cg) {
 
   // First get the states in a digestable format
-  vector<vector<dynet::Expression> > hs_sep;
+  vector<vector<Expression> > hs_sep;
   for(auto & enc : encoders_) {
     enc->BuildSentGraph(sent_src, true, train, cg);
     hs_sep.push_back(enc->GetWordStates());
@@ -210,12 +211,12 @@ void ExternAttentional::InitializeSentence(
   }
   sent_len_ = hs_sep[0].size();
   // Concatenate them if necessary
-  vector<dynet::Expression> hs_comb;
+  vector<Expression> hs_comb;
   if(encoders_.size() == 1) {
     hs_comb = hs_sep[0];
   } else {
     for(int i : boost::irange(0, sent_len_)) {
-      vector<dynet::Expression> vars;
+      vector<Expression> vars;
       for(int j : boost::irange(0, (int)encoders_.size()))
         vars.push_back(hs_sep[j][i]);
       hs_comb.push_back(concatenate(vars));
@@ -255,37 +256,37 @@ void ExternAttentional::InitializeSentence(
         }
       }
     }
-    i_lexicon_ = input(cg, dynet::Dim({(unsigned int)lex_size_, (unsigned int)sent_len_}, (unsigned int)sent_src.size()), lex_ids, lex_data, lex_alpha_);
+    i_lexicon_ = input(cg, Dim({(unsigned int)lex_size_, (unsigned int)sent_len_}, (unsigned int)sent_src.size()), lex_ids, lex_data, lex_alpha_);
   }
 
 }
 
-dynet::Expression ExternAttentional::GetEmptyContext(dynet::ComputationGraph & cg) const {
+Expression ExternAttentional::GetEmptyContext(ComputationGraph & cg) const {
   return zeroes(cg, {(unsigned int)state_size_});
 }
 
 // Create a variable encoding the context
-dynet::Expression ExternAttentional::CreateContext(
-    const std::vector<dynet::Expression> & state_in,
-    const dynet::Expression & align_sum_in,
+Expression ExternAttentional::CreateContext(
+    const std::vector<Expression> & state_in,
+    const Expression & align_sum_in,
     bool train,
-    dynet::ComputationGraph & cg,
-    std::vector<dynet::Expression> & align_out,
-    dynet::Expression & align_sum_out) const {
+    ComputationGraph & cg,
+    std::vector<Expression> & align_out,
+    Expression & align_sum_out) const {
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match."); 
-  dynet::Expression i_ehid, i_e;
+  Expression i_ehid, i_e;
   // MLP
   if(hidden_size_) {
     if(state_in.size()) {
       // i_ehid_state_W_ is {hidden_size, state_size}, state_in is {state_size, 1}
-      dynet::Expression i_ehid_spart = i_ehid_state_W_ * *state_in.rbegin();
+      Expression i_ehid_spart = i_ehid_state_W_ * *state_in.rbegin();
       i_ehid = affine_transform({i_ehid_hpart_, i_ehid_spart, i_sent_len_});
     } else {
       i_ehid = i_ehid_hpart_;
     }
     // Run through nonlinearity
-    dynet::Expression i_ehid_out = tanh({i_ehid});
+    Expression i_ehid_out = tanh({i_ehid});
     // i_e_ehid_W_ is {1, hidden_size}, i_ehid_out is {hidden_size, sent_len}
     i_e = transpose(i_e_ehid_W_ * i_ehid_out);
   // Bilinear/dot product
@@ -293,12 +294,12 @@ dynet::Expression ExternAttentional::CreateContext(
     assert(state_in.size() > 0);
     i_e = i_ehid_hpart_ * (*state_in.rbegin());
   }
-  dynet::Expression i_alpha;
+  Expression i_alpha;
   // Calculate the softmax, adding the previous sum if necessary
   if(align_sum_in.pg != nullptr) {
     i_alpha = softmax(i_e + align_sum_in * i_align_sum_W_);
     // // DEBUG
-    // dynet::Tensor align_sum_tens = align_sum_in.value();
+    // Tensor align_sum_tens = align_sum_in.value();
     // vector<float> align_sum_val = as_vector(align_sum_in.value());
   } else {
     i_alpha = softmax(i_e);
@@ -306,7 +307,7 @@ dynet::Expression ExternAttentional::CreateContext(
   // Save the alignments and print if necessary
   align_out.push_back(i_alpha);
   if(GlobalVars::verbose >= 2) {
-    vector<dynet::real> softmax = as_vector(cg.incremental_forward(i_alpha));
+    vector<float> softmax = as_vector(cg.incremental_forward(i_alpha));
     cerr << "Alignments: " << softmax << endl;
   }
   // Update the sum if necessary
@@ -320,7 +321,7 @@ dynet::Expression ExternAttentional::CreateContext(
 EncoderAttentional::EncoderAttentional(
            const ExternAttentionalPtr & extern_calc,
            const NeuralLMPtr & decoder,
-           dynet::Model & model)
+           ParameterCollection & model)
   : extern_calc_(extern_calc), decoder_(decoder), curr_graph_(NULL) {
   // Encoder to decoder mapping parameters
   int enc2dec_in = extern_calc->GetContextSize();
@@ -330,7 +331,7 @@ EncoderAttentional::EncoderAttentional(
 }
 
 
-void EncoderAttentional::NewGraph(dynet::ComputationGraph & cg) {
+void EncoderAttentional::NewGraph(ComputationGraph & cg) {
   extern_calc_->NewGraph(cg);
   decoder_->NewGraph(cg);
   i_enc2dec_b_ = parameter(cg, p_enc2dec_b_);
@@ -339,15 +340,15 @@ void EncoderAttentional::NewGraph(dynet::ComputationGraph & cg) {
 }
 
 template <class SentData>
-std::vector<dynet::Expression> EncoderAttentional::GetEncodedState(const SentData & sent_src, bool train, dynet::ComputationGraph & cg) {
+std::vector<Expression> EncoderAttentional::GetEncodedState(const SentData & sent_src, bool train, ComputationGraph & cg) {
   extern_calc_->InitializeSentence(sent_src, train, cg);
-  dynet::Expression i_decin = affine_transform({i_enc2dec_b_, i_enc2dec_W_, extern_calc_->GetState()});
+  Expression i_decin = affine_transform({i_enc2dec_b_, i_enc2dec_W_, extern_calc_->GetState()});
   // Perform transformation
-  vector<dynet::Expression> decoder_in(decoder_->GetNumLayers() * decoder_->GetLayerMultiplier());
+  vector<Expression> decoder_in(decoder_->GetNumLayers() * decoder_->GetLayerMultiplier());
   for (int i = 0; i < decoder_->GetNumLayers(); ++i) {
     decoder_in[i] = (decoder_->GetNumLayers() == 1 ?
                      i_decin :
-                     pickrange({i_decin}, i * decoder_->GetNumNodes(), (i + 1) * decoder_->GetNumNodes()));
+                     pick_range({i_decin}, i * decoder_->GetNumNodes(), (i + 1) * decoder_->GetNumNodes()));
     if(decoder_->GetLayerMultiplier() == 2) {
       decoder_in[i + decoder_->GetNumLayers()] = tanh({decoder_in[i]});
     } else {
@@ -358,54 +359,54 @@ std::vector<dynet::Expression> EncoderAttentional::GetEncodedState(const SentDat
 }
 
 template
-std::vector<dynet::Expression> EncoderAttentional::GetEncodedState<Sentence>(const Sentence & sent_src, bool train, dynet::ComputationGraph & cg);
+std::vector<Expression> EncoderAttentional::GetEncodedState<Sentence>(const Sentence & sent_src, bool train, ComputationGraph & cg);
 template
-std::vector<dynet::Expression> EncoderAttentional::GetEncodedState<std::vector<Sentence> >(const std::vector<Sentence> & sent_src, bool train, dynet::ComputationGraph & cg);
+std::vector<Expression> EncoderAttentional::GetEncodedState<std::vector<Sentence> >(const std::vector<Sentence> & sent_src, bool train, ComputationGraph & cg);
 
-dynet::Expression EncoderAttentional::BuildSentGraph(const Sentence & sent_src,
+Expression EncoderAttentional::BuildSentGraph(const Sentence & sent_src,
                                                      const Sentence & sent_trg,
                                                      const Sentence & cache_trg,
                                                      const float * weight,
                                                      float samp_percent,
                                                      bool train,
-                                                     dynet::ComputationGraph & cg,
+                                                     ComputationGraph & cg,
                                                      LLStats & ll) {
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
   // Perform encoding with each encoder
-  vector<dynet::Expression> decoder_in = GetEncodedState(sent_src, train, cg);
+  vector<Expression> decoder_in = GetEncodedState(sent_src, train, cg);
   return decoder_->BuildSentGraph(sent_trg, cache_trg, weight, extern_calc_.get(), decoder_in, samp_percent, train, cg, ll);
 }
 
-dynet::Expression EncoderAttentional::BuildSentGraph(const std::vector<Sentence> & sent_src,
+Expression EncoderAttentional::BuildSentGraph(const std::vector<Sentence> & sent_src,
                                                      const std::vector<Sentence> & sent_trg,
                                                      const std::vector<Sentence> & cache_trg,
                                                      const std::vector<float> * weights,
                                                      float samp_percent,
                                                      bool train,
-                                                     dynet::ComputationGraph & cg,
+                                                     ComputationGraph & cg,
                                                      LLStats & ll) {
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
   // Perform encoding with each encoder
-  vector<dynet::Expression> decoder_in = GetEncodedState(sent_src, train, cg);
+  vector<Expression> decoder_in = GetEncodedState(sent_src, train, cg);
   return decoder_->BuildSentGraph(sent_trg, cache_trg, weights, extern_calc_.get(), decoder_in, samp_percent, train, cg, ll);
 }
 
-dynet::Expression EncoderAttentional::SampleTrgSentences(const Sentence & sent_src,
+Expression EncoderAttentional::SampleTrgSentences(const Sentence & sent_src,
                                                              const Sentence * sent_trg,
                                                              int num_samples,
                                                              int max_len,
                                                              bool train,
-                                                             dynet::ComputationGraph & cg,
+                                                             ComputationGraph & cg,
                                                              vector<Sentence> & samples) {
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match."); 
-  std::vector<dynet::Expression> decoder_in = GetEncodedState(sent_src, train, cg);
+  std::vector<Expression> decoder_in = GetEncodedState(sent_src, train, cg);
   return decoder_->SampleTrgSentences(extern_calc_.get(), decoder_in, sent_trg, num_samples, max_len, train, cg, samples);
 }
 
-EncoderAttentional* EncoderAttentional::Read(const DictPtr & vocab_src, const DictPtr & vocab_trg, std::istream & in, dynet::Model & model) {
+EncoderAttentional* EncoderAttentional::Read(const DictPtr & vocab_src, const DictPtr & vocab_trg, std::istream & in, ParameterCollection & model) {
   string version_id, line;
   if(!getline(in, line))
     THROW_ERROR("Premature end of model file when expecting EncoderAttentional");

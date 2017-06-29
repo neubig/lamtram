@@ -14,7 +14,7 @@ namespace lamtram {
 class SoftmaxDiff : public SoftmaxBase {
 
 public:
-  SoftmaxDiff(const std::string & sig, int input_size, const DictPtr & vocab, dynet::Model & mod);
+  SoftmaxDiff(const std::string & sig, int input_size, const DictPtr & vocab, dynet::ParameterCollection & mod);
   ~SoftmaxDiff() { };
 
   // Create a new graph

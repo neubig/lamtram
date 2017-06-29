@@ -14,7 +14,7 @@ namespace lamtram {
 class SoftmaxMod : public SoftmaxBase {
 
 public:
-  SoftmaxMod(const std::string & sig, int input_size, const DictPtr & vocab, dynet::Model & mod);
+  SoftmaxMod(const std::string & sig, int input_size, const DictPtr & vocab, dynet::ParameterCollection & mod);
   ~SoftmaxMod() { };
 
   // A pair of a context and distribution values
