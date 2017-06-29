@@ -13,7 +13,7 @@ class Classifier {
 
 public:
 
-    Classifier(int input_size, int label_size, const std::string & layers, const std::string & smsig, dynet::Model & mod);
+    Classifier(int input_size, int label_size, const std::string & layers, const std::string & smsig, dynet::ParameterCollection & mod);
     ~Classifier() { }
 
     // Calculate the log likelihood
@@ -34,7 +34,7 @@ public:
     // Index the parameters in a computation graph
     void NewGraph(dynet::ComputationGraph & cg);
     
-    static Classifier* Read(std::istream & in, dynet::Model & mod);
+    static Classifier* Read(std::istream & in, dynet::ParameterCollection & mod);
     void Write(std::ostream & out);
 
     // Setters

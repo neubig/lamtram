@@ -16,24 +16,24 @@ using namespace lamtram;
 
 // Load a model from a stream
 // Will return a pointer to the model, and reset the passed shared pointers
-// with dynet::Model, and input, output vocabularies (if necessary)
+// with dynet::ParameterCollection, and input, output vocabularies (if necessary)
 template <class ModelType>
 ModelType* ModelUtils::LoadBilingualModel(std::istream & model_in,
-                                          std::shared_ptr<dynet::Model> & mod,
+                                          std::shared_ptr<dynet::ParameterCollection> & mod,
                                           DictPtr & vocab_src, DictPtr & vocab_trg) {
     vocab_src.reset(ReadDict(model_in));
     vocab_trg.reset(ReadDict(model_in));
-    mod.reset(new dynet::Model);
+    mod.reset(new dynet::ParameterCollection);
     ModelType* ret = ModelType::Read(vocab_src, vocab_trg, model_in, *mod);
     return ret;
 }
 
 // Load a model from a text file
 // Will return a pointer to the model, and reset the passed shared pointers
-// with dynet::Model, and input, output vocabularies (if necessary)
+// with dynet::ParameterCollection, and input, output vocabularies (if necessary)
 template <class ModelType>
 ModelType* ModelUtils::LoadBilingualModel(const std::string & file,
-                                          std::shared_ptr<dynet::Model> & mod,
+                                          std::shared_ptr<dynet::ParameterCollection> & mod,
                                           DictPtr & vocab_src, DictPtr & vocab_trg) {
     ifstream model_in(file);
     if(!model_in) THROW_ERROR("Could not open model file " << file);
@@ -42,23 +42,23 @@ ModelType* ModelUtils::LoadBilingualModel(const std::string & file,
 
 // Load a model from a stream
 // Will return a pointer to the model, and reset the passed shared pointers
-// with dynet::Model, and input, output vocabularies (if necessary)
+// with dynet::ParameterCollection, and input, output vocabularies (if necessary)
 template <class ModelType>
 ModelType* ModelUtils::LoadMonolingualModel(std::istream & model_in,
-                                          std::shared_ptr<dynet::Model> & mod,
+                                          std::shared_ptr<dynet::ParameterCollection> & mod,
                                           DictPtr & vocab_trg) {
     vocab_trg.reset(ReadDict(model_in));
-    mod.reset(new dynet::Model);
+    mod.reset(new dynet::ParameterCollection);
     ModelType* ret = ModelType::Read(vocab_trg, model_in, *mod);
     return ret;
 }
 
 // Load a model from a text file
 // Will return a pointer to the model, and reset the passed shared pointers
-// with dynet::Model, and input, output vocabularies (if necessary)
+// with dynet::ParameterCollection, and input, output vocabularies (if necessary)
 template <class ModelType>
 ModelType* ModelUtils::LoadMonolingualModel(const std::string & file,
-                                          std::shared_ptr<dynet::Model> & mod,
+                                          std::shared_ptr<dynet::ParameterCollection> & mod,
                                           DictPtr & vocab_trg) {
     ifstream model_in(file);
     if(!model_in) THROW_ERROR("Could not open model file " << file);
@@ -68,33 +68,33 @@ ModelType* ModelUtils::LoadMonolingualModel(const std::string & file,
 // Instantiate LoadModel
 template
 EncoderDecoder* ModelUtils::LoadBilingualModel<EncoderDecoder>(std::istream & model_in,
-                                                      std::shared_ptr<dynet::Model> & mod,
+                                                      std::shared_ptr<dynet::ParameterCollection> & mod,
                                                       DictPtr & vocab_src, DictPtr & vocab_trg);
 template
 EncoderAttentional* ModelUtils::LoadBilingualModel<EncoderAttentional>(std::istream & model_in,
-                                                              std::shared_ptr<dynet::Model> & mod,
+                                                              std::shared_ptr<dynet::ParameterCollection> & mod,
                                                               DictPtr & vocab_src, DictPtr & vocab_trg);
 template
 EncoderClassifier* ModelUtils::LoadBilingualModel<EncoderClassifier>(std::istream & model_in,
-                                                            std::shared_ptr<dynet::Model> & mod,
+                                                            std::shared_ptr<dynet::ParameterCollection> & mod,
                                                             DictPtr & vocab_src, DictPtr & vocab_trg);
 template
 NeuralLM* ModelUtils::LoadMonolingualModel<NeuralLM>(std::istream & model_in,
-                                          std::shared_ptr<dynet::Model> & mod,
+                                          std::shared_ptr<dynet::ParameterCollection> & mod,
                                           DictPtr & vocab_trg);
 template
 EncoderDecoder* ModelUtils::LoadBilingualModel<EncoderDecoder>(const std::string & infile,
-                                                      std::shared_ptr<dynet::Model> & mod,
+                                                      std::shared_ptr<dynet::ParameterCollection> & mod,
                                                       DictPtr & vocab_src, DictPtr & vocab_trg);
 template
 EncoderAttentional* ModelUtils::LoadBilingualModel<EncoderAttentional>(const std::string & infile,
-                                                              std::shared_ptr<dynet::Model> & mod,
+                                                              std::shared_ptr<dynet::ParameterCollection> & mod,
                                                               DictPtr & vocab_src, DictPtr & vocab_trg);
 template
 EncoderClassifier* ModelUtils::LoadBilingualModel<EncoderClassifier>(const std::string & infile,
-                                                            std::shared_ptr<dynet::Model> & mod,
+                                                            std::shared_ptr<dynet::ParameterCollection> & mod,
                                                             DictPtr & vocab_src, DictPtr & vocab_trg);
 template
 NeuralLM* ModelUtils::LoadMonolingualModel<NeuralLM>(const std::string & infile,
-                                                     std::shared_ptr<dynet::Model> & mod,
+                                                     std::shared_ptr<dynet::ParameterCollection> & mod,
                                                      DictPtr & vocab_trg);

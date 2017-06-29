@@ -7,7 +7,7 @@
 
 namespace dynet {
 struct Trainer;
-class Model;
+class ParameterCollection;
 class Dict;
 }
 
@@ -38,7 +38,7 @@ public:
                            const std::vector<OutputType> & dev_trg,
                            const dynet::Dict & vocab_src,
                            const dynet::Dict & vocab_trg,
-                           dynet::Model & mod,
+                           dynet::ParameterCollection & mod,
                            ModelType & encdec);
 
     // Minimum risk training
@@ -51,12 +51,12 @@ public:
                          const dynet::Dict & vocab_src,
                          const dynet::Dict & vocab_trg,
                          const EvalMeasure & eval,
-                         dynet::Model & model,
+                         dynet::ParameterCollection & model,
                          ModelType & encdec);
 
     // Get the trainer to use
     typedef std::shared_ptr<dynet::Trainer> TrainerPtr;
-    TrainerPtr GetTrainer(const std::string & trainer_id, const dynet::real learning_rate, dynet::Model & model);
+    TrainerPtr GetTrainer(const std::string & trainer_id, const dynet::real learning_rate, dynet::ParameterCollection & model);
 
     // Load in the training data
     void LoadFile(const std::string filename, bool add_last, dynet::Dict & vocab, std::vector<Sentence> & sents);

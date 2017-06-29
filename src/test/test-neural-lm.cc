@@ -30,9 +30,9 @@ BOOST_FIXTURE_TEST_SUITE(neural_lm, TestNeuralLM)
 
 // // Test whether reading and writing works.
 // // Note that this is just checking if serialized strings is equal,
-// // which is a hack for now because dynet::Model doesn't have an equality operator.
+// // which is a hack for now because dynet::ParameterCollection doesn't have an equality operator.
 // BOOST_AUTO_TEST_CASE(TestWriteRead) {
-//   std::shared_ptr<dynet::Model> act_mod(new dynet::Model), exp_mod(new dynet::Model);
+//   std::shared_ptr<dynet::ParameterCollection> act_mod(new dynet::ParameterCollection), exp_mod(new dynet::ParameterCollection);
 //   // Create a randomized lm
 //   DictPtr exp_vocab(CreateNewDict()); exp_vocab->convert("hello");
 //   NeuralLM exp_lm(exp_vocab, 2, 2, false, 3, BuilderSpec("rnn:2:1"), -1, "full", *exp_mod);
@@ -58,7 +58,7 @@ BOOST_FIXTURE_TEST_SUITE(neural_lm, TestNeuralLM)
 
 // Test whether scores during decoding are the same as those during training
 BOOST_AUTO_TEST_CASE(TestDecodingScores) {
-  std::shared_ptr<dynet::Model> mod(new dynet::Model);
+  std::shared_ptr<dynet::ParameterCollection> mod(new dynet::ParameterCollection);
   // Create a randomized lm
   DictPtr vocab(CreateNewDict()); vocab->convert("a"); vocab->convert("b"); vocab->convert("c");
   NeuralLMPtr lmptr(new NeuralLM(vocab, 1, 0, false, 3, BuilderSpec("rnn:2:1"), -1, "full", *mod));
@@ -69,11 +69,11 @@ BOOST_AUTO_TEST_CASE(TestDecodingScores) {
   EnsembleDecoder ensdec(encdecs, encatts, lms);
   // Compare the two values
   LLStats train_stat(vocab->size()), test_stat(vocab->size());
-  vector<dynet::expr::Expression> layer_in;
+  vector<dynet::Expression> layer_in;
   {
     dynet::ComputationGraph cg;
     lmptr->NewGraph(cg);
-    dynet::expr::Expression loss_expr = lmptr->BuildSentGraph(sent_trg_, cache_, nullptr, nullptr, layer_in, 0.f, false, cg, train_stat);
+    dynet::Expression loss_expr = lmptr->BuildSentGraph(sent_trg_, cache_, nullptr, nullptr, layer_in, 0.f, false, cg, train_stat);
     train_stat.loss_ += as_scalar(cg.incremental_forward(loss_expr));
   }
   vector<float> test_wordll;

@@ -26,7 +26,7 @@ public:
     // Create a new EncoderClassifier and add it to the existing model
     EncoderClassifier(const std::vector<LinearEncoderPtr> & encoders,
                    const ClassifierPtr & classifier,
-                   dynet::Model & model);
+                   dynet::ParameterCollection & model);
     ~EncoderClassifier() { }
 
     // Encode the input sentence as a vector to be input to the classifier
@@ -59,7 +59,7 @@ public:
                                   dynet::ComputationGraph & cg) const;
 
     // Reading/writing functions
-    static EncoderClassifier* Read(const DictPtr & vocab_src, const DictPtr & vocab_trg, std::istream & in, dynet::Model & model);
+    static EncoderClassifier* Read(const DictPtr & vocab_src, const DictPtr & vocab_trg, std::istream & in, dynet::ParameterCollection & model);
     void Write(std::ostream & out);
 
     // Index the parameters in a computation graph

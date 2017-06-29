@@ -20,7 +20,7 @@ struct TestEncoderDecoder {
     sent_trg_ = {3, 2, 1, 0};
 
     // Create the model
-    mod_ = shared_ptr<dynet::Model>(new dynet::Model);
+    mod_ = shared_ptr<dynet::ParameterCollection>(new dynet::ParameterCollection);
     // Create a randomized lm
     vocab_src_ = DictPtr(CreateNewDict()); vocab_src_->convert("a"); vocab_src_->convert("b"); vocab_src_->convert("c");
     vocab_trg_ = DictPtr(CreateNewDict()); vocab_trg_->convert("x"); vocab_trg_->convert("y"); vocab_trg_->convert("z");
@@ -39,7 +39,7 @@ struct TestEncoderDecoder {
     for(size_t i = 0; i < 100; ++i) {
       dynet::ComputationGraph cg;
       encdec_->NewGraph(cg);
-      dynet::expr::Expression loss_expr = encdec_->BuildSentGraph(sent_src_, sent_trg_, cache_, nullptr, 0.f, false, cg, train_stat);
+      dynet::Expression loss_expr = encdec_->BuildSentGraph(sent_src_, sent_trg_, cache_, nullptr, 0.f, false, cg, train_stat);
       cg.forward(loss_expr);
       cg.backward(loss_expr);
       sgd.update(0.1);
@@ -51,7 +51,7 @@ struct TestEncoderDecoder {
   DictPtr vocab_src_, vocab_trg_;
   shared_ptr<EnsembleDecoder> ensdec_;
   EncoderDecoderPtr encdec_;
-  shared_ptr<dynet::Model> mod_;
+  shared_ptr<dynet::ParameterCollection> mod_;
 };
 
 // ****** The tests *******
@@ -59,10 +59,10 @@ BOOST_FIXTURE_TEST_SUITE(encoder_decoder, TestEncoderDecoder)
 
 // // Test whether reading and writing works.
 // // Note that this is just checking if serialized strings is equal,
-// // which is a hack for now because dynet::Model doesn't have an equality operator.
+// // which is a hack for now because dynet::ParameterCollection doesn't have an equality operator.
 // BOOST_AUTO_TEST_CASE(TestWriteRead) {
 //   // Create a randomized lm
-//   shared_ptr<dynet::Model> act_mod(new dynet::Model), exp_mod(new dynet::Model);
+//   shared_ptr<dynet::ParameterCollection> act_mod(new dynet::ParameterCollection), exp_mod(new dynet::ParameterCollection);
 //   DictPtr exp_src_vocab(CreateNewDict()); exp_src_vocab->convert("hola");
 //   DictPtr exp_trg_vocab(CreateNewDict()); exp_trg_vocab->convert("hello");
 //   NeuralLMPtr exp_lm(new NeuralLM(exp_trg_vocab, 2, 2, false, 3, BuilderSpec("rnn:2:1"), -1, "full", *exp_mod));
@@ -97,7 +97,7 @@ BOOST_AUTO_TEST_CASE(TestLLScores) {
   {
     dynet::ComputationGraph cg;
     encdec_->NewGraph(cg);
-    dynet::expr::Expression loss_expr = encdec_->BuildSentGraph(sent_src_, sent_trg_, cache_, nullptr, 0.f, false, cg, train_stat);
+    dynet::Expression loss_expr = encdec_->BuildSentGraph(sent_src_, sent_trg_, cache_, nullptr, 0.f, false, cg, train_stat);
     train_stat.loss_ += as_scalar(cg.incremental_forward(loss_expr));
   }
   vector<float> test_wordll;
@@ -120,7 +120,7 @@ BOOST_AUTO_TEST_CASE(TestDecodingScores) {
     LLStats train_stat(vocab_trg_->size());
     dynet::ComputationGraph cg;
     encdec_->NewGraph(cg);
-    dynet::expr::Expression loss_expr = encdec_->BuildSentGraph(sent_src_, decode_sent, cache_, nullptr, 0.f, false, cg, train_stat);
+    dynet::Expression loss_expr = encdec_->BuildSentGraph(sent_src_, decode_sent, cache_, nullptr, 0.f, false, cg, train_stat);
     train_ll = -as_scalar(cg.incremental_forward(loss_expr));
   }
   BOOST_CHECK_CLOSE(train_ll, decode_ll, 0.01);
@@ -143,7 +143,7 @@ BOOST_AUTO_TEST_CASE(TestBeamDecodingScores) {
     LLStats train_stat(vocab_trg_->size());
     dynet::ComputationGraph cg;
     encdec_->NewGraph(cg);
-    dynet::expr::Expression loss_expr = encdec_->BuildSentGraph(sent_src_, decode_sent, cache_, nullptr, 0.f, false, cg, train_stat);
+    dynet::Expression loss_expr = encdec_->BuildSentGraph(sent_src_, decode_sent, cache_, nullptr, 0.f, false, cg, train_stat);
     train_ll = -as_scalar(cg.incremental_forward(loss_expr));
   }
   BOOST_CHECK_CLOSE(train_ll, decode_ll, 0.01);

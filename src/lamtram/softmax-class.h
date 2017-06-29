@@ -16,7 +16,7 @@ namespace lamtram {
 class SoftmaxClass : public SoftmaxBase {
 
 public:
-  SoftmaxClass(const std::string & sig, int input_size, const DictPtr & vocab, dynet::Model & mod);
+  SoftmaxClass(const std::string & sig, int input_size, const DictPtr & vocab, dynet::ParameterCollection & mod);
   ~SoftmaxClass() { };
 
   // Create a new graph

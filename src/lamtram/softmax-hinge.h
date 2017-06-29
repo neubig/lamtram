@@ -13,7 +13,7 @@ namespace lamtram {
 class SoftmaxHinge : public SoftmaxBase {
 
 public:
-  SoftmaxHinge(const std::string & sig, int input_size, const DictPtr & vocab, dynet::Model & mod);
+  SoftmaxHinge(const std::string & sig, int input_size, const DictPtr & vocab, dynet::ParameterCollection & mod);
   ~SoftmaxHinge() { };
 
   // Create a new graph
