@@ -71,7 +71,7 @@ struct TestEncoderAttentional {
       dynet::Expression loss_expr = encatt->BuildSentGraph(sent_src_, sent_trg_, cache_, nullptr, 0.f, false, cg, train_stat);
       cg.forward(loss_expr);
       cg.backward(loss_expr);
-      sgd.update(0.1);
+      sgd.update();
     }
   }
 

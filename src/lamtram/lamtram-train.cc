@@ -340,7 +340,6 @@ void LamtramTrain::TrainLM() {
   
   // TODO: Learning rate
   float learning_rate = vm_["learning_rate"].as<float>();
-  float learning_scale = 1.0;
 
   // Create a sentence list and random generator
   std::vector<int> train_ids(train_trg_minibatch.size());
@@ -388,7 +387,7 @@ void LamtramTrain::TrainLM() {
       if(sent_loc / 100 != last_print || curr_sent_loc >= eval_every_ || epochs_ == epoch) {
         last_print = sent_loc / 100;
         float elapsed = time.Elapsed();
-        cerr << "Epoch " << epoch+1 << " sent " << sent_loc << ": " << train_ll.PrintStats() << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << train_ll.words_/elapsed << " w/s)" << endl;
+        cerr << "Epoch " << epoch+1 << " sent " << sent_loc << ": " << train_ll.PrintStats() << ", rate=" << learning_rate << ", time=" << elapsed << " (" << train_ll.words_/elapsed << " w/s)" << endl;
         if(epochs_ == epoch) break;
       }
     }
@@ -403,7 +402,7 @@ void LamtramTrain::TrainLM() {
         dev_ll.loss_ += as_scalar(cg.incremental_forward(loss_exp));
       }
       float elapsed = time.Elapsed();
-      cerr << "Epoch " << epoch+1 << " dev: " << dev_ll.PrintStats() << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << dev_ll.words_/elapsed << " w/s)" << endl;
+      cerr << "Epoch " << epoch+1 << " dev: " << dev_ll.PrintStats() << ", rate=" << learning_rate << ", time=" << elapsed << " (" << dev_ll.words_/elapsed << " w/s)" << endl;
     }
     // Adjust the learning rate
     trainer->update_epoch();
@@ -413,7 +412,7 @@ void LamtramTrain::TrainLM() {
       THROW_ERROR("Likelihood is not a number, dying...");
     float my_loss = do_dev ? dev_ll.loss_ : train_ll.loss_;
     if(my_loss > last_loss) {
-      learning_scale *= rate_decay_;
+      learning_rate *= rate_decay_;
     }
     last_loss = my_loss;
     if(best_loss > my_loss) {
@@ -430,7 +429,7 @@ void LamtramTrain::TrainLM() {
       best_loss = my_loss;
     }
     // If the rate is less than the threshold
-    if(learning_scale*learning_rate < rate_thresh_)
+    if(learning_rate < rate_thresh_)
       break;
   }
 }
@@ -733,7 +732,6 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
   
   // Learning rate
   float learning_rate = vm_["learning_rate"].as<float>();
-  float learning_scale = 1.0;
   // Early stopping
   int evals_since_improvement = 0;
   int early_stop = vm_["early_stop"].as<int>();
@@ -800,12 +798,12 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
       // cg.PrintGraphviz();
       train_ll.loss_ += as_scalar(cg.incremental_forward(loss_exp));
       cg.backward(loss_exp);
-      trainer->update(learning_scale);
+      trainer->update();
       ++loc;
       if(sent_loc / 100 != last_print || curr_sent_loc >= eval_every_ || epochs_ == epoch) {
         last_print = sent_loc / 100;
         float elapsed = time.Elapsed();
-        cerr << "Epoch " << epoch+1 << " sent " << sent_loc << ": " << train_ll.PrintStats() << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << train_ll.words_/elapsed << " w/s)" << endl;
+        cerr << "Epoch " << epoch+1 << " sent " << sent_loc << ": " << train_ll.PrintStats() << ", rate=" << learning_rate << ", time=" << elapsed << " (" << train_ll.words_/elapsed << " w/s)" << endl;
         if(epochs_ == epoch) break;
       }
     }
@@ -822,7 +820,7 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
         dev_ll.loss_ += as_scalar(cg.incremental_forward(loss_exp));
       }
       float elapsed = time.Elapsed();
-      cerr << "Epoch " << epoch+1 << " dev: " << dev_ll.PrintStats() << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << dev_ll.words_/elapsed << " w/s)" << endl;
+      cerr << "Epoch " << epoch+1 << " dev: " << dev_ll.PrintStats() << ", rate=" << learning_rate << ", time=" << elapsed << " (" << dev_ll.words_/elapsed << " w/s)" << endl;
     }
     // Adjust the learning rate
     trainer->update_epoch();
@@ -832,7 +830,7 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
       THROW_ERROR("Likelihood is not a number, dying...");
     float my_loss = do_dev ? dev_ll.loss_ : train_ll.loss_;
     if(my_loss > last_loss)
-      learning_scale *= rate_decay_;
+      learning_rate *= rate_decay_;
     last_loss = my_loss;
     // Open the output stream
     if(best_loss > my_loss) {
@@ -855,7 +853,7 @@ void LamtramTrain::BilingualTraining(const vector<Sentence> & train_src,
       }
     }
     // If the rate is less than the threshold
-    if(learning_scale * learning_rate < rate_thresh_)
+    if(learning_rate < rate_thresh_)
       break;
   }
 }
@@ -929,7 +927,6 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
   
   // Learning rate
   float learning_rate = vm_["learning_rate"].as<float>();
-  float learning_scale = 1.0;
 
   // Create a sentence list and random generator
   std::vector<int> train_ids(train_src.size());
@@ -973,12 +970,12 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
       train_loss.sents_++;
       // cg.PrintGraphviz();
       cg.backward(trg_loss);
-      trainer->update(learning_scale);
+      trainer->update();
       ++loc;
       if(sent_loc / 100 != last_print || curr_sent_loc >= eval_every_ || epochs_ == epoch) {
         last_print = sent_loc / 100;
         float elapsed = time.Elapsed();
-        cerr << "Epoch " << epoch+1 << " sent " << sent_loc << ": score=" << -train_loss.CalcSentLoss() << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << train_loss.sents_/elapsed << " sent/s)" << endl;
+        cerr << "Epoch " << epoch+1 << " sent " << sent_loc << ": score=" << -train_loss.CalcSentLoss() << ", rate=" << learning_rate << ", time=" << elapsed << " (" << train_loss.sents_/elapsed << " sent/s)" << endl;
         if(epochs_ == epoch) break;
       }
     }
@@ -999,7 +996,7 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
           dev_loss.sents_++;
       }
       float elapsed = time.Elapsed();
-      cerr << "Epoch " << epoch+1 << " dev: score=" << -dev_loss.CalcSentLoss() << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << dev_loss.sents_/elapsed << " sent/s)" << endl;
+      cerr << "Epoch " << epoch+1 << " dev: score=" << -dev_loss.CalcSentLoss() << ", rate=" << learning_rate << ", time=" << elapsed << " (" << dev_loss.sents_/elapsed << " sent/s)" << endl;
     }
     // Adjust the learning rate
     trainer->update_epoch();
@@ -1009,7 +1006,7 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
       THROW_ERROR("Loss is not a number, dying...");
     float my_loss = do_dev ? dev_loss.loss_ : train_loss.loss_;
     if(my_loss > last_loss)
-      learning_scale *= rate_decay_;
+      learning_rate *= rate_decay_;
     last_loss = my_loss;
     // Open the output stream
     if(best_loss > my_loss) {
@@ -1025,7 +1022,7 @@ void LamtramTrain::MinRiskTraining(const vector<Sentence> & train_src,
       best_loss = my_loss;
     }
     // If the rate is less than the threshold
-    if(learning_scale * learning_rate < rate_thresh_)
+    if(learning_rate < rate_thresh_)
       break;
   }
 }
