@@ -229,7 +229,7 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
     }
     if(do_sent) {
       vector<LLStats> sents_ll(sents_trg.size(), LLStats(vocab_size));
-      vector<vector<float> > word_lls;
+      vector<vector<float> > word_lls(sents_trg.size());
       decoder.CalcSentLL<vector<Sentence>,vector<LLStats>, vector<vector<float> > >(sent_src, sents_trg, sents_ll, word_lls);
       for(auto & sent_ll : sents_ll)
         cout << "ll=" << -sent_ll.CalcUnkLoss() << " unk=" << sent_ll.unk_  << endl;
