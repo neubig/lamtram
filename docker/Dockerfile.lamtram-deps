@@ -8,7 +8,6 @@ ENTRYPOINT ["/tini", "--"]
 
 # Build dependencies
 RUN apt-get update && apt-get install -y wget git mercurial libgoogle-perftools-dev libsparsehash-dev libboost-all-dev autoconf libtool openjdk-7-jdk
-RUN apt-get build-dep -y cmake
 
 # CMake 3.6.2 (version that ships with Ubuntu 14.04 doesn't fully support CUDA)
 RUN cd /opt && \
@@ -38,8 +37,8 @@ RUN cd /opt && \
         cd eigen && \
         hg update -r ${EIGEN_VERSION}
 
-# DyNet, update version as needed
-ENV DYNET_VERSION 880fa9fa9e132fb2beed7ae617db7cfe1bcd572c
+# DyNet 2.0.1, update version as needed
+ENV DYNET_VERSION 87df34103625102493f8c660684146a636e2482c
 RUN cd /opt && \
         git clone https://github.com/clab/dynet.git && \
         cd dynet && \
