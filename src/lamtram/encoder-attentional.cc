@@ -114,7 +114,7 @@ void ExternAttentional::NewGraph(ComputationGraph & cg) {
 }
 
 ExternAttentional* ExternAttentional::Read(std::istream & in, const DictPtr & vocab_src, const DictPtr & vocab_trg, ParameterCollection & model) {
-  int num_encoders, state_size;
+  int num_encoders, state_size, layer_size;
   string version_id, attention_type, attention_hist = "none", lex_type = "none", line;
   if(!getline(in, line))
     THROW_ERROR("Premature end of model file when expecting ExternAttentional");
@@ -126,6 +126,9 @@ ExternAttentional* ExternAttentional::Read(std::istream & in, const DictPtr & vo
     iss >> num_encoders >> attention_type >> attention_hist >> state_size;
   } else if (version_id == "extatt_004") {
     iss >> num_encoders >> attention_type >> attention_hist >> lex_type >> state_size;
+  } else if (version_id == "extatt_005") {
+    iss >> num_encoders >> attention_type >> attention_hist >> lex_type >> state_size >> layer_size;
+    GlobalVars::layer_size = layer_size;
   } else {
     THROW_ERROR("Expecting a ExternAttentional of version extatt_002-extatt_004, but got something different:" << endl << line);
   }
@@ -135,7 +138,7 @@ ExternAttentional* ExternAttentional::Read(std::istream & in, const DictPtr & vo
   return new ExternAttentional(encoders, attention_type, attention_hist, state_size, lex_type, vocab_src, vocab_trg, model);
 }
 void ExternAttentional::Write(std::ostream & out) {
-  out << "extatt_004 " << encoders_.size() << " " << attention_type_ << " " << attention_hist_ << " " << lex_type_ << " " << state_size_ << endl;
+  out << "extatt_005 " << encoders_.size() << " " << attention_type_ << " " << attention_hist_ << " " << lex_type_ << " " << state_size_ << " " << GlobalVars::layer_size << endl;
   for(auto & enc : encoders_) enc->Write(out);
 }
 
