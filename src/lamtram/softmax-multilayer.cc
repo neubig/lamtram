@@ -4,10 +4,10 @@
 #include <dynet/dict.h>
 
 using namespace lamtram;
-using namespace dynet::expr;
+using namespace dynet;
 using namespace std;
 
-SoftmaxMultiLayer::SoftmaxMultiLayer(const std::string & sig, int input_size, const DictPtr & vocab, dynet::Model & mod) : SoftmaxBase(sig,input_size,vocab,mod) {
+SoftmaxMultiLayer::SoftmaxMultiLayer(const std::string & sig, int input_size, const DictPtr & vocab, dynet::ParameterCollection & mod) : SoftmaxBase(sig,input_size,vocab,mod) {
 
   vector<string> strs;
     boost::algorithm::split(strs, sig, boost::is_any_of(":"));

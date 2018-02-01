@@ -6,11 +6,11 @@
 
 using namespace lamtram;
 using namespace std;
-using namespace dynet::expr;
+using namespace dynet;
 
 
 Classifier::Classifier(int input_size, int label_size,
-             const std::string & layers, const std::string & smsig, dynet::Model & mod) :
+             const std::string & layers, const std::string & smsig, ParameterCollection & mod) :
     input_size_(input_size), label_size_(label_size), layer_str_(layers), smsig_(smsig), curr_graph_(NULL), dropout_(0.f) {
   vector<string> layer_sizes;
   if(layers.size() > 0)
@@ -30,12 +30,12 @@ Classifier::Classifier(int input_size, int label_size,
 namespace lamtram {
 
 template <>
-dynet::Expression Classifier::BuildGraph<int>(const dynet::Expression & input, const int & label,
+Expression Classifier::BuildGraph<int>(const Expression & input, const int & label,
                           bool train,
-                          dynet::ComputationGraph & cg) const {
+                          ComputationGraph & cg) const {
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
-  dynet::Expression last_expr = input, aff;
+  Expression last_expr = input, aff;
   int i;
   for(i = 0; i < (int)p_W_.size()-1; i++) {
     aff = affine_transform({i_b_[i], i_W_[i], last_expr});
@@ -53,12 +53,12 @@ dynet::Expression Classifier::BuildGraph<int>(const dynet::Expression & input, c
 }
 
 template <>
-dynet::Expression Classifier::BuildGraph<vector<int> >(const dynet::Expression & input, const vector<int> & label,
+Expression Classifier::BuildGraph<vector<int> >(const Expression & input, const vector<int> & label,
                                bool train,
-                               dynet::ComputationGraph & cg) const {
+                               ComputationGraph & cg) const {
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
-  dynet::Expression last_expr = input, aff;
+  Expression last_expr = input, aff;
   int i;
   for(i = 0; i < (int)p_W_.size()-1; i++) {
     aff = affine_transform({i_b_[i], i_W_[i], last_expr});
@@ -82,11 +82,11 @@ dynet::Expression Classifier::BuildGraph<vector<int> >(const dynet::Expression &
 
 
 template <class SoftmaxOp>
-dynet::Expression Classifier::Forward(const dynet::Expression & input,
-                      dynet::ComputationGraph & cg) const {
+Expression Classifier::Forward(const Expression & input,
+                      ComputationGraph & cg) const {
   if(&cg != curr_graph_)
     THROW_ERROR("Initialized computation graph and passed comptuation graph don't match.");
-  dynet::Expression last_expr = input, aff;
+  Expression last_expr = input, aff;
   int i;
   for(i = 0; i < (int)p_W_.size()-1; i++) {
     aff = affine_transform({i_b_[i], i_W_[i], last_expr});
@@ -94,24 +94,24 @@ dynet::Expression Classifier::Forward(const dynet::Expression & input,
     if(dropout_) last_expr = dropout(last_expr, dropout_);
   }
   aff = affine_transform({i_b_[i], i_W_[i], last_expr});
-  return dynet::Expression(aff.pg, aff.pg->add_function<SoftmaxOp>({aff.i}));
+  return Expression(aff.pg, aff.pg->add_function<SoftmaxOp>({aff.i}));
 }
 
 // Instantiate
 template
-dynet::Expression Classifier::Forward<dynet::Softmax>(
-                   const dynet::Expression & input,
-                   dynet::ComputationGraph & cg) const;
+Expression Classifier::Forward<Softmax>(
+                   const Expression & input,
+                   ComputationGraph & cg) const;
 template
-dynet::Expression Classifier::Forward<dynet::LogSoftmax>(
-                   const dynet::Expression & input,
-                   dynet::ComputationGraph & cg) const;
+Expression Classifier::Forward<LogSoftmax>(
+                   const Expression & input,
+                   ComputationGraph & cg) const;
 template
-dynet::Expression Classifier::Forward<dynet::Identity>(
-                   const dynet::Expression & input,
-                   dynet::ComputationGraph & cg) const;
+Expression Classifier::Forward<Identity>(
+                   const Expression & input,
+                   ComputationGraph & cg) const;
 
-void Classifier::NewGraph(dynet::ComputationGraph & cg) {
+void Classifier::NewGraph(ComputationGraph & cg) {
   for(int i = 0; i < (int)p_W_.size(); i++) {
     i_b_[i] = parameter(cg, p_b_[i]);
     i_W_[i] = parameter(cg, p_W_[i]);
@@ -120,7 +120,7 @@ void Classifier::NewGraph(dynet::ComputationGraph & cg) {
 }
 
 
-Classifier* Classifier::Read(std::istream & in, dynet::Model & model) {
+Classifier* Classifier::Read(std::istream & in, ParameterCollection & model) {
   int input_size, label_size;
   string version_id, layers, line, smsig;
   if(!getline(in, line))

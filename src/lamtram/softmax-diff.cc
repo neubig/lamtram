@@ -9,7 +9,7 @@
 #include <dynet/globals.h>
 
 using namespace lamtram;
-using namespace dynet::expr;
+using namespace dynet;
 using namespace std;
 
 void SoftmaxDiff::LoadDists(int id) {
@@ -27,7 +27,7 @@ void SoftmaxDiff::LoadDists(int id) {
   dist_id_ = id;
 }
 
-SoftmaxDiff::SoftmaxDiff(const string & sig, int input_size, const DictPtr & vocab, dynet::Model & mod)
+SoftmaxDiff::SoftmaxDiff(const string & sig, int input_size, const DictPtr & vocab, dynet::ParameterCollection & mod)
                         : SoftmaxBase(sig,input_size,vocab,mod), vocab_size_(vocab->size()), 
                           finished_words_(0), drop_words_(0), dropout_(0.f), dist_id_(-1) {
   vector<string> strs = Tokenize(sig, ":");

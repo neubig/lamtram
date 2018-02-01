@@ -25,7 +25,7 @@ public:
     // Create a new LinearEncoder and add it to the existing model
     LinearEncoder(int vocab_size, int wordrep_size,
              const BuilderSpec & hidden_spec, int unk_id,
-             dynet::Model & model);
+             dynet::ParameterCollection & model);
     ~LinearEncoder() { }
 
     // Build the computation graph for the sentence including loss
@@ -33,7 +33,7 @@ public:
     dynet::Expression BuildSentGraph(const std::vector<Sentence> & sent, bool add, bool train, dynet::ComputationGraph & cg);
 
     // Reading/writing functions
-    static LinearEncoder* Read(std::istream & in, dynet::Model & model);
+    static LinearEncoder* Read(std::istream & in, dynet::ParameterCollection & model);
     void Write(std::ostream & out);
 
     // Index the parameters in a computation graph

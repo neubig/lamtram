@@ -9,7 +9,7 @@
 #include <dynet/globals.h>
 
 using namespace lamtram;
-using namespace dynet::expr;
+using namespace dynet;
 using namespace std;
 
 void SoftmaxMod::LoadDists(int id) {
@@ -29,7 +29,7 @@ void SoftmaxMod::LoadDists(int id) {
   dist_id_ = id;
 }
 
-SoftmaxMod::SoftmaxMod(const string & sig, int input_size, const DictPtr & vocab, dynet::Model & mod) : SoftmaxBase(sig,input_size,vocab,mod), num_dist_(0), num_ctxt_(0), finished_words_(0), drop_words_(0), dist_id_(-1) {
+SoftmaxMod::SoftmaxMod(const string & sig, int input_size, const DictPtr & vocab, dynet::ParameterCollection & mod) : SoftmaxBase(sig,input_size,vocab,mod), num_dist_(0), num_ctxt_(0), finished_words_(0), drop_words_(0), dist_id_(-1) {
   vector<string> strs = Tokenize(sig, ":");
   if(strs.size() <= 2 || strs[0] != "mod") THROW_ERROR("Bad signature in SoftmaxMod: " << sig);
   vector<string> my_dist_files;
@@ -200,7 +200,7 @@ Expression SoftmaxMod::CalcLossExpr(Expression & in, Expression & prior, const C
     Expression score_smd = affine_transform({i_smd_b_, i_smd_W_, in_ctxt_expr});
     Expression score = softmax(concatenate({score_sms, score_smd}));
     // Do mixture of distributions
-    Expression word_prob = pick(score, wid) + input(*in.pg, {1, (unsigned int)num_dist_}, ctxt_dist.second) * pickrange(score, vocab_->size(), vocab_->size()+num_dist_);
+    Expression word_prob = pick(score, wid) + input(*in.pg, {1, (unsigned int)num_dist_}, ctxt_dist.second) * pick_range(score, vocab_->size(), vocab_->size()+num_dist_);
     return -log(word_prob);
   }
 }
@@ -222,7 +222,7 @@ Expression SoftmaxMod::CalcLossExpr(Expression & in, Expression & prior, const C
     Expression score_smd = affine_transform({i_smd_b_, i_smd_W_, in_ctxt_expr});
     Expression score = softmax(concatenate({score_sms, score_smd}));
     // Do mixture of distributions
-    Expression word_prob = pick(score, wids) + input(*in.pg, dynet::Dim({1, (unsigned int)num_dist_}, wids.size()), ctxt_dist_batched.second) * pickrange(score, vocab_->size(), vocab_->size()+num_dist_);
+    Expression word_prob = pick(score, wids) + input(*in.pg, dynet::Dim({1, (unsigned int)num_dist_}, wids.size()), ctxt_dist_batched.second) * pick_range(score, vocab_->size(), vocab_->size()+num_dist_);
     return -log(word_prob);
   }
 }
@@ -248,9 +248,9 @@ Expression SoftmaxMod::CalcProb(Expression & in, Expression & prior, const Sente
     Expression score = softmax(concatenate({score_sms, score_smd}));
     // Do mixture of distributions
     Expression dists = input(*in.pg, {(unsigned int)num_dist_, (unsigned int)vocab_->size()}, ctxt_dist.second);
-    word_prob = pickrange(score, 0, vocab_->size()) + transpose(dists) * pickrange(score, vocab_->size(), vocab_->size()+num_dist_);
+    word_prob = pick_range(score, 0, vocab_->size()) + transpose(dists) * pick_range(score, vocab_->size(), vocab_->size()+num_dist_);
   }
-  // cerr << "Word " << GlobalVars::curr_word << " and surrounding probs: " << as_vector(pickrange(word_prob, max(0,GlobalVars::curr_word-3), min(GlobalVars::curr_word+4, (int)vocab_->size())).value()) << endl;
+  // cerr << "Word " << GlobalVars::curr_word << " and surrounding probs: " << as_vector(pick_range(word_prob, max(0,GlobalVars::curr_word-3), min(GlobalVars::curr_word+4, (int)vocab_->size())).value()) << endl;
   return word_prob;
 }
 
@@ -274,9 +274,9 @@ Expression SoftmaxMod::CalcProb(Expression & in, Expression & prior, const vecto
     Expression score = softmax(concatenate({score_sms, score_smd}));
     // Do mixture of distributions
     Expression dists = input(*in.pg, dynet::Dim({(unsigned int)num_dist_, (unsigned int)vocab_->size()}, ctxt_ngrams.size()), ctxt_dist.second);
-    word_prob = pickrange(score, 0, vocab_->size()) + transpose(dists) * pickrange(score, vocab_->size(), vocab_->size()+num_dist_);
+    word_prob = pick_range(score, 0, vocab_->size()) + transpose(dists) * pick_range(score, vocab_->size(), vocab_->size()+num_dist_);
   }
-  // cerr << "Word " << GlobalVars::curr_word << " and surrounding probs: " << as_vector(pickrange(word_prob, max(0,GlobalVars::curr_word-3), min(GlobalVars::curr_word+4, (int)vocab_->size())).value()) << endl;
+  // cerr << "Word " << GlobalVars::curr_word << " and surrounding probs: " << as_vector(pick_range(word_prob, max(0,GlobalVars::curr_word-3), min(GlobalVars::curr_word+4, (int)vocab_->size())).value()) << endl;
   return word_prob;
 }
 

@@ -27,7 +27,7 @@ public:
                       const std::string & attention_type, const std::string & attention_hist,
                       int state_size, const std::string & lex_type,
                       const DictPtr & vocab_src, const DictPtr & vocab_trg,
-                      dynet::Model & mod);
+                      dynet::ParameterCollection & mod);
     virtual ~ExternAttentional() { }
 
     // Index the parameters in a computation graph
@@ -61,7 +61,7 @@ public:
     dynet::Expression GetState() { return i_h_last_; }
 
     // Reading/writing functions
-    static ExternAttentional* Read(std::istream & in, const DictPtr & vocab_src, const DictPtr & vocab_trg, dynet::Model & model);
+    static ExternAttentional* Read(std::istream & in, const DictPtr & vocab_src, const DictPtr & vocab_trg, dynet::ParameterCollection & model);
     void Write(std::ostream & out);
 
     // Setters
@@ -122,7 +122,7 @@ public:
     // Create a new EncoderAttentional and add it to the existing model
     EncoderAttentional(const ExternAttentionalPtr & extern_calc,
                        const NeuralLMPtr & decoder,
-                       dynet::Model & model);
+                       dynet::ParameterCollection & model);
     ~EncoderAttentional() { }
 
     // Build the computation graph for the sentence including loss
@@ -157,7 +157,7 @@ public:
                                     const SentData & sent_src, bool train, dynet::ComputationGraph & cg);
 
     // Reading/writing functions
-    static EncoderAttentional* Read(const DictPtr & vocab_src, const DictPtr & vocab_trg, std::istream & in, dynet::Model & model);
+    static EncoderAttentional* Read(const DictPtr & vocab_src, const DictPtr & vocab_trg, std::istream & in, dynet::ParameterCollection & model);
     void Write(std::ostream & out);
 
     // Index the parameters in a computation graph

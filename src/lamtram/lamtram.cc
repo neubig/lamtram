@@ -15,6 +15,7 @@
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string.hpp>
 #include <dynet/dict.h>
+#include <dynet/io.h>
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -48,11 +49,11 @@ void Lamtram::MapWords(const vector<string> & src_strs, const Sentence & trg_sen
 }
 
 int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm) {
-  // Models
+  // ParameterCollections
   vector<NeuralLMPtr> lms;
   vector<EncoderDecoderPtr> encdecs;
   vector<EncoderAttentionalPtr> encatts;
-  vector<shared_ptr<dynet::Model> > models;
+  vector<shared_ptr<dynet::ParameterCollection> > models;
   DictPtr vocab_src, vocab_trg;
 
   int max_minibatch_size = vm["minibatch_size"].as<int>();
@@ -73,16 +74,22 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
     type = infile.substr(0, eqpos);
     file = infile.substr(eqpos+1);
     DictPtr vocab_src_temp, vocab_trg_temp;
-    shared_ptr<dynet::Model> mod_temp;
+    shared_ptr<dynet::ParameterCollection> mod_temp;
     // Read in the model
     if(type == "encdec") {
       EncoderDecoder * tm = ModelUtils::LoadBilingualModel<EncoderDecoder>(file, mod_temp, vocab_src_temp, vocab_trg_temp);
+      dynet::TextFileLoader loader(file + ".data");
+      loader.populate(*mod_temp);
       encdecs.push_back(shared_ptr<EncoderDecoder>(tm));
     } else if(type == "encatt") {
       EncoderAttentional * tm = ModelUtils::LoadBilingualModel<EncoderAttentional>(file, mod_temp, vocab_src_temp, vocab_trg_temp);
+      dynet::TextFileLoader loader(file + ".data");
+      loader.populate(*mod_temp);
       encatts.push_back(shared_ptr<EncoderAttentional>(tm));
     } else if(type == "nlm") {
       NeuralLM * lm = ModelUtils::LoadMonolingualModel<NeuralLM>(file, mod_temp, vocab_trg_temp);
+      dynet::TextFileLoader loader(file + ".data");
+      loader.populate(*mod_temp);
       lms.push_back(shared_ptr<NeuralLM>(lm));
     }
     // Sanity check
@@ -222,7 +229,7 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
     }
     if(do_sent) {
       vector<LLStats> sents_ll(sents_trg.size(), LLStats(vocab_size));
-      vector<vector<float> > word_lls;
+      vector<vector<float> > word_lls(sents_trg.size());
       decoder.CalcSentLL<vector<Sentence>,vector<LLStats>, vector<vector<float> > >(sent_src, sents_trg, sents_ll, word_lls);
       for(auto & sent_ll : sents_ll)
         cout << "ll=" << -sent_ll.CalcUnkLoss() << " unk=" << sent_ll.unk_  << endl;
@@ -271,10 +278,10 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
 }
 
 int Lamtram::ClassifierOperation(const boost::program_options::variables_map & vm) {
-  // Models
+  // ParameterCollections
   vector<EncoderClassifierPtr> encclss;
   DictPtr vocab_src, vocab_trg;
-  vector<shared_ptr<dynet::Model> > models;
+  vector<shared_ptr<dynet::ParameterCollection> > models;
 
   // Read in the files
   vector<string> infiles;
@@ -289,9 +296,11 @@ int Lamtram::ClassifierOperation(const boost::program_options::variables_map & v
       THROW_ERROR("Bad model type. Must specify enccls= before model name." << endl << infile);
     file = infile.substr(eqpos+1);
     DictPtr vocab_src_temp, vocab_trg_temp;
-    shared_ptr<dynet::Model> mod_temp;
+    shared_ptr<dynet::ParameterCollection> mod_temp;
     // Read in the model
     EncoderClassifier * tm = ModelUtils::LoadBilingualModel<EncoderClassifier>(file, mod_temp, vocab_src_temp, vocab_trg_temp);
+    dynet::TextFileLoader loader(file + ".data");
+    loader.populate(*mod_temp);
     encclss.push_back(shared_ptr<EncoderClassifier>(tm));
     // Sanity check
     if(vocab_trg.get() && vocab_trg_temp->get_words() != vocab_trg->get_words())
