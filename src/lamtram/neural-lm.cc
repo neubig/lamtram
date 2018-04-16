@@ -463,7 +463,7 @@ Expression NeuralLM::Forward<vector<Sentence> >(
                    std::vector<Expression> & align_out);
 
 NeuralLM* NeuralLM::Read(const DictPtr & vocab, std::istream & in, ParameterCollection & model) {
-  int vocab_size, ngram_context, extern_context = 0, wordrep_size, unk_id;
+  int vocab_size, ngram_context, extern_context = 0, wordrep_size, unk_id, layer_size;
   bool extern_feed;
   string version_id, hidden_spec, line, softmax_sig;
   if(!getline(in, line))
@@ -472,6 +472,10 @@ NeuralLM* NeuralLM::Read(const DictPtr & vocab, std::istream & in, ParameterColl
   iss >> version_id;
   if(version_id == "nlm_005") {
     iss >> vocab_size >> ngram_context >> extern_context >> extern_feed >> wordrep_size >> hidden_spec >> unk_id >> softmax_sig;
+  } else if(version_id == "nlm_006") {
+    iss >> vocab_size >> ngram_context >> extern_context >> extern_feed >> wordrep_size >> hidden_spec >> unk_id >> softmax_sig >> layer_size;
+    GlobalVars::layer_size = layer_size;
+    
   } else {
     THROW_ERROR("Expecting a Neural LM of version nlm_005, but got something different:" << endl << line);
   }
@@ -479,7 +483,7 @@ NeuralLM* NeuralLM::Read(const DictPtr & vocab, std::istream & in, ParameterColl
   return new NeuralLM(vocab, ngram_context, extern_context, extern_feed, wordrep_size, hidden_spec, unk_id, softmax_sig, model);
 }
 void NeuralLM::Write(std::ostream & out) {
-  out << "nlm_005 " << vocab_->size() << " " << ngram_context_ << " " << extern_context_ << " " << extern_feed_ << " " << wordrep_size_ << " " << hidden_spec_ << " " << unk_id_ << " " << softmax_->GetSig() << endl;
+  out << "nlm_006 " << vocab_->size() << " " << ngram_context_ << " " << extern_context_ << " " << extern_feed_ << " " << wordrep_size_ << " " << hidden_spec_ << " " << unk_id_ << " " << softmax_->GetSig() << " " << GlobalVars::layer_size << endl;
 }
 
 int NeuralLM::GetVocabSize() const { return vocab_->size(); }
