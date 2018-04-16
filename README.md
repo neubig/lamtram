@@ -2,10 +2,11 @@ lamtram: A toolkit for language and translation modeling using neural networks
 ==============================================================================
 by [Graham Neubig](http://www.phontron.com)
 
-If you have any trouble in install or usage of lamtram, please contact the 
-[lamtram-users group](https://groups.google.com/forum/#!forum/lamtram-users) or file 
-an issue on the [github page](http://github.com/neubig/lamtram). In addition to the
-usage info below, you can also take a look at the [nmt-tips tutorial](http://github.com/neubig/nmt-tips)
+**NOTE:** lamtram is no longer under active development, as it has been succeeded by
+[xnmt](http://github.com/neulab/xnmt). Hence, we might not be answering questions or
+responding to issues here.
+
+In addition to the usage info below, you can also take a look at the [nmt-tips tutorial](http://github.com/neubig/nmt-tips)
 on building strong neural machine translation systems.
 
 Install/Citation
